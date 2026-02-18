@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -10,10 +11,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/src/context/ThemeContext';
 import { signIn, signUp } from '@/src/utils/auth';
 
 export default function AuthScreen() {
+  const { colors } = useTheme();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,30 +44,42 @@ export default function AuthScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
-        style={styles.container}
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.header}>
-          <Text style={styles.appName}>CampusPlate</Text>
-          <Text style={styles.tagline}>Track your dining hall nutrition</Text>
+          <Text style={[styles.emoji]}>🍽️</Text>
+          <Text style={[styles.appName, { color: colors.text, fontFamily: 'Outfit_800ExtraBold' }]}>
+            CampusPlate
+          </Text>
+          <Text style={[styles.tagline, { color: colors.textMuted }]}>
+            Track your dining hall nutrition
+          </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.title}>{mode === 'signin' ? 'Sign In' : 'Create Account'}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+          <Text style={[styles.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>
+            {mode === 'signin' ? 'Sign In' : 'Create Account'}
+          </Text>
 
           {error && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorText}>{error}</Text>
+            <View style={[styles.errorBanner, { backgroundColor: 'rgba(255,69,58,0.1)' }]}>
+              <Text style={[styles.errorText, { color: colors.red }]}>{error}</Text>
             </View>
           )}
 
-          <Text style={styles.label}>Email</Text>
+          <Text style={[styles.label, { color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>Email</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
             placeholder="you@example.com"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textDim}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -73,11 +87,11 @@ export default function AuthScreen() {
             autoComplete="email"
           />
 
-          <Text style={styles.label}>Password</Text>
+          <Text style={[styles.label, { color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>Password</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
             placeholder="Password"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textDim}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -85,14 +99,14 @@ export default function AuthScreen() {
           />
 
           <TouchableOpacity
-            style={[styles.submitButton, loading && { opacity: 0.6 }]}
+            style={[styles.submitButton, { backgroundColor: colors.maroon }, loading && { opacity: 0.6 }]}
             onPress={handleSubmit}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.submitText}>
+              <Text style={[styles.submitText, { fontFamily: 'DMSans_700Bold' }]}>
                 {mode === 'signin' ? 'Sign In' : 'Sign Up'}
               </Text>
             )}
@@ -100,108 +114,36 @@ export default function AuthScreen() {
 
           <TouchableOpacity
             style={styles.toggleLink}
-            onPress={() => {
-              setMode(mode === 'signin' ? 'signup' : 'signin');
-              setError(null);
-            }}
+            onPress={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); }}
           >
-            <Text style={styles.toggleText}>
+            <Text style={[styles.toggleText, { color: colors.maroon, fontFamily: 'DMSans_500Medium' }]}>
               {mode === 'signin'
                 ? "Don't have an account? Sign Up"
                 : 'Already have an account? Sign In'}
             </Text>
           </TouchableOpacity>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.background },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  appName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.primary,
-  },
-  tagline: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  errorBanner: {
-    backgroundColor: '#FDECEA',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  errorText: {
-    color: Colors.error,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    color: Colors.textPrimary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  submitButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  submitText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  toggleLink: {
-    padding: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  toggleText: {
-    color: Colors.primary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  safeArea: { flex: 1 },
+  container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  header: { alignItems: 'center', marginBottom: 32 },
+  emoji: { fontSize: 48, marginBottom: 8 },
+  appName: { fontSize: 32 },
+  tagline: { fontSize: 14, marginTop: 4 },
+  card: { borderRadius: 16, padding: 24 },
+  title: { fontSize: 22, marginBottom: 16, textAlign: 'center' },
+  errorBanner: { padding: 10, borderRadius: 8, marginBottom: 12 },
+  errorText: { fontSize: 13, textAlign: 'center' },
+  label: { fontSize: 14, marginBottom: 6, marginTop: 12 },
+  input: { borderRadius: 12, padding: 14, fontSize: 16, borderWidth: 1 },
+  submitButton: { borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
+  submitText: { color: '#fff', fontSize: 16 },
+  toggleLink: { padding: 12, alignItems: 'center', marginTop: 8 },
+  toggleText: { fontSize: 14 },
 });

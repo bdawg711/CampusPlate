@@ -1,5 +1,18 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+} from '@expo-google-fonts/dm-sans';
+import {
+  Outfit_300Light,
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  Outfit_800ExtraBold,
+} from '@expo-google-fonts/outfit';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
@@ -7,7 +20,10 @@ import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { getSession, onAuthChange } from '@/src/utils/auth';
+import { supabase } from '@/src/utils/supabase';
+import { ThemeProvider, useTheme } from '@/src/context/ThemeContext';
 import AuthScreen from './auth';
+import OnboardingScreen from './onboarding';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -17,73 +33,103 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+function RootContent() {
+  const { mode, colors } = useTheme();
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...FontAwesome.font,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
+    Outfit_300Light,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    Outfit_800ExtraBold,
   });
 
-  const [session, setSession] = useState<any>(undefined); // undefined = loading
+  const [session, setSession] = useState<any>(undefined);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
+    if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
 
   useEffect(() => {
-    console.log('[AUTH] Checking session...');
     getSession()
-      .then((s) => {
-        console.log('[AUTH] getSession() returned:', s ? 'SESSION EXISTS' : 'NO SESSION');
-        setSession(s ?? null);
-      })
-      .catch((err) => {
-        console.log('[AUTH] getSession() ERROR:', err.message);
-        setSession(null);
-      });
+      .then((s) => setSession(s ?? null))
+      .catch(() => setSession(null));
 
     const subscription = onAuthChange((s) => {
-      console.log('[AUTH] onAuthStateChange fired:', s ? 'SESSION EXISTS' : 'NO SESSION');
       setSession(s ?? null);
+      if (!s) setOnboardingComplete(undefined);
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  // Loading state: show spinner while fonts load or session check is in progress
-  if (!loaded || session === undefined) {
-    console.log('[AUTH] Loading state — loaded:', loaded, '| session:', session);
+  useEffect(() => {
+    if (!session) {
+      setOnboardingComplete(undefined);
+      return;
+    }
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('onboarding_complete')
+          .eq('id', session.user.id)
+          .single();
+        setOnboardingComplete(data?.onboarding_complete === true);
+      } catch {
+        setOnboardingComplete(false);
+      }
+    })();
+  }, [session]);
+
+  if (!loaded || session === undefined || (session && onboardingComplete === undefined)) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.maroon} />
       </View>
     );
   }
 
-  // No session: render auth screen directly, bypassing expo-router
-  // (conditional Stack.Screen doesn't actually gate navigation — the router
-  // resolves initialRouteName '(tabs)' regardless of which Screen is declared)
   if (!session) {
-    console.log('[AUTH] No session — rendering AuthScreen');
     return (
       <>
-        <StatusBar style="dark" />
+        <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
         <AuthScreen />
       </>
     );
   }
 
-  console.log('[AUTH] Session active — rendering tabs');
+  if (!onboardingComplete) {
+    return (
+      <>
+        <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+        <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />
+      </>
+    );
+  }
+
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
       </Stack>
     </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootContent />
+    </ThemeProvider>
   );
 }

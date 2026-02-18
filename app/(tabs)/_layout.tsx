@@ -1,79 +1,98 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Colors } from '@/constants/Colors';
+import { StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '@/src/context/ThemeContext';
 
-function TabIcon(props: { name: React.ComponentProps<typeof FontAwesome>['name']; color: string }) {
-  return <FontAwesome size={22} style={{ marginBottom: -2 }} {...props} />;
+function TabIcon({ label, active }: { label: string; active: boolean }) {
+  return <Text style={{ fontSize: 20, opacity: active ? 1 : 0.5 }}>{label}</Text>;
 }
 
 export default function TabLayout() {
+  const { mode, colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: '#999',
+        headerShown: false,
+        tabBarActiveTintColor: colors.orange,
+        tabBarInactiveTintColor: colors.textDim,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: Colors.border,
-          height: 56,
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 60,
           paddingBottom: 6,
           paddingTop: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          fontSize: 10,
+          fontFamily: 'DMSans_600SemiBold',
         },
-        headerStyle: {
-          backgroundColor: '#FFFFFF',
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: Colors.border,
-        },
-        headerTitleStyle: {
-          color: Colors.textPrimary,
-          fontWeight: 'bold',
-          fontSize: 18,
-        },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          headerShown: false,
-          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="menu"
-        options={{
-          title: 'Menu',
-          headerShown: false,
-          tabBarIcon: ({ color }) => <TabIcon name="cutlery" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="log"
-        options={{
-          title: 'Log',
-          tabBarIcon: ({ color }) => <TabIcon name="plus-circle" color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon label="🏠" active={focused} />,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: 'History',
-          tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
+          tabBarIcon: ({ focused }) => <TabIcon label="📅" active={focused} />,
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="browse"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <TabIcon name="user" color={color} />,
+          title: '',
+          tabBarIcon: () => (
+            <View style={styles.plusBtn}>
+              <Text style={styles.plusText}>+</Text>
+            </View>
+          ),
+          tabBarLabel: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="progress"
+        options={{
+          title: 'Progress',
+          tabBarIcon: ({ focused }) => <TabIcon label="📊" active={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: 'More',
+          tabBarIcon: ({ focused }) => <TabIcon label="•••" active={focused} />,
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  plusBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#8B1E3F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -16,
+    shadowColor: 'rgba(139,30,63,0.3)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  plusText: {
+    color: '#fff',
+    fontSize: 28,
+    fontFamily: 'Outfit_700Bold',
+    marginTop: -2,
+  },
+});

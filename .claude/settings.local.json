@@ -15,7 +15,10 @@
       "Bash(# Check if there''s a node_modules folder \\(meaning npm was used before\\) ls /c/Users/cfarr/CampusPlate/node_modules/.package-lock.json)",
       "Bash(# Check if there''s a .nvmrc or .node-version file ls /c/Users/cfarr/CampusPlate/.nvmrc ls /c/Users/cfarr/CampusPlate/.node-version # Try finding node in common Windows locations via fnm/nvm ls /c/Users/cfarr/AppData/Local/fnm_multishells/)",
       "Bash(# Try running node from Windows default install paths directly \"\"/c/Program Files/nodejs/node.exe\"\" --version && echo \"\"FOUND at /c/Program Files/nodejs/\"\" || echo \"\"not there\"\" # Check if npm was installed per-user via nvm-windows default location ls \"\"/c/Users/cfarr/AppData/Roaming/nvm/\"\")",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(node -e:*)",
+      "Bash(npx expo export:*)",
+      "Bash(timeout 15 npx expo start:*)"
     ]
   }
 }
