@@ -222,7 +222,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
       const macros = calcMacros(goalCals);
       const dietaryNeeds = dietary.includes('No restrictions') ? [] : dietary;
 
-      await supabase.from('profiles').upsert({
+      const { data: upsertData, error: upsertError } = await supabase.from('profiles').upsert({
         id: userId,
         name: name.trim() || 'Student',
         year,
@@ -242,7 +242,12 @@ export default function OnboardingScreen({ onComplete }: Props) {
         high_protein: false,
         meals_per_day: mealsPerDay ?? 2,
         onboarding_complete: true,
-      });
+      }).select();
+      if (upsertError) {
+        console.error('[AuthFlow] Onboarding upsert failed:', upsertError.message);
+        return;
+      }
+      console.log('[AuthFlow] Onboarding upsert succeeded:', JSON.stringify(upsertData));
       onComplete();
     } catch (e: any) {
       console.error('Onboarding save error:', e.message);

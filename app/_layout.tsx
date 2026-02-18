@@ -61,10 +61,17 @@ function RootContent() {
 
   useEffect(() => {
     getSession()
-      .then((s) => setSession(s ?? null))
-      .catch(() => setSession(null));
+      .then((s) => {
+        console.log('[AuthFlow] Initial session check:', s ? 'found session' : 'no session');
+        setSession(s ?? null);
+      })
+      .catch(() => {
+        console.log('[AuthFlow] Session check failed, showing auth');
+        setSession(null);
+      });
 
     const subscription = onAuthChange((s) => {
+      console.log('[AuthFlow] Auth state changed:', s ? 'signed in' : 'signed out');
       setSession(s ?? null);
       if (!s) setOnboardingComplete(undefined);
     });
@@ -78,13 +85,21 @@ function RootContent() {
     }
     (async () => {
       try {
-        const { data } = await supabase
+        console.log('[AuthFlow] Checking profile for user:', session.user.id);
+        const { data, error: profileError } = await supabase
           .from('profiles')
           .select('onboarding_complete')
           .eq('id', session.user.id)
           .single();
+        if (profileError) {
+          console.log('[AuthFlow] No profile found, showing onboarding. Error:', profileError.message);
+          setOnboardingComplete(false);
+          return;
+        }
+        console.log('[AuthFlow] Profile found: onboarding_complete =', data?.onboarding_complete);
         setOnboardingComplete(data?.onboarding_complete === true);
-      } catch {
+      } catch (e: any) {
+        console.log('[AuthFlow] Profile check exception:', e.message);
         setOnboardingComplete(false);
       }
     })();

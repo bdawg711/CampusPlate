@@ -18,7 +18,9 @@
       "Bash(grep:*)",
       "Bash(node -e:*)",
       "Bash(npx expo export:*)",
-      "Bash(timeout 15 npx expo start:*)"
+      "Bash(timeout 15 npx expo start:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
