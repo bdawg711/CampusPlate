@@ -15,6 +15,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
+import { getTodayWater, addGlass, removeGlass } from '@/src/utils/water';
+import WaterTracker from '@/src/components/WaterTracker';
 
 function getLocalDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -68,13 +70,15 @@ export default function HomeScreen() {
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [waterGlasses, setWaterGlasses] = useState<number>(0);
+  const [waterLoading, setWaterLoading] = useState<boolean>(true);
 
   const loadData = useCallback(async () => {
     try {
       const userId = await requireUserId();
       const today = getLocalDate();
 
-      const [profileRes, logsRes, collectionsRes] = await Promise.all([
+      const [profileRes, logsRes, collectionsRes, waterCount] = await Promise.all([
         supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g').eq('id', userId).single(),
         supabase
           .from('meal_logs')
@@ -83,16 +87,19 @@ export default function HomeScreen() {
           .eq('date', today)
           .order('created_at', { ascending: true }),
         loadCollections(today),
+        getTodayWater(userId),
       ]);
 
       console.log('[DashboardData] raw logsRes:', JSON.stringify(logsRes.data, null, 2));
       if (profileRes.data) setProfile(profileRes.data as any);
       if (logsRes.data) setLogs(logsRes.data as any);
       if (collectionsRes) setCollections(collectionsRes);
+      setWaterGlasses(waterCount);
     } catch (e) {
       console.error('Dashboard load error:', e);
     } finally {
       setLoading(false);
+      setWaterLoading(false);
     }
   }, []);
 
@@ -149,6 +156,26 @@ export default function HomeScreen() {
       setLogs((prev) => prev.filter((l) => l.id !== logId));
     } catch (e) {
       console.error('Delete error:', e);
+    }
+  };
+
+  const handleAddGlass = async () => {
+    try {
+      const userId = await requireUserId();
+      const newCount = await addGlass(userId);
+      setWaterGlasses(newCount);
+    } catch (error) {
+      console.error('Failed to add glass:', error);
+    }
+  };
+
+  const handleRemoveGlass = async () => {
+    try {
+      const userId = await requireUserId();
+      const newCount = await removeGlass(userId);
+      setWaterGlasses(newCount);
+    } catch (error) {
+      console.error('Failed to remove glass:', error);
     }
   };
 
@@ -313,6 +340,17 @@ export default function HomeScreen() {
               </View>
             </View>
           ))}
+        </View>
+
+        {/* Water Tracker */}
+        <View style={{ marginTop: 16 }}>
+          <WaterTracker
+            glasses={waterGlasses}
+            goal={8}
+            onAddGlass={handleAddGlass}
+            onRemoveGlass={handleRemoveGlass}
+            loading={waterLoading}
+          />
         </View>
 
         {/* For You Collections */}
