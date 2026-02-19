@@ -420,6 +420,7 @@ export default function BrowseScreen() {
       setView('stations');
     });
     setHallItemsLoading(true);
+    loadHallReviews(hall.id);
     try {
       const { data } = await supabase
         .from('menu_items')
@@ -1125,46 +1126,52 @@ export default function BrowseScreen() {
               )
             )}
 
-            {/* Recent Reviews */}
-            <View style={{ marginTop: 28 }}>
-              <Text style={[st.reviewSectionTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Recent Reviews</Text>
-              {reviewsLoading ? (
-                <View style={{ gap: 10 }}>
-                  <Skeleton width={'100%'} height={80} borderRadius={14} />
-                  <Skeleton width={'100%'} height={80} borderRadius={14} />
-                </View>
-              ) : hallReviews.length === 0 ? (
-                <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-                  <Text style={{ fontSize: 28 }}>💬</Text>
-                  <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 6, fontFamily: 'DMSans_400Regular' }]}>
-                    No reviews yet — be the first!
-                  </Text>
-                </View>
-              ) : (
-                hallReviews.map((review, i) => (
-                  <View key={i} style={[st.reviewCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={{ fontSize: 14 }}>
-                          {'⭐'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
-                        </Text>
-                        <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
-                          {review.user_name?.split(' ')[0] || 'Anonymous'}
-                        </Text>
-                      </View>
-                      <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>
-                        {review.date}
-                      </Text>
-                    </View>
-                    {review.review_text ? (
-                      <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', lineHeight: 18 }]}>
-                        {review.review_text}
-                      </Text>
-                    ) : null}
+            {/* Recent Reviews — hidden during item search */}
+            {itemSearch.length === 0 && (
+              <View style={{ marginTop: 28 }}>
+                <Text style={[st.reviewSectionTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Recent Reviews</Text>
+                {reviewsLoading ? (
+                  <View style={{ gap: 10 }}>
+                    <Skeleton width={'100%'} height={80} borderRadius={14} />
+                    <Skeleton width={'100%'} height={80} borderRadius={14} />
                   </View>
-                ))
-              )}
-            </View>
+                ) : hallReviews.length === 0 ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                    <Text style={{ fontSize: 28 }}>💬</Text>
+                    <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 6, fontFamily: 'DMSans_400Regular' }]}>
+                      No reviews yet — be the first!
+                    </Text>
+                  </View>
+                ) : (
+                  hallReviews.map((review, i) => {
+                    const [yr, mo, dy] = review.date.split('-').map(Number);
+                    const dateStr = new Date(yr, mo - 1, dy).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    return (
+                      <View key={i} style={[st.reviewCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ fontSize: 14 }}>
+                              {'⭐'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                            </Text>
+                            <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
+                              {review.user_name?.split(' ')[0] || 'Anonymous'}
+                            </Text>
+                          </View>
+                          <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>
+                            {dateStr}
+                          </Text>
+                        </View>
+                        {review.review_text ? (
+                          <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', lineHeight: 18 }]}>
+                            {review.review_text}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
           </ScrollView>
         )}
       </SafeAreaView>
