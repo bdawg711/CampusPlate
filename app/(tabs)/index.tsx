@@ -17,9 +17,19 @@ import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
-import { logBelongsToMealGroup } from '@/src/utils/meals';
+import { logBelongsToMealGroup, getCurrentMealPeriod } from '@/src/utils/meals';
 import { getTodayWater, addWater, removeWater, getWaterGoal } from '@/src/utils/water';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
+import {
+  getFavoritesToday,
+  getFitsYourMacros,
+  getTopRatedHalls,
+  getTrySomethingNew,
+  getQuickAndLight,
+  RecommendedItem,
+  TopRatedHallItem,
+} from '@/src/utils/recommendations';
+import { FavoriteMenuItem } from '@/src/utils/favorites';
 import WaterTracker from '@/src/components/WaterTracker';
 import Skeleton from '@/src/components/Skeleton';
 import { useStaggerAnimation } from '@/src/hooks/useStaggerAnimation';
@@ -60,13 +70,6 @@ interface Profile {
   goal_fat_g: number;
 }
 
-interface CollectionItem {
-  emoji: string;
-  name: string;
-  count: number;
-  filter: string;
-}
-
 interface OpenHall {
   id: number;
   name: string;
@@ -101,7 +104,12 @@ export default function HomeScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [logs, setLogs] = useState<MealLog[]>([]);
-  const [collections, setCollections] = useState<CollectionItem[]>([]);
+  const [forYouFavs, setForYouFavs] = useState<FavoriteMenuItem[]>([]);
+  const [forYouMacros, setForYouMacros] = useState<RecommendedItem[]>([]);
+  const [forYouTopHalls, setForYouTopHalls] = useState<TopRatedHallItem[]>([]);
+  const [forYouNew, setForYouNew] = useState<RecommendedItem[]>([]);
+  const [forYouLight, setForYouLight] = useState<RecommendedItem[]>([]);
+  const [hallNames, setHallNames] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [waterOz, setWaterOz] = useState<number>(0);
@@ -154,12 +162,39 @@ export default function HomeScreen() {
     }
   };
 
+  const loadForYou = async (userId: string, today: string): Promise<void> => {
+    const mealPeriod = getCurrentMealPeriod();
+    try {
+      const [favs, macros, topHalls, newItems, lightItems, hallsRes] = await Promise.all([
+        getFavoritesToday(userId, today).catch(() => [] as FavoriteMenuItem[]),
+        getFitsYourMacros(userId, today, mealPeriod).catch(() => [] as RecommendedItem[]),
+        getTopRatedHalls().catch(() => [] as TopRatedHallItem[]),
+        getTrySomethingNew(userId, today).catch(() => [] as RecommendedItem[]),
+        getQuickAndLight(today).catch(() => [] as RecommendedItem[]),
+        supabase.from('dining_halls').select('id, name'),
+      ]);
+
+      const names: Record<number, string> = {};
+      for (const h of hallsRes.data ?? []) {
+        names[h.id] = h.name;
+      }
+      setHallNames(names);
+      setForYouFavs(favs);
+      setForYouMacros(macros);
+      setForYouTopHalls(topHalls);
+      setForYouNew(newItems);
+      setForYouLight(lightItems);
+    } catch {
+      // Non-critical — For You sections just won't show
+    }
+  };
+
   const loadData = useCallback(async () => {
     try {
       const userId = await requireUserId();
       const today = getLocalDate();
 
-      const [profileRes, logsRes, collectionsRes, waterCount, waterGoalRes, hallStatusMap] = await Promise.all([
+      const [profileRes, logsRes, , waterCount, waterGoalRes, hallStatusMap] = await Promise.all([
         supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g').eq('id', userId).single(),
         supabase
           .from('meal_logs')
@@ -167,7 +202,7 @@ export default function HomeScreen() {
           .eq('user_id', userId)
           .eq('date', today)
           .order('created_at', { ascending: true }),
-        loadCollections(today),
+        loadForYou(userId, today),
         getTodayWater(userId),
         getWaterGoal(userId),
         loadOpenHalls(),
@@ -175,7 +210,6 @@ export default function HomeScreen() {
 
       if (profileRes.data) setProfile(profileRes.data as any);
       if (logsRes.data) setLogs(logsRes.data as any);
-      if (collectionsRes) setCollections(collectionsRes);
       setWaterOz(waterCount);
       setWaterGoal(waterGoalRes);
       if (hallStatusMap) setOpenHalls(hallStatusMap);
@@ -186,41 +220,6 @@ export default function HomeScreen() {
       setWaterLoading(false);
     }
   }, []);
-
-  const loadCollections = async (today: string): Promise<CollectionItem[]> => {
-    try {
-      const { data } = await supabase
-        .from('menu_items')
-        .select('id, name, station, nutrition(calories, protein_g, total_carbs_g, total_fat_g), dietary_flags')
-        .eq('date', today);
-
-      if (!data) return [];
-      const items = data as any[];
-      const highProtein = items.filter((i) => i.nutrition?.[0]?.protein_g > 25 || i.nutrition?.protein_g > 25).length;
-      const lowCal = items.filter((i) => {
-        const cal = i.nutrition?.[0]?.calories ?? i.nutrition?.calories ?? 999;
-        return cal < 400;
-      }).length;
-      const vegan = items.filter((i) => i.dietary_flags?.includes('vegan')).length;
-      const vegetarian = items.filter((i) => i.dietary_flags?.includes('vegetarian')).length;
-      const lowCarb = items.filter((i) => {
-        const carbs = i.nutrition?.[0]?.total_carbs_g ?? i.nutrition?.total_carbs_g ?? 999;
-        return carbs < 20;
-      }).length;
-      const quickFuel = items.filter((i) => /grab|express|dx/i.test(i.station || '')).length;
-
-      return [
-        { emoji: '💪', name: 'High Protein', count: highProtein, filter: 'high_protein' },
-        { emoji: '🥗', name: 'Under 400 Cal', count: lowCal, filter: 'low_cal' },
-        { emoji: '🌱', name: 'Vegan', count: vegan, filter: 'vegan' },
-        { emoji: '🥬', name: 'Vegetarian', count: vegetarian, filter: 'vegetarian' },
-        { emoji: '🥩', name: 'Low Carb', count: lowCarb, filter: 'low_carb' },
-        { emoji: '⚡', name: 'Quick Fuel', count: quickFuel, filter: 'quick_fuel' },
-      ].filter((c) => c.count > 0);
-    } catch {
-      return [];
-    }
-  };
 
   useFocusEffect(
     useCallback(() => {
@@ -378,6 +377,32 @@ export default function HomeScreen() {
             );
           })
         )}
+      </View>
+    );
+  };
+
+  const hasForYou = forYouFavs.length > 0 || forYouMacros.length > 0 || forYouTopHalls.length > 0 || forYouNew.length > 0 || forYouLight.length > 0;
+
+  const renderForYouItemRow = (title: string, emoji: string, items: { id: number; name: string; calories: number; hallName: string }[]) => {
+    if (items.length === 0) return null;
+    return (
+      <View style={{ marginBottom: 16 }}>
+        <Text style={[st.forYouSubtitle, { color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{title}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
+          {items.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[st.forYouCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+              onPress={() => router.push('/(tabs)/browse')}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 24 }}>{emoji}</Text>
+              <Text style={[st.forYouName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+              <Text style={[st.forYouDetail, { color: colors.textMuted }]}>{item.calories} cal</Text>
+              {item.hallName ? <Text style={[st.forYouHall, { color: colors.textMuted }]} numberOfLines={1}>{item.hallName}</Text> : null}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
     );
   };
@@ -558,8 +583,8 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* For You Collections — fade in + slide up */}
-        {collections.length > 0 && (
+        {/* For You — dynamic collections */}
+        {hasForYou && (
           <Animated.View style={[{ marginTop: 24 }, {
             opacity: entryAnims[5],
             transform: [{ translateY: entryAnims[5].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
@@ -567,15 +592,47 @@ export default function HomeScreen() {
             <View style={st.sectionHead}>
               <Text style={[st.sectionTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>For You</Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
-              {collections.map((c) => (
-                <View key={c.filter} style={[st.collectionCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-                  <Text style={{ fontSize: 28 }}>{c.emoji}</Text>
-                  <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_700Bold', marginTop: 8 }]}>{c.name}</Text>
-                  <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{c.count} items today</Text>
-                </View>
-              ))}
-            </ScrollView>
+
+            {renderForYouItemRow('Your Favorites Today', '❤️', forYouFavs.map((f) => ({
+              id: f.id, name: f.name, calories: f.nutrition?.calories ?? 0, hallName: hallNames[f.dining_hall_id] ?? '',
+            })))}
+
+            {renderForYouItemRow('Fits Your Macros', '🎯', forYouMacros.map((i) => ({
+              id: i.id, name: i.name, calories: i.calories, hallName: i.hall_name,
+            })))}
+
+            {forYouTopHalls.length > 0 && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={[st.forYouSubtitle, { color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>Top Rated Halls</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
+                  {forYouTopHalls.map((hall) => (
+                    <TouchableOpacity
+                      key={hall.id}
+                      style={[st.forYouCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+                      onPress={() => router.push('/(tabs)/browse')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ fontSize: 24 }}>🏛️</Text>
+                      <Text style={[st.forYouName, { color: colors.text }]} numberOfLines={1}>{hall.name}</Text>
+                      <Text style={[st.forYouDetail, { color: colors.textMuted }]}>⭐ {hall.avg} ({hall.count})</Text>
+                      <View style={[st.forYouBadge, { backgroundColor: hall.status.isOpen ? colors.green + '22' : colors.border }]}>
+                        <Text style={{ fontSize: 10, color: hall.status.isOpen ? colors.green : colors.textMuted, fontFamily: 'DMSans_600SemiBold' }}>
+                          {hall.status.isOpen ? `Open · ${hall.status.currentMeal}` : 'Closed'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {renderForYouItemRow('Try Something New', '✨', forYouNew.map((i) => ({
+              id: i.id, name: i.name, calories: i.calories, hallName: i.hall_name,
+            })))}
+
+            {renderForYouItemRow('Quick & Light', '🥗', forYouLight.map((i) => ({
+              id: i.id, name: i.name, calories: i.calories, hallName: i.hall_name,
+            })))}
           </Animated.View>
         )}
 
@@ -612,7 +669,12 @@ const st = StyleSheet.create({
   macroFill: { height: 4, borderRadius: 2 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 20 },
-  collectionCard: { minWidth: 140, padding: 16, borderRadius: 16, marginRight: 10 },
+  forYouSubtitle: { fontSize: 15, marginBottom: 10 },
+  forYouCard: { width: 140, padding: 14, borderRadius: 14, marginRight: 10 },
+  forYouName: { fontSize: 13, fontFamily: 'DMSans_600SemiBold', marginTop: 8 },
+  forYouDetail: { fontSize: 12, fontFamily: 'DMSans_400Regular', marginTop: 2 },
+  forYouHall: { fontSize: 11, fontFamily: 'DMSans_400Regular', marginTop: 2 },
+  forYouBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginTop: 6, alignSelf: 'flex-start' as const },
   openHallCard: { minWidth: 140, padding: 16, borderRadius: 16, marginRight: 10, alignItems: 'flex-start' },
   openBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginTop: 6 },
   mealHeader: { fontSize: 12, fontWeight: '700', letterSpacing: 1.5, opacity: 0.3, textTransform: 'uppercase', marginBottom: 12 },
