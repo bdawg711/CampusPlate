@@ -138,7 +138,6 @@ export default function OnboardingScreen({ onComplete }: Props) {
           console.error('[Onboarding] Failed to fetch dining halls:', error.message);
           return;
         }
-        console.log('[Onboarding] Fetched dining halls:', JSON.stringify(data));
         setDiningHalls(data ?? []);
       } catch (e: any) {
         console.error('[Onboarding] Error fetching dining halls:', e.message);
@@ -270,7 +269,6 @@ export default function OnboardingScreen({ onComplete }: Props) {
         console.error('[AuthFlow] Onboarding upsert failed:', upsertError.message);
         return;
       }
-      console.log('[AuthFlow] Onboarding upsert succeeded:', JSON.stringify(upsertData));
       onComplete();
     } catch (e: any) {
       console.error('Onboarding save error:', e.message);

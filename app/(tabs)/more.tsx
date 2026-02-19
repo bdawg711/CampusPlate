@@ -86,7 +86,8 @@ export default function MoreScreen() {
     try {
       const userId = await requireUserId();
       const newVal = !profile?.high_protein;
-      await supabase.from('profiles').update({ high_protein: newVal }).eq('id', userId);
+      const { error } = await supabase.from('profiles').update({ high_protein: newVal }).eq('id', userId);
+      if (error) { console.error('Toggle failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
       setProfile((p: any) => p ? { ...p, high_protein: newVal } : p);
     } catch (e) {
       console.error('Toggle error:', e);

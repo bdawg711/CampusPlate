@@ -1,0 +1,339 @@
+# CampusPlate Sprint 2 — Product Requirements Document
+
+## Overview
+
+Six features to build. Each is broken into small tasks that can be executed independently by Claude Code with minimal context. Read `Progress.txt` before starting any task — it tells you what's done, what failed, and what's next.
+
+**Assignee key:** **(C)** = Cameron (backend/infra) | **(B)** = Bandhip (frontend/UI)
+
+---
+
+## Global Rules (APPLY TO EVERY TASK)
+
+1. **Dates:** NEVER use `toISOString()`. Always format manually:
+   ```typescript
+   const d = new Date();
+   const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+   ```
+2. **Colors:** All colors from ThemeContext. No hardcoded colors except shared accents: maroon `#8B1E3F`, orange `#E87722`, blue `#5B7FFF`, yellow `#FFD60A`, green `#34C759`, red `#FF453A`.
+3. **Errors:** Every Supabase call must check `if (error)` and handle it.
+4. **User filtering:** All queries on user-owned tables MUST filter by `user_id`.
+5. **Meal filtering:** Use `getMealQueryValues()` from `src/utils/meals.ts`, never raw `.eq('meal', 'Lunch')`.
+6. **Fonts:** DM Sans (body), Outfit (headings/numbers) via expo-google-fonts.
+7. **Git:** Run `git pull origin main` before starting any task. Push when done.
+8. **No external images.** Emojis only for icons.
+9. **Supabase nested data:** When joining, data is at `item.nutrition.calories`. Through meal_logs it's `item.menu_items.nutrition.calories`. Always multiply by `servings`.
+10. **Tab bar:** Raised maroon + button (52px circle, -16px margin top, box shadow glow). Don't modify the tab bar layout.
+
+---
+
+## Feature 1: Favorites / Bookmarks
+
+**What:** Students tap a heart icon on any menu item to save it. A "Favorites" section shows all saved items. When a favorited item appears on today's menu at any hall, it surfaces in "For You" on the dashboard.
+
+**Why rec_num:** The same dish gets a new `menu_item_id` every day at every hall, but keeps the same `rec_num` in FoodPro. Favoriting by `rec_num` means "Grilled Chicken" is one favorite regardless of which hall or date it appears on.
+
+### Database
+
+```sql
+-- Run in Supabase SQL Editor
+CREATE TABLE favorites (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  rec_num text NOT NULL,
+  item_name text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE favorites ADD CONSTRAINT favorites_user_rec_unique UNIQUE (user_id, rec_num);
+CREATE INDEX idx_favorites_user ON favorites(user_id);
+```
+
+### Tasks
+
+| # | Task | Assignee | Details |
+|---|------|----------|---------|
+| 1.1 | Create favorites table in Supabase | C | Run the SQL above in the Supabase SQL Editor. Verify the table, constraint, and index were created. |
+| 1.2 | Create `src/utils/favorites.ts` | B | Utility functions: `toggleFavorite(userId, recNum, itemName)` — upsert or delete. `getFavorites(userId)` — returns all favorites. `isFavorited(userId, recNum)` — returns boolean. `getFavoritesOnTodaysMenu(userId, date)` — joins favorites with menu_items on rec_num where menu_items.date = date, returns items with nutrition. |
+| 1.3 | Add heart icon to browse item cards | B | In `app/(tabs)/browse.tsx`, on each menu item card, add a heart icon (emoji ❤️/🤍). Tap toggles favorite via `toggleFavorite()`. Check initial state with `isFavorited()`. Heart should be filled red when favorited, outline when not. |
+| 1.4 | Add "Favorites" collection to For You | B | On the dashboard `app/(tabs)/index.tsx`, in the For You section, add a horizontal scroll row titled "Your Favorites Today" that calls `getFavoritesOnTodaysMenu()` and shows matching items as tappable cards with name, calories, and hall name. Hide the row if no favorites are on today's menu. |
+| 1.5 | Test favorites end-to-end | B | Favorite 3 items from browse. Verify they appear in For You when on today's menu. Unfavorite one. Verify it disappears. Check that favorites persist across app restarts. |
+
+---
+
+## Feature 2: Dining Hall Ratings
+
+**What:** Students rate dining halls 1-5 stars (like a Google review). Optional short text review. Average rating shows on the hall card in browse. Recent reviews visible when you tap into a hall.
+
+### Database
+
+```sql
+-- Run in Supabase SQL Editor
+CREATE TABLE hall_ratings (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  dining_hall_id bigint NOT NULL REFERENCES dining_halls(id) ON DELETE CASCADE,
+  rating smallint NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text text,
+  date date NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE hall_ratings ADD CONSTRAINT hall_ratings_user_hall_date_unique UNIQUE (user_id, dining_hall_id, date);
+CREATE INDEX idx_hall_ratings_hall ON hall_ratings(dining_hall_id);
+CREATE INDEX idx_hall_ratings_user ON hall_ratings(user_id);
+
+-- RPC to get average rating per hall
+CREATE OR REPLACE FUNCTION get_hall_averages()
+RETURNS TABLE(dining_hall_id bigint, avg_rating numeric, total_ratings bigint)
+LANGUAGE sql STABLE
+AS $$
+  SELECT dining_hall_id, ROUND(AVG(rating)::numeric, 1), COUNT(*)
+  FROM hall_ratings
+  GROUP BY dining_hall_id;
+$$;
+
+-- RPC to get recent reviews for a hall
+CREATE OR REPLACE FUNCTION get_hall_reviews(p_hall_id bigint, p_limit int DEFAULT 20)
+RETURNS TABLE(rating smallint, review_text text, date date, user_name text)
+LANGUAGE sql STABLE
+AS $$
+  SELECT hr.rating, hr.review_text, hr.date, p.name
+  FROM hall_ratings hr
+  LEFT JOIN profiles p ON hr.user_id = p.id
+  WHERE hr.dining_hall_id = p_hall_id
+  AND hr.review_text IS NOT NULL
+  ORDER BY hr.created_at DESC
+  LIMIT p_limit;
+$$;
+```
+
+### Tasks
+
+| # | Task | Assignee | Details |
+|---|------|----------|---------|
+| 2.1 | Create hall_ratings table and RPCs in Supabase | C | Run all the SQL above. Test both RPCs return empty results without errors. |
+| 2.2 | Create `src/utils/ratings.ts` | B | Functions: `rateHall(userId, hallId, rating, reviewText?, date)` — upsert (one rating per user per hall per day). `getHallAverages()` — calls RPC, returns map of hallId → {avg, count}. `getHallReviews(hallId)` — calls RPC. `getUserRating(userId, hallId, date)` — checks if user already rated today. |
+| 2.3 | Show average rating on hall cards in browse | B | In `app/(tabs)/browse.tsx`, on each dining hall card, show the average star rating (⭐ 4.2) and total count (124 ratings). Call `getHallAverages()` once on mount and cache. If no ratings yet, show "No ratings yet". |
+| 2.4 | Build rating/review modal | B | When a user taps into a hall in browse, show a "Rate this hall" button. Tapping opens a modal with: 5 tappable star icons (1-5), optional text input for review (max 200 chars), submit button. Pre-fill if user already rated today. On submit call `rateHall()`, show toast, close modal. |
+| 2.5 | Build reviews list below stations | B | Inside the hall detail view (after the station cards), add a "Recent Reviews" section showing the last 10 reviews from `getHallReviews()`. Each review card shows: star rating, reviewer first name, date, and review text. |
+| 2.6 | Test ratings end-to-end | B | Rate a hall with 5 stars and a review. Verify average updates. Rate again same day — verify it updates (not duplicates). Check another hall shows "No ratings yet". |
+
+---
+
+## Feature 3: What's Open Right Now
+
+**What:** On the dashboard and browse tab, show which dining halls are currently open based on hardcoded operating hours. Halls that are open get a green "Open" badge; closed halls get a gray "Closed" badge with next opening time.
+
+### Database
+
+```sql
+-- Run in Supabase SQL Editor
+CREATE TABLE dining_hall_hours (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  dining_hall_id bigint NOT NULL REFERENCES dining_halls(id) ON DELETE CASCADE,
+  day_of_week smallint NOT NULL CHECK (day_of_week >= 0 AND day_of_week <= 6),
+  meal text NOT NULL,
+  open_time time NOT NULL,
+  close_time time NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE dining_hall_hours ADD CONSTRAINT dining_hall_hours_unique UNIQUE (dining_hall_id, day_of_week, meal);
+CREATE INDEX idx_hall_hours_hall_day ON dining_hall_hours(dining_hall_id, day_of_week);
+```
+
+**day_of_week:** 0 = Sunday, 1 = Monday, ..., 6 = Saturday (matches JavaScript `getDay()`).
+
+### Hours Data to Insert
+
+Cameron will need to look up the current VT dining hours from https://dining.vt.edu/dining-hours.html and insert rows. Example format:
+
+```sql
+-- Example for D2 (dining_hall_id = 9), Monday (day 1)
+INSERT INTO dining_hall_hours (dining_hall_id, day_of_week, meal, open_time, close_time) VALUES
+(9, 1, 'Breakfast', '07:00', '10:30'),
+(9, 1, 'Lunch', '10:30', '14:00'),
+(9, 1, 'Dinner', '17:00', '21:00');
+-- Repeat for every hall × every day × every meal period
+```
+
+### Tasks
+
+| # | Task | Assignee | Details |
+|---|------|----------|---------|
+| 3.1 | Create dining_hall_hours table in Supabase | C | Run the SQL above. |
+| 3.2 | Scrape/collect VT dining hours and insert data | C | Go to https://dining.vt.edu/dining-hours.html (or the current VT dining site). For each of the 12 dining halls, record every meal period for every day of the week. Write INSERT statements and run them. Halls that are closed on weekends should simply have no rows for those days. |
+| 3.3 | Create `src/utils/hours.ts` | B | Functions: `getHallHours(hallId)` — returns all hours for a hall. `isHallOpen(hallId, now)` — given a Date, checks if current day_of_week and time fall within any meal period. Returns `{isOpen: boolean, currentMeal?: string, nextOpen?: string}`. `getAllHallStatuses(now)` — returns open/closed status for all halls in one call (batch query, not 12 separate calls). |
+| 3.4 | Add open/closed badges to browse hall cards | B | In `app/(tabs)/browse.tsx`, on each dining hall card, show a badge: green "Open · Lunch" or gray "Closed · Opens 5:00 PM". Call `getAllHallStatuses()` once on mount. Sort open halls to the top. |
+| 3.5 | Add "Open Now" row to dashboard | B | On `app/(tabs)/index.tsx`, add a horizontal scroll row titled "Open Now" near the top showing only currently-open halls as tappable cards with name, current meal period, and closing time. Tapping navigates to that hall in browse. |
+| 3.6 | Test hours logic | B | Test at different times of day. Verify correct open/closed status. Test edge cases: exactly at opening time (should be open), exactly at closing time (should be closed), between meal periods (should show next opening). |
+
+---
+
+## Feature 4: Meal Planning
+
+**What:** Students can pre-plan their meals up to 3 days ahead. They browse a future date's menu, tap "Plan this" on items, and see a planned meals view showing projected calories/macros for each planned day.
+
+### Database
+
+```sql
+-- Run in Supabase SQL Editor
+CREATE TABLE meal_plans (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  menu_item_id bigint NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+  date date NOT NULL,
+  meal text NOT NULL,
+  servings real NOT NULL DEFAULT 1,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE meal_plans ADD CONSTRAINT meal_plans_user_item_date_unique UNIQUE (user_id, menu_item_id, date);
+CREATE INDEX idx_meal_plans_user_date ON meal_plans(user_id, date);
+```
+
+### Tasks
+
+| # | Task | Assignee | Details |
+|---|------|----------|---------|
+| 4.1 | Create meal_plans table in Supabase | C | Run the SQL above. |
+| 4.2 | Ensure scraper runs for future dates | C | Verify the scraper can scrape menus for tomorrow, day after, and 3 days out. VT FoodPro supports date parameters. If the scraper currently only scrapes today, update it to also scrape +1, +2, +3 days. Update the GitHub Actions workflow if needed. |
+| 4.3 | Create `src/utils/mealPlans.ts` | B | Functions: `addToPlan(userId, menuItemId, date, meal, servings)` — insert. `removeFromPlan(userId, menuItemId, date)` — delete. `getPlannedMeals(userId, date)` — returns planned items for a date with nutrition data (join menu_items → nutrition). `getPlannedMealsSummary(userId, date)` — returns total calories, protein, carbs, fat for a planned day. |
+| 4.4 | Add date selector to browse tab | B | At the top of `app/(tabs)/browse.tsx`, add a horizontal date picker showing Today, Tomorrow, +2 days, +3 days. Selecting a future date reloads the hall/station/item data for that date. Default is Today. |
+| 4.5 | Add "Plan this" button to browse items | B | On each menu item card in browse (for future dates only, not today), show a "📋 Plan" button next to the existing log button. Tapping calls `addToPlan()` with a toast confirmation. If already planned, show "✓ Planned" with option to remove. For today's date, only show the normal log button. |
+| 4.6 | Build meal plan view | B | Create a new section on the dashboard (or a modal accessible from dashboard) titled "Meal Plans". Shows a date switcher for the next 3 days. For each day: list of planned items grouped by meal, running total of calories/protein/carbs/fat vs goals, a comparison bar showing "Planned: 1,850 cal / Goal: 2,200 cal". |
+| 4.7 | Test meal planning end-to-end | B | Switch browse to tomorrow. Plan 3 items. Open meal plan view, verify totals are correct. Remove one item, verify total updates. Switch to a day with no plans, verify empty state. |
+
+---
+
+## Feature 5: Smart Recommendations (For You)
+
+**What:** The "For You" section on the dashboard becomes intelligent. Instead of static content, it shows personalized collections based on the student's goals, history, favorites, and time of day.
+
+### No New Tables Needed
+
+This feature queries existing tables: `profiles` (goals), `meal_logs` (history), `favorites`, `menu_items` + `nutrition`, `hall_ratings`.
+
+### For You Collections
+
+These are horizontal scroll rows on the dashboard. Show whichever ones have data, in this order:
+
+1. **"Your Favorites Today"** — Favorited items that are on today's menu (from Feature 1).
+2. **"Fits Your Macros"** — Items from today's menu where: if user goal is `bulk`, show items with protein_g > 25. If goal is `lose`, show items with calories < 400. If goal is `maintain`, show balanced items (calories 300-600, protein > 15g). Filter to the current meal period. Max 10 items.
+3. **"Top Rated Halls"** — Halls sorted by average rating (from Feature 2), with their current open status (from Feature 3). Max 5 halls.
+4. **"Try Something New"** — Items on today's menu at the user's home hall that they have NOT logged before (compare rec_nums in meal_logs vs today's menu_items). Max 8 items.
+5. **"Quick & Light"** — Items under 300 calories from any currently-open hall. Good for snack runs.
+
+### Tasks
+
+| # | Task | Assignee | Details |
+|---|------|----------|---------|
+| 5.1 | Create `src/utils/recommendations.ts` | B | Functions for each collection: `getFavoritesToday(userId, date)` (reuses favorites.ts). `getFitsYourMacros(userId, date, mealPeriod)` — queries profiles for goal, then menu_items + nutrition with appropriate filters. `getTopRatedHalls()` — calls getHallAverages() and sorts. `getTrySomethingNew(userId, date)` — gets user's home_hall_id from profiles, gets today's menu, excludes rec_nums that appear in user's meal_logs. `getQuickAndLight(date)` — menu_items + nutrition where calories < 300 and hall is currently open. |
+| 5.2 | Replace static For You with dynamic collections | B | In `app/(tabs)/index.tsx`, replace any existing static For You content with the 5 collections above. Each collection is a horizontal FlatList. Show a section only if it returns items. Each item card shows: emoji, item name, calories, hall name. Tapping navigates to the item's nutrition detail in browse. |
+| 5.3 | Add loading skeletons for For You | B | While collections are loading, show skeleton placeholders using the existing `src/components/Skeleton.tsx`. Each collection row gets 3 skeleton cards. |
+| 5.4 | Add current meal period detection | B | In `src/utils/meals.ts`, add `getCurrentMealPeriod()` if it doesn't already exist. Returns 'Breakfast', 'Lunch', or 'Dinner' based on current time. Breakfast: before 10:30 AM, Lunch: 10:30 AM - 4:30 PM, Dinner: after 4:30 PM. Use this to filter "Fits Your Macros" to relevant items. |
+| 5.5 | Test For You collections | B | Log in with a user who has: favorites, meal history, a goal set, and a home hall. Verify each collection shows relevant items. Check at different times of day for meal period changes. Test with a new user who has no history — verify graceful empty states. |
+
+---
+
+## Feature 6: For You Button Actions
+
+**What:** The For You section currently has collection buttons/headers that may not navigate or do anything. Make every For You collection header tappable — "See All" navigates to browse filtered to that collection.
+
+### No New Tables Needed
+
+### Tasks
+
+| # | Task | Assignee | Details |
+|---|------|----------|---------|
+| 6.1 | Audit current For You buttons | B | Read `app/(tabs)/index.tsx` and document what For You UI elements exist, which ones are tappable, and which do nothing. Write findings in Progress.txt. |
+| 6.2 | Wire "See All" on each collection | B | Each For You collection row gets a "See All →" link in the header. Tapping navigates to browse with a filter parameter. Use expo-router params: `router.push({ pathname: '/(tabs)/browse', params: { filter: 'favorites' } })`. In browse, read the param and apply the appropriate filter to show only those items. |
+| 6.3 | Handle filter params in browse | B | In `app/(tabs)/browse.tsx`, check for incoming `filter` param on mount. Supported filters: `favorites` — show all favorited items on today's menu. `macros` — show Fits Your Macros items. `new` — show Try Something New items. `light` — show Quick & Light items. Each filter shows a flat list of items (skip the hall → station drill-down). Add a "Clear Filter" button to return to normal browse. |
+| 6.4 | Test all button navigations | B | Tap every "See All" link on the dashboard. Verify each lands on the correct filtered browse view. Verify "Clear Filter" returns to normal browse. Test that back navigation works correctly. |
+
+---
+
+## Dependency Order
+
+Some features depend on others. Here's the build order:
+
+```
+Phase 1 (Backend — Cameron, can all run in parallel):
+  1.1  Create favorites table
+  2.1  Create hall_ratings table + RPCs
+  3.1  Create dining_hall_hours table
+  3.2  Scrape/insert VT dining hours data
+  4.1  Create meal_plans table
+  4.2  Ensure scraper handles future dates
+
+Phase 2 (Utility functions — Bandhip, can all run in parallel):
+  1.2  src/utils/favorites.ts
+  2.2  src/utils/ratings.ts
+  3.3  src/utils/hours.ts
+  4.3  src/utils/mealPlans.ts
+  5.4  getCurrentMealPeriod() in meals.ts (if not already there)
+
+Phase 3 (UI — Bandhip, sequential within each feature):
+  1.3  Heart icon on browse items
+  2.3  Average rating on hall cards
+  2.4  Rating modal
+  3.4  Open/closed badges on hall cards
+  3.5  Open Now row on dashboard
+  4.4  Date selector on browse
+  4.5  Plan button on browse items
+
+Phase 4 (Integration — Bandhip, depends on Phase 3):
+  5.1  src/utils/recommendations.ts
+  5.2  Dynamic For You collections on dashboard
+  5.3  Loading skeletons
+  1.4  Favorites Today in For You
+  2.5  Reviews list in hall detail
+  4.6  Meal plan view
+  6.1  Audit current For You buttons
+  6.2  Wire See All links
+  6.3  Filter params in browse
+
+Phase 5 (Testing):
+  1.5  Test favorites
+  2.6  Test ratings
+  3.6  Test hours logic
+  4.7  Test meal planning
+  5.5  Test For You collections
+  6.4  Test button navigations
+```
+
+---
+
+## RLS Policies Needed (Cameron — do AFTER all features work)
+
+Once everything is working, enable RLS on these tables. Test every screen after enabling.
+
+```sql
+-- favorites: users can only see/modify their own
+ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own favorites" ON favorites FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own favorites" ON favorites FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own favorites" ON favorites FOR DELETE USING (auth.uid() = user_id);
+
+-- hall_ratings: anyone can read, users can only write their own
+ALTER TABLE hall_ratings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view ratings" ON hall_ratings FOR SELECT USING (true);
+CREATE POLICY "Users can insert own ratings" ON hall_ratings FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own ratings" ON hall_ratings FOR UPDATE USING (auth.uid() = user_id);
+
+-- meal_plans: users can only see/modify their own
+ALTER TABLE meal_plans ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own plans" ON meal_plans FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own plans" ON meal_plans FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own plans" ON meal_plans FOR DELETE USING (auth.uid() = user_id);
+
+-- dining_hall_hours: anyone can read, no user writes
+ALTER TABLE dining_hall_hours ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view hours" ON dining_hall_hours FOR SELECT USING (true);
+
+-- ALSO enable RLS on existing tables:
+-- profiles, meal_logs, water_logs, weight_logs
+-- (see SECURITY_AUDIT.md for specific policies)
+```

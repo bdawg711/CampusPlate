@@ -164,7 +164,7 @@ export default function EditProfile({ visible, onClose, onSaved }: EditProfilePr
       const inc = parseInt(heightIn) || 0;
       const heightCm = Math.round((ft * 12 + inc) * 2.54);
 
-      await supabase.from('profiles').update({
+      const { error } = await supabase.from('profiles').update({
         name: name.trim() || 'Student',
         year,
         dorm: dorm.trim(),
@@ -176,6 +176,7 @@ export default function EditProfile({ visible, onClose, onSaved }: EditProfilePr
         goal,
         home_hall_id: homeHallId,
       }).eq('id', userId);
+      if (error) { console.error('Save profile failed:', error.message); Alert.alert('Error', 'Failed to save profile. Please try again.'); return; }
 
       Alert.alert(
         'Profile Saved',

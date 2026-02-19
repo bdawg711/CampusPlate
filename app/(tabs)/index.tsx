@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -228,7 +229,9 @@ export default function HomeScreen() {
 
   const deleteLog = async (logId: string) => {
     try {
-      await supabase.from('meal_logs').delete().eq('id', logId);
+      const userId = await requireUserId();
+      const { error } = await supabase.from('meal_logs').delete().eq('id', logId).eq('user_id', userId);
+      if (error) { console.error('Delete failed:', error.message); Alert.alert('Error', 'Failed to delete. Please try again.'); return; }
       setLogs((prev) => prev.filter((l) => l.id !== logId));
     } catch (e) {
       console.error('Delete error:', e);

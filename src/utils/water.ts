@@ -23,12 +23,13 @@ export async function addWater(userId: string, ounces: number): Promise<number> 
   const current = await getTodayWater(userId);
   const newTotal = current + ounces;
 
-  await supabase
+  const { error } = await supabase
     .from('water_logs')
     .upsert(
-      { user_id: userId, date: today, glasses: newTotal, updated_at: new Date().toISOString() },
+      { user_id: userId, date: today, glasses: newTotal, updated_at: new Date().toISOString() }, // timestamptz column — toISOString is safe here, not a date column
       { onConflict: 'user_id,date' }
     );
+  if (error) throw new Error(`Failed to add water: ${error.message}`);
 
   return newTotal;
 }
@@ -45,10 +46,11 @@ export async function getWaterGoal(userId: string): Promise<number> {
 }
 
 export async function setWaterGoal(userId: string, goalOz: number): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from('profiles')
     .update({ water_goal_oz: goalOz })
     .eq('id', userId);
+  if (error) throw new Error(`Failed to set water goal: ${error.message}`);
 }
 
 export async function removeWater(userId: string, ounces: number): Promise<number> {
@@ -56,12 +58,13 @@ export async function removeWater(userId: string, ounces: number): Promise<numbe
   const current = await getTodayWater(userId);
   const newTotal = Math.max(current - ounces, 0);
 
-  await supabase
+  const { error } = await supabase
     .from('water_logs')
     .upsert(
-      { user_id: userId, date: today, glasses: newTotal, updated_at: new Date().toISOString() },
+      { user_id: userId, date: today, glasses: newTotal, updated_at: new Date().toISOString() }, // timestamptz column — toISOString is safe here, not a date column
       { onConflict: 'user_id,date' }
     );
+  if (error) throw new Error(`Failed to remove water: ${error.message}`);
 
   return newTotal;
 }

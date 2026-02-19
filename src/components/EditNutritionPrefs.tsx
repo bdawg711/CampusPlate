@@ -91,11 +91,12 @@ export default function EditNutritionPrefs({ visible, onClose, onSaved }: EditNu
     setSaving(true);
     try {
       const userId = await requireUserId();
-      await supabase.from('profiles').update({
+      const { error } = await supabase.from('profiles').update({
         dietary_needs: dietaryNeeds,
         high_protein: highProtein,
         meals_per_day: mealsPerDay,
       }).eq('id', userId);
+      if (error) { console.error('Save prefs failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
       onSaved();
       onClose();
     } catch {

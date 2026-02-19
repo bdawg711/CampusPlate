@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
   Animated,
+  Alert,
   Dimensions,
   Easing,
   RefreshControl,
@@ -260,13 +261,14 @@ export default function BrowseScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const userId = await requireUserId();
-      await supabase.from('meal_logs').insert({
+      const { error } = await supabase.from('meal_logs').insert({
         user_id: userId,
         menu_item_id: selectedItem.id,
         date,
         meal,
         servings,
       });
+      if (error) { console.error('Log meal failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
       setLogSuccess(true);
       const n = getNutr(selectedItem);
       showLogToast(Math.round(n.cal * servings));

@@ -44,7 +44,7 @@ export async function saveCustomGoals(userId: string, goals: Goals): Promise<voi
       goal_protein_g: goals.goalProtein,
       goal_carbs_g: goals.goalCarbs,
       goal_fat_g: goals.goalFat,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(), // timestamptz column — toISOString is safe here, not a date column
     })
     .eq('id', userId);
 

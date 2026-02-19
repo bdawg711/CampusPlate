@@ -85,7 +85,6 @@ function RootContent() {
     }
     (async () => {
       try {
-        console.log('[AuthFlow] Checking profile for user:', session.user.id);
         const { data, error: profileError } = await supabase
           .from('profiles')
           .select('onboarding_complete')

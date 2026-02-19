@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -107,7 +108,8 @@ export default function ProgressScreen() {
     setSavingWeight(true);
     try {
       const userId = await requireUserId();
-      await supabase.from('profiles').update({ weight: w }).eq('id', userId);
+      const { error } = await supabase.from('profiles').update({ weight: w }).eq('id', userId);
+      if (error) { console.error('Weight save failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
       setProfile((p: any) => p ? { ...p, weight: w } : p);
       setShowWeightInput(false);
       setWeightInput('');
