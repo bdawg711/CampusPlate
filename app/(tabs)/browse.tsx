@@ -20,6 +20,7 @@ import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { getMealQueryValues, getCurrentMealPeriod } from '@/src/utils/meals';
 import { toggleFavorite, getFavorites } from '@/src/utils/favorites';
+import { getHallAverages, HallAverage } from '@/src/utils/ratings';
 import Skeleton from '@/src/components/Skeleton';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -124,6 +125,9 @@ export default function BrowseScreen() {
   // Favorites
   const [favRecNums, setFavRecNums] = useState<Set<string>>(new Set());
 
+  // Hall ratings
+  const [hallRatings, setHallRatings] = useState<Record<number, HallAverage>>({});
+
   // ─── View transition animation ───
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -191,6 +195,15 @@ export default function BrowseScreen() {
     }
   }, []);
 
+  const loadRatings = useCallback(async () => {
+    try {
+      const averages = await getHallAverages();
+      setHallRatings(averages);
+    } catch {
+      // Non-critical — ratings just won't show
+    }
+  }, []);
+
   useFocusEffect(useCallback(() => {
     setView('halls');
     setHallSearch('');
@@ -199,7 +212,8 @@ export default function BrowseScreen() {
     fadeAnim.setValue(1);
     loadHalls();
     loadFavorites();
-  }, [loadHalls, loadFavorites]));
+    loadRatings();
+  }, [loadHalls, loadFavorites, loadRatings]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -582,24 +596,36 @@ export default function BrowseScreen() {
                 </Text>
               </View>
             ) : (
-              filteredHalls.map((hall, i) => (
-                <PressableCard
-                  key={hall.id}
-                  onPress={() => openHall(hall)}
-                  style={[st.hallCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
-                >
-                  <Text style={{ fontSize: 36, marginRight: 14 }}>{hallEmojis[i] || '🏛️'}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{hall.name}</Text>
-                    <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{hall.count} items</Text>
-                  </View>
-                  {hall.count > 0 && (
-                    <View style={[st.countBadge, { backgroundColor: colors.maroon }]}>
-                      <Text style={[{ fontSize: 11, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>{hall.count}</Text>
+              filteredHalls.map((hall, i) => {
+                const rating = hallRatings[hall.id];
+                return (
+                  <PressableCard
+                    key={hall.id}
+                    onPress={() => openHall(hall)}
+                    style={[st.hallCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+                  >
+                    <Text style={{ fontSize: 36, marginRight: 14 }}>{hallEmojis[i] || '🏛️'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{hall.name}</Text>
+                      <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{hall.count} items</Text>
+                      {rating ? (
+                        <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
+                          ⭐ {rating.avg.toFixed(1)} · {rating.count} {rating.count === 1 ? 'rating' : 'ratings'}
+                        </Text>
+                      ) : (
+                        <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2, opacity: 0.6 }]}>
+                          No ratings yet
+                        </Text>
+                      )}
                     </View>
-                  )}
-                </PressableCard>
-              ))
+                    {hall.count > 0 && (
+                      <View style={[st.countBadge, { backgroundColor: colors.maroon }]}>
+                        <Text style={[{ fontSize: 11, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>{hall.count}</Text>
+                      </View>
+                    )}
+                  </PressableCard>
+                );
+              })
             )}
           </ScrollView>
         )}
