@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
@@ -25,6 +26,7 @@ import { toggleFavorite, getFavorites } from '@/src/utils/favorites';
 import { getHallAverages, HallAverage, rateHall, getUserRating, getHallReviews, HallReview } from '@/src/utils/ratings';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
 import { addToPlan, removeFromPlan, getPlannedMeals } from '@/src/utils/mealPlans';
+import { getFavoritesToday, getFitsYourMacros, getTrySomethingNew, getQuickAndLight } from '@/src/utils/recommendations';
 import Skeleton from '@/src/components/Skeleton';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -112,6 +114,7 @@ function PressableCard({ children, onPress, style, haptic = 'light' }: {
 
 export default function BrowseScreen() {
   const { colors } = useTheme();
+  const params = useLocalSearchParams<{ filter?: string }>();
   const [view, setView] = useState<ViewState>('halls');
   const [dayOffset, setDayOffset] = useState(0);
   const [meal, setMeal] = useState(autoMeal);
@@ -159,6 +162,11 @@ export default function BrowseScreen() {
   // Meal planning (future dates)
   const [plannedItemIds, setPlannedItemIds] = useState<Set<number>>(new Set());
   const [planning, setPlanning] = useState(false);
+
+  // Filter view (from "See All" navigation)
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [filterItems, setFilterItems] = useState<any[]>([]);
+  const [filterLoading, setFilterLoading] = useState(false);
 
   // ─── View transition animation ───
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -292,12 +300,18 @@ export default function BrowseScreen() {
     setItemSearch('');
     slideAnim.setValue(0);
     fadeAnim.setValue(1);
-    loadHalls();
+    if (params.filter) {
+      setActiveFilter(params.filter);
+      loadFilteredItems(params.filter);
+    } else {
+      setActiveFilter(null);
+      loadHalls();
+    }
     loadFavorites();
     loadRatings();
     loadHallStatuses();
     loadPlannedItems();
-  }, [loadHalls, loadFavorites, loadRatings, loadHallStatuses, loadPlannedItems]));
+  }, [params.filter, loadHalls, loadFavorites, loadRatings, loadHallStatuses, loadPlannedItems]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -326,6 +340,74 @@ export default function BrowseScreen() {
     } finally {
       setReviewsLoading(false);
     }
+  };
+
+  const getFilterTitle = (filter: string) => {
+    switch (filter) {
+      case 'favorites': return 'Your Favorites Today';
+      case 'macros': return 'Fits Your Macros';
+      case 'new': return 'Try Something New';
+      case 'light': return 'Quick & Light';
+      default: return 'Filtered Items';
+    }
+  };
+
+  const loadFilteredItems = async (filterType: string) => {
+    setFilterLoading(true);
+    try {
+      const userId = await requireUserId();
+      const today = getLocalDate(0);
+      const mealPeriod = getCurrentMealPeriod();
+      let items: any[] = [];
+
+      switch (filterType) {
+        case 'favorites': {
+          const [favItems, hallsRes] = await Promise.all([
+            getFavoritesToday(userId, today),
+            supabase.from('dining_halls').select('id, name'),
+          ]);
+          const hallMap: Record<number, string> = {};
+          for (const h of hallsRes.data ?? []) hallMap[h.id] = h.name;
+          items = favItems.map((f) => ({
+            name: f.name,
+            calories: f.nutrition?.calories ?? 0,
+            protein_g: f.nutrition?.protein_g ?? 0,
+            total_carbs_g: f.nutrition?.total_carbs_g ?? 0,
+            total_fat_g: f.nutrition?.total_fat_g ?? 0,
+            hall_name: hallMap[f.dining_hall_id] ?? '',
+            rec_num: f.rec_num,
+          }));
+          break;
+        }
+        case 'macros':
+          items = await getFitsYourMacros(userId, today, mealPeriod);
+          break;
+        case 'new':
+          items = await getTrySomethingNew(userId, today);
+          break;
+        case 'light':
+          items = await getQuickAndLight(today);
+          break;
+      }
+
+      setFilterItems(items);
+    } catch (err) {
+      console.error('Load filtered items error:', err);
+      setFilterItems([]);
+    } finally {
+      setFilterLoading(false);
+    }
+  };
+
+  const clearFilter = () => {
+    setActiveFilter(null);
+    setFilterItems([]);
+    setLoading(true);
+    loadHalls();
+    loadFavorites();
+    loadRatings();
+    loadHallStatuses();
+    loadPlannedItems();
   };
 
   // ─── Open hall: loads ALL items for the hall at once ───
@@ -774,6 +856,83 @@ export default function BrowseScreen() {
 
   // ── Halls view ──
   if (view === 'halls') {
+    // ── Filtered view (from "See All" navigation) ──
+    if (activeFilter) {
+      return (
+        <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
+          {renderToast()}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={st.pad}
+          >
+            <View style={st.headerRow}>
+              <TouchableOpacity onPress={clearFilter} style={st.backBtn}>
+                <Text style={[{ fontSize: 20, color: colors.text }]}>←</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{getFilterTitle(activeFilter)}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={clearFilter}
+              style={[st.clearFilterBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+            >
+              <Text style={[{ fontSize: 13, color: colors.maroon, fontFamily: 'DMSans_600SemiBold' }]}>✕ Clear Filter</Text>
+            </TouchableOpacity>
+
+            {filterLoading ? (
+              <View style={{ gap: 12 }}>
+                <Skeleton width={'100%'} height={60} borderRadius={14} />
+                <Skeleton width={'100%'} height={60} borderRadius={14} />
+                <Skeleton width={'100%'} height={60} borderRadius={14} />
+                <Skeleton width={'100%'} height={60} borderRadius={14} />
+              </View>
+            ) : filterItems.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <Text style={{ fontSize: 32 }}>🔍</Text>
+                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
+                  No items found for this filter
+                </Text>
+              </View>
+            ) : (
+              <View style={[st.groupCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {filterItems.map((item, i) => {
+                  const isFav = !!item.rec_num && favRecNums.has(item.rec_num);
+                  return (
+                    <View key={i}>
+                      <View style={st.itemRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[{ fontSize: 15, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]} numberOfLines={1}>{item.name}</Text>
+                          <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
+                            {item.hall_name ? `${item.hall_name} · ` : ''}P: {item.protein_g}g · C: {item.total_carbs_g}g · F: {item.total_fat_g}g
+                          </Text>
+                        </View>
+                        {item.rec_num ? (
+                          <TouchableOpacity
+                            onPress={() => handleToggleFavorite({ rec_num: item.rec_num, name: item.name })}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={{ paddingHorizontal: 8 }}
+                          >
+                            <Text style={{ fontSize: 18 }}>{isFav ? '❤️' : '🤍'}</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        <View style={{ alignItems: 'flex-end', minWidth: 40 }}>
+                          <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{item.calories}</Text>
+                          <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>cal</Text>
+                        </View>
+                      </View>
+                      {i < filterItems.length - 1 && <View style={[st.divider, { backgroundColor: colors.border }]} />}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
+
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
         {renderToast()}
@@ -1295,5 +1454,12 @@ const st = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
+  },
+  clearFilterBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 24,
+    marginBottom: 16,
   },
 });

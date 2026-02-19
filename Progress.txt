@@ -69,7 +69,7 @@ READ THIS FILE BEFORE STARTING ANY TASK.
   - **Action needed for 6.2:** Add "See All →" to each collection subtitle row. Each should navigate to browse with a `filter` param (favorites, macros, new, light). Top Rated Halls may not need a "See All" (only max 5 halls).
   - **Action needed for 6.3:** Browse tab needs to read `filter` param on mount and show a filtered flat item list instead of the hall → station drill-down.
 - [x] 6.2 — Wire See All links on each collection — added optional `filter` param to renderForYouItemRow(), each collection header now shows "See All →" in maroon that navigates to browse with filter param (favorites, macros, new, light). Item card taps also pass the filter. Top Rated Halls has no filter (no matching filter in 6.3 spec).
-- [ ] 6.3 — Handle filter params in browse tab
+- [x] 6.3 — Handle filter params in browse tab — added useLocalSearchParams to read `filter` param from expo-router, imported recommendation functions (getFavoritesToday, getFitsYourMacros, getTrySomethingNew, getQuickAndLight). useFocusEffect detects filter param on mount: if present, loads filtered items via recommendation utils; if absent, loads normal halls. Filtered view shows flat item list with name, hall name, macros, calories, and heart toggle — skips hall→station drill-down. "Clear Filter" button (← back arrow + pill) returns to normal browse. Loading skeletons and empty state included. Supported filters: favorites, macros, new, light.
 
 ## Phase 5: Testing
 
