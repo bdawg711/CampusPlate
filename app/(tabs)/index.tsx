@@ -19,6 +19,7 @@ import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { logBelongsToMealGroup } from '@/src/utils/meals';
 import { getTodayWater, addWater, removeWater, getWaterGoal } from '@/src/utils/water';
+import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
 import WaterTracker from '@/src/components/WaterTracker';
 import Skeleton from '@/src/components/Skeleton';
 import { useStaggerAnimation } from '@/src/hooks/useStaggerAnimation';
@@ -66,6 +67,13 @@ interface CollectionItem {
   filter: string;
 }
 
+interface OpenHall {
+  id: number;
+  name: string;
+  currentMeal: string;
+  closingTime: string;
+}
+
 // ─── Animated empty-state emoji bounce ───
 function BouncingEmoji({ emoji }: { emoji: string }) {
   const bounce = useRef(new Animated.Value(0)).current;
@@ -99,6 +107,7 @@ export default function HomeScreen() {
   const [waterOz, setWaterOz] = useState<number>(0);
   const [waterGoal, setWaterGoal] = useState<number>(64);
   const [waterLoading, setWaterLoading] = useState<boolean>(true);
+  const [openHalls, setOpenHalls] = useState<OpenHall[]>([]);
 
   // ─── Entry stagger animations ───
   // 0: greeting, 1: calorie ring, 2-4: macro cards, 5: collections, 6: meals
@@ -114,12 +123,43 @@ export default function HomeScreen() {
   const macroFatAnim = useRef(new Animated.Value(0)).current;
   const macroAnims = [macroProAnim, macroCarbAnim, macroFatAnim];
 
+  const loadOpenHalls = async (): Promise<OpenHall[]> => {
+    try {
+      const [statuses, hallsRes] = await Promise.all([
+        getAllHallStatuses(new Date()),
+        supabase.from('dining_halls').select('id, name').order('name'),
+      ]);
+
+      if (hallsRes.error || !hallsRes.data) return [];
+
+      const hallNames: Record<number, string> = {};
+      for (const h of hallsRes.data) {
+        hallNames[h.id] = h.name;
+      }
+
+      const open: OpenHall[] = [];
+      for (const [idStr, status] of Object.entries(statuses)) {
+        if (status.isOpen) {
+          open.push({
+            id: Number(idStr),
+            name: hallNames[Number(idStr)] || 'Unknown',
+            currentMeal: status.currentMeal || '',
+            closingTime: status.closingTime || '',
+          });
+        }
+      }
+      return open;
+    } catch {
+      return [];
+    }
+  };
+
   const loadData = useCallback(async () => {
     try {
       const userId = await requireUserId();
       const today = getLocalDate();
 
-      const [profileRes, logsRes, collectionsRes, waterCount, waterGoalRes] = await Promise.all([
+      const [profileRes, logsRes, collectionsRes, waterCount, waterGoalRes, hallStatusMap] = await Promise.all([
         supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g').eq('id', userId).single(),
         supabase
           .from('meal_logs')
@@ -130,6 +170,7 @@ export default function HomeScreen() {
         loadCollections(today),
         getTodayWater(userId),
         getWaterGoal(userId),
+        loadOpenHalls(),
       ]);
 
       if (profileRes.data) setProfile(profileRes.data as any);
@@ -137,6 +178,7 @@ export default function HomeScreen() {
       if (collectionsRes) setCollections(collectionsRes);
       setWaterOz(waterCount);
       setWaterGoal(waterGoalRes);
+      if (hallStatusMap) setOpenHalls(hallStatusMap);
     } catch (e) {
       console.error('Dashboard load error:', e);
     } finally {
@@ -488,6 +530,34 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* Open Now */}
+        {openHalls.length > 0 && (
+          <View style={{ marginTop: 24 }}>
+            <View style={st.sectionHead}>
+              <Text style={[st.sectionTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Open Now</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
+              {openHalls.map((hall) => (
+                <TouchableOpacity
+                  key={hall.id}
+                  style={[st.openHallCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+                  onPress={() => router.push('/(tabs)/browse')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 28 }}>🏛️</Text>
+                  <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_700Bold', marginTop: 8 }]} numberOfLines={1}>{hall.name}</Text>
+                  <View style={[st.openBadge, { backgroundColor: colors.green + '22' }]}>
+                    <Text style={[{ fontSize: 11, color: colors.green, fontFamily: 'DMSans_700Bold' }]}>{hall.currentMeal}</Text>
+                  </View>
+                  <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>
+                    Closes {hall.closingTime}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* For You Collections — fade in + slide up */}
         {collections.length > 0 && (
           <Animated.View style={[{ marginTop: 24 }, {
@@ -543,6 +613,8 @@ const st = StyleSheet.create({
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 20 },
   collectionCard: { minWidth: 140, padding: 16, borderRadius: 16, marginRight: 10 },
+  openHallCard: { minWidth: 140, padding: 16, borderRadius: 16, marginRight: 10, alignItems: 'flex-start' },
+  openBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginTop: 6 },
   mealHeader: { fontSize: 12, fontWeight: '700', letterSpacing: 1.5, opacity: 0.3, textTransform: 'uppercase', marginBottom: 12 },
   logRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   logDot: { width: 8, height: 8, borderRadius: 4, marginRight: 12 },
