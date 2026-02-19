@@ -51,7 +51,7 @@ READ THIS FILE BEFORE STARTING ANY TASK.
 - [x] 5.1 — Create src/utils/recommendations.ts — getFavoritesToday (delegates to favorites.ts), getFitsYourMacros (goal-based: moderate_cut→<400cal, lean_bulk→>25g protein, maintain→300-600cal+>15g protein, max 10), getTopRatedHalls (sorted by avg, with open status, max 5), getTrySomethingNew (home hall items not in meal_logs by rec_num, max 8), getQuickAndLight (<300cal from open halls, deduped, max 10)
 - [x] 5.2 — Replace static For You with dynamic collections on dashboard — removed static category cards (High Protein, Vegan, etc.), replaced with 5 dynamic collections: Your Favorites Today, Fits Your Macros, Top Rated Halls (with open/closed badges), Try Something New, Quick & Light. Each row is horizontal ScrollView, shows only if data exists. Items show emoji, name, calories, hall name. Halls show rating + open status. All loaded in parallel with .catch() isolation.
 - [x] 5.3 — Add loading skeletons for For You — added forYouLoading state, renderForYouSkeletonRow() shows 3 skeleton cards per row (3 rows total) using existing Skeleton component, skeletons display while collections load and on pull-to-refresh
-- [ ] 1.4 — Add Favorites Today collection to For You
+- [x] 1.4 — Add Favorites Today collection to For You — already implemented in 5.2: "Your Favorites Today" horizontal row calls getFavoritesOnTodaysMenu() via getFavoritesToday(), shows tappable cards with name, calories, hall name (via hallNames lookup), hidden when no favorites on today's menu
 - [ ] 2.5 — Build reviews list below stations in hall detail
 - [ ] 4.6 — Build meal plan view on dashboard
 - [ ] 6.1 — Audit current For You buttons (document findings here)
