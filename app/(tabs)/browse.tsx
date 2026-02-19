@@ -25,31 +25,19 @@ import { getMealQueryValues, getCurrentMealPeriod, getEffectiveMenuDate } from '
 import { toggleFavorite, getFavorites } from '@/src/utils/favorites';
 import { getHallAverages, HallAverage, rateHall, getUserRating, getHallReviews, HallReview } from '@/src/utils/ratings';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
-import { addToPlan, removeFromPlan, getPlannedMeals } from '@/src/utils/mealPlans';
 import { getFavoritesToday, getFitsYourMacros, getTrySomethingNew, getQuickAndLight } from '@/src/utils/recommendations';
 import Skeleton from '@/src/components/Skeleton';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-function getLocalDate(offset = 0) {
+function getLocalDate() {
   const d = new Date();
-  d.setDate(d.getDate() + offset);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function autoMeal(): string {
   return getCurrentMealPeriod();
 }
-
-function getDayLabel(offset: number): string {
-  if (offset === 0) return 'Today';
-  if (offset === 1) return 'Tomorrow';
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-const DATE_OPTIONS = [0, 1, 2, 3];
 
 const STATION_EMOJI_RULES: [string[], string][] = [
   [['grill', 'burger', 'chop'], '🔥'],
@@ -116,7 +104,6 @@ export default function BrowseScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ filter?: string; meal?: string }>();
   const [view, setView] = useState<ViewState>('halls');
-  const [dayOffset, setDayOffset] = useState(0);
   const [meal, setMeal] = useState(params.meal && ['Breakfast', 'Lunch', 'Dinner'].includes(params.meal) ? params.meal : autoMeal);
 
   // Hall-level search — filters dining hall names only
@@ -159,10 +146,6 @@ export default function BrowseScreen() {
   const [hallReviews, setHallReviews] = useState<HallReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
-  // Meal planning (future dates)
-  const [plannedItemIds, setPlannedItemIds] = useState<Set<number>>(new Set());
-  const [planning, setPlanning] = useState(false);
-
   // Filter view (from "See All" navigation)
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [filterItems, setFilterItems] = useState<any[]>([]);
@@ -198,13 +181,13 @@ export default function BrowseScreen() {
     });
   };
 
-  const date = getLocalDate(dayOffset);
-  const effectiveDate = (usingFallback && dayOffset === 0) ? getLocalDate(-1) : date;
+  const today = getLocalDate();
+  const date = today;
 
   const loadHalls = useCallback(async () => {
     try {
-      const menuDate = dayOffset === 0 ? await getEffectiveMenuDate() : date;
-      const fallback = dayOffset === 0 && menuDate !== date;
+      const menuDate = await getEffectiveMenuDate();
+      const fallback = menuDate !== today;
 
       const { data: hallData } = await supabase
         .from('dining_halls')
@@ -231,7 +214,7 @@ export default function BrowseScreen() {
     } finally {
       setLoading(false);
     }
-  }, [date, meal, dayOffset]);
+  }, [today, meal]);
 
   const loadFavorites = useCallback(async () => {
     try {
@@ -302,17 +285,6 @@ export default function BrowseScreen() {
     }
   }, []);
 
-  const loadPlannedItems = useCallback(async () => {
-    if (dayOffset === 0) { setPlannedItemIds(new Set()); return; }
-    try {
-      const userId = await requireUserId();
-      const planned = await getPlannedMeals(userId, date);
-      setPlannedItemIds(new Set(planned.map((p) => p.menu_item_id)));
-    } catch {
-      // Non-critical
-    }
-  }, [date, dayOffset]);
-
   useFocusEffect(useCallback(() => {
     setView('halls');
     setHallSearch('');
@@ -332,8 +304,7 @@ export default function BrowseScreen() {
     loadFavorites();
     loadRatings();
     loadHallStatuses();
-    loadPlannedItems();
-  }, [params.filter, params.meal, loadHalls, loadFavorites, loadRatings, loadHallStatuses, loadPlannedItems]));
+  }, [params.filter, params.meal, loadHalls, loadFavorites, loadRatings, loadHallStatuses]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -418,7 +389,6 @@ export default function BrowseScreen() {
     loadFavorites();
     loadRatings();
     loadHallStatuses();
-    loadPlannedItems();
   };
 
   // ─── Open hall: loads ALL items for the hall at once ───
@@ -437,7 +407,7 @@ export default function BrowseScreen() {
         .from('menu_items')
         .select('id, name, rec_num, station, dietary_flags, nutrition(*)')
         .eq('dining_hall_id', hall.id)
-        .eq('date', effectiveDate)
+        .eq('date', date)
         .in('meal', getMealQueryValues(meal))
         .order('name');
       setAllHallItems(data || []);
@@ -718,7 +688,7 @@ export default function BrowseScreen() {
           {view === 'stations' && (
             <>
               <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{selectedHall?.name}</Text>
-              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{meal} · {getDayLabel(dayOffset)}</Text>
+              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{meal} · Today</Text>
             </>
           )}
           {view === 'items' && (
@@ -730,19 +700,6 @@ export default function BrowseScreen() {
           {view === 'detail' && <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]} numberOfLines={1}>{selectedItem?.name}</Text>}
         </View>
       </View>
-      {view === 'halls' && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ marginBottom: 12 }}>
-          {DATE_OPTIONS.map((offset) => (
-            <TouchableOpacity
-              key={offset}
-              style={[st.chip, { backgroundColor: dayOffset === offset ? colors.maroon : colors.card, borderColor: dayOffset === offset ? colors.maroon : colors.border, borderWidth: 1 }]}
-              onPress={() => setDayOffset(offset)}
-            >
-              <Text style={[st.chipText, { color: dayOffset === offset ? '#fff' : colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{getDayLabel(offset)}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
     </>
   );
 
@@ -768,42 +725,6 @@ export default function BrowseScreen() {
       {content}
     </Animated.View>
   );
-
-  const handleTogglePlan = async () => {
-    if (!selectedItem || dayOffset === 0) return;
-    const itemId = selectedItem.id as number;
-    const isPlanned = plannedItemIds.has(itemId);
-    setPlanning(true);
-    // Optimistic update
-    setPlannedItemIds((prev) => {
-      const next = new Set(prev);
-      if (isPlanned) next.delete(itemId);
-      else next.add(itemId);
-      return next;
-    });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const userId = await requireUserId();
-      if (isPlanned) {
-        await removeFromPlan(userId, itemId, date);
-        showToastMessage('Removed from plan');
-      } else {
-        await addToPlan(userId, itemId, date, meal, servings);
-        showToastMessage('Added to plan!');
-      }
-    } catch {
-      // Revert on failure
-      setPlannedItemIds((prev) => {
-        const next = new Set(prev);
-        if (isPlanned) next.add(itemId);
-        else next.delete(itemId);
-        return next;
-      });
-      Alert.alert('Error', 'Failed to update meal plan. Please try again.');
-    } finally {
-      setPlanning(false);
-    }
-  };
 
   const handleToggleFavorite = async (item: any) => {
     if (!item.rec_num) return;
@@ -978,7 +899,7 @@ export default function BrowseScreen() {
 
             {renderMealFilter()}
 
-            {usingFallback && dayOffset === 0 && (
+            {usingFallback && (
               <View style={[st.fallbackBanner, { backgroundColor: colors.orange + '15', borderColor: colors.orange + '40' }]}>
                 <Text style={[{ fontSize: 13, color: colors.orange, fontFamily: 'DMSans_600SemiBold', textAlign: 'center' }]}>
                   Showing yesterday's menu — today's updates at 7 AM
@@ -1345,30 +1266,15 @@ export default function BrowseScreen() {
               <Text style={[{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: 10, fontFamily: 'DMSans_400Regular' }]}>
                 {adjCal} cal · {servings} serving{servings !== 1 ? 's' : ''}
               </Text>
-              {dayOffset === 0 ? (
-                <TouchableOpacity
-                  style={[st.logBtn, { backgroundColor: logSuccess ? colors.green : colors.orange, opacity: logging ? 0.6 : 1 }]}
-                  onPress={logMeal}
-                  disabled={logging || logSuccess}
-                >
-                  <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
-                    {logging ? 'Logging...' : logSuccess ? 'Logged! ✓' : 'Log This Meal ✓'}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[st.logBtn, {
-                    backgroundColor: plannedItemIds.has(selectedItem.id) ? colors.green : colors.maroon,
-                    opacity: planning ? 0.6 : 1,
-                  }]}
-                  onPress={handleTogglePlan}
-                  disabled={planning}
-                >
-                  <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
-                    {planning ? 'Saving...' : plannedItemIds.has(selectedItem.id) ? '✓ Planned — Tap to Remove' : '📋 Plan This Meal'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={[st.logBtn, { backgroundColor: logSuccess ? colors.green : colors.orange, opacity: logging ? 0.6 : 1 }]}
+                onPress={logMeal}
+                disabled={logging || logSuccess}
+              >
+                <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
+                  {logging ? 'Logging...' : logSuccess ? 'Logged! ✓' : 'Log This Meal ✓'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </>
         )}

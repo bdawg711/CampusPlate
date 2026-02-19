@@ -30,7 +30,6 @@ import {
   TopRatedHallItem,
 } from '@/src/utils/recommendations';
 import { FavoriteMenuItem } from '@/src/utils/favorites';
-import { getPlannedMeals, PlannedMeal } from '@/src/utils/mealPlans';
 import WaterTracker from '@/src/components/WaterTracker';
 import Skeleton from '@/src/components/Skeleton';
 import AIChat from '@/src/components/AIChat';
@@ -39,19 +38,6 @@ import { useStaggerAnimation } from '@/src/hooks/useStaggerAnimation';
 
 function getLocalDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function getLocalDateOffset(offset: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function getPlanDayLabel(offset: number): string {
-  if (offset === 1) return 'Tomorrow';
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function formatDate(d = new Date()) {
@@ -135,11 +121,6 @@ export default function HomeScreen() {
   const [forYouLoading, setForYouLoading] = useState(true);
 
   const [showAIChat, setShowAIChat] = useState(false);
-
-  // Meal plans
-  const [planDayOffset, setPlanDayOffset] = useState(1);
-  const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
-  const [planLoading, setPlanLoading] = useState(true);
 
   // ─── Entry stagger animations ───
   // 0: greeting, 1: calorie ring, 2-4: macro cards, 5: collections, 6: meals
@@ -229,19 +210,6 @@ export default function HomeScreen() {
     }
   };
 
-  const loadMealPlan = async (userId: string, dayOffset: number) => {
-    setPlanLoading(true);
-    try {
-      const planDate = getLocalDateOffset(dayOffset);
-      const meals = await getPlannedMeals(userId, planDate);
-      setPlannedMeals(meals);
-    } catch {
-      setPlannedMeals([]);
-    } finally {
-      setPlanLoading(false);
-    }
-  };
-
   const loadData = useCallback(async () => {
     try {
       const userId = await requireUserId();
@@ -261,7 +229,6 @@ export default function HomeScreen() {
         getWaterGoal(userId),
         loadOpenHalls(),
       ]);
-      loadMealPlan(userId, planDayOffset);
 
       if (profileRes.data) setProfile(profileRes.data as any);
       if (logsRes.data) setLogs(logsRes.data as any);
@@ -291,7 +258,7 @@ export default function HomeScreen() {
         user_id: userId,
         menu_item_id: item.id,
         date,
-        meal: item.meal,
+        meal: item.meal || getCurrentMealPeriod(),
         servings: 1,
       });
       if (error) {
@@ -376,16 +343,6 @@ export default function HomeScreen() {
       setWaterOz(newTotal);
     } catch (error) {
       console.error('Failed to remove water:', error);
-    }
-  };
-
-  const handlePlanDayChange = async (offset: number) => {
-    setPlanDayOffset(offset);
-    try {
-      const userId = await requireUserId();
-      loadMealPlan(userId, offset);
-    } catch {
-      // Non-critical
     }
   };
 
@@ -762,131 +719,6 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {/* Meal Plans */}
-        <View style={{ marginTop: 24 }}>
-          <View style={st.sectionHead}>
-            <Text style={[st.sectionTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Meal Plans</Text>
-          </View>
-
-          {/* Date switcher */}
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-            {[1, 2, 3].map((offset) => (
-              <TouchableOpacity
-                key={offset}
-                style={[st.planChip, { backgroundColor: planDayOffset === offset ? colors.maroon : colors.card, borderColor: planDayOffset === offset ? colors.maroon : colors.border, borderWidth: 1 }]}
-                onPress={() => handlePlanDayChange(offset)}
-              >
-                <Text style={[{ fontSize: 12, color: planDayOffset === offset ? '#fff' : colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
-                  {getPlanDayLabel(offset)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {planLoading ? (
-            <View style={{ gap: 10 }}>
-              <Skeleton width={'100%' as any} height={44} borderRadius={8} />
-              <Skeleton width={'100%' as any} height={44} borderRadius={8} />
-            </View>
-          ) : plannedMeals.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-              <Text style={{ fontSize: 28 }}>📋</Text>
-              <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 6, fontFamily: 'DMSans_400Regular' }]}>
-                No meals planned for {getPlanDayLabel(planDayOffset).toLowerCase()}
-              </Text>
-              <TouchableOpacity
-                style={[st.planBrowseBtn, { backgroundColor: colors.maroon }]}
-                onPress={() => router.push('/(tabs)/browse')}
-              >
-                <Text style={[{ fontSize: 13, color: '#fff', fontFamily: 'DMSans_600SemiBold' }]}>Browse Menus</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              {/* Calorie comparison bar */}
-              {(() => {
-                const planCal = plannedMeals.reduce((sum, m) => {
-                  const n = m.menu_items?.nutrition;
-                  return sum + Math.round((n?.calories ?? 0) * m.servings);
-                }, 0);
-                const planPro = plannedMeals.reduce((sum, m) => {
-                  const n = m.menu_items?.nutrition;
-                  return sum + Math.round((n?.protein_g ?? 0) * m.servings);
-                }, 0);
-                const planCarb = plannedMeals.reduce((sum, m) => {
-                  const n = m.menu_items?.nutrition;
-                  return sum + Math.round((n?.total_carbs_g ?? 0) * m.servings);
-                }, 0);
-                const planFat = plannedMeals.reduce((sum, m) => {
-                  const n = m.menu_items?.nutrition;
-                  return sum + Math.round((n?.total_fat_g ?? 0) * m.servings);
-                }, 0);
-                const calPercent = Math.min(planCal / goalCal, 1);
-
-                return (
-                  <View style={[st.planSummaryCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-                    <Text style={[{ fontSize: 15, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginBottom: 8 }]}>
-                      Planned: {planCal} cal / Goal: {goalCal} cal
-                    </Text>
-                    <View style={[st.planBar, { backgroundColor: colors.border }]}>
-                      <View style={[st.planBarFill, { backgroundColor: colors.maroon, width: `${Math.round(calPercent * 100)}%` }]} />
-                    </View>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 12 }}>
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={[{ fontSize: 16, color: colors.blue, fontFamily: 'Outfit_700Bold' }]}>{planPro}g</Text>
-                        <Text style={[{ fontSize: 10, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>Protein / {goalPro}g</Text>
-                      </View>
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={[{ fontSize: 16, color: colors.orange, fontFamily: 'Outfit_700Bold' }]}>{planCarb}g</Text>
-                        <Text style={[{ fontSize: 10, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>Carbs / {goalCarb}g</Text>
-                      </View>
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={[{ fontSize: 16, color: colors.yellow, fontFamily: 'Outfit_700Bold' }]}>{planFat}g</Text>
-                        <Text style={[{ fontSize: 10, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>Fat / {goalFat}g</Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })()}
-
-              {/* Planned items grouped by meal */}
-              {['Breakfast', 'Lunch', 'Dinner'].map((mealGroup) => {
-                const items = plannedMeals.filter((m) => m.meal === mealGroup);
-                if (items.length === 0) return null;
-                const mealCals = items.reduce((sum, m) => {
-                  const n = m.menu_items?.nutrition;
-                  return sum + Math.round((n?.calories ?? 0) * m.servings);
-                }, 0);
-                return (
-                  <View key={mealGroup} style={{ marginTop: 12 }}>
-                    <Text style={[st.mealHeader, { color: colors.text }]}>
-                      {mealGroup.toUpperCase()} — {mealCals} cal
-                    </Text>
-                    {items.map((item, i) => {
-                      const n = item.menu_items?.nutrition;
-                      const cal = Math.round((n?.calories ?? 0) * item.servings);
-                      return (
-                        <View key={item.id}>
-                          <View style={st.logRow}>
-                            <View style={[st.logDot, { backgroundColor: colors.maroon }]} />
-                            <Text style={[st.logName, { color: colors.text, fontFamily: 'DMSans_500Medium' }]} numberOfLines={1}>
-                              {item.menu_items?.name ?? 'Unknown'}
-                            </Text>
-                            <Text style={[st.logCal, { color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
-                              {cal}
-                            </Text>
-                          </View>
-                          {i < items.length - 1 && <View style={[st.divider, { backgroundColor: colors.border }]} />}
-                        </View>
-                      );
-                    })}
-                  </View>
-                );
-              })}
-            </>
-          )}
-        </View>
-
         {/* Today's Meals — fade in */}
         <Animated.View style={[{ marginTop: 28 }, {
           opacity: entryAnims[6],
@@ -947,11 +779,6 @@ const st = StyleSheet.create({
   logCal: { fontSize: 14, opacity: 0.7, marginRight: 8 },
   deleteBtn: { padding: 4 },
   divider: { height: 1, marginLeft: 20 },
-  planChip: { flex: 1, paddingVertical: 8, borderRadius: 24, alignItems: 'center' },
-  planSummaryCard: { borderRadius: 14, padding: 16, marginBottom: 4 },
-  planBar: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  planBarFill: { height: 6, borderRadius: 3 },
-  planBrowseBtn: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 14 },
   aiFab: {
     position: 'absolute',
     bottom: 24,
