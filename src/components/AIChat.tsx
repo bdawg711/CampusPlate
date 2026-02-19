@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -113,6 +114,17 @@ export default function AIChat({ visible, onClose, onLogItem }: AIChatProps) {
       }, 100);
     }
   }, [messages.length]);
+
+  // ── Auto-scroll when keyboard opens ───────────────────────────────────
+  useEffect(() => {
+    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(event, () => {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 150);
+    });
+    return () => sub.remove();
+  }, []);
 
   // ── Send message ────────────────────────────────────────────────────────
   const handleSend = useCallback(async (text?: string) => {
@@ -230,7 +242,7 @@ export default function AIChat({ visible, onClose, onLogItem }: AIChatProps) {
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 24}
         >
           {/* ── Messages ── */}
           {initialLoading ? (
@@ -240,6 +252,7 @@ export default function AIChat({ visible, onClose, onLogItem }: AIChatProps) {
           ) : (
             <FlatList
               ref={flatListRef}
+              style={{ flex: 1 }}
               data={messages}
               keyExtractor={(item) => item.id}
               contentContainerStyle={[

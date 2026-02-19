@@ -2,6 +2,8 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -140,9 +142,15 @@ export default function ProgressScreen() {
 
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
       <ScrollView
         contentContainerStyle={st.pad}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -250,6 +258,7 @@ export default function ProgressScreen() {
           <Text style={[{ color: '#fff', fontSize: 15, fontFamily: 'DMSans_700Bold' }]}>View Full Report</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <WeeklyReport
         visible={weeklyReportVisible}
