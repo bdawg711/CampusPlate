@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -42,7 +42,6 @@ const QUICK_ADD = [
 
 export default function WaterTracker({ consumed, goal, onAddWater, onRemoveWater, loading }: WaterTrackerProps) {
   const { colors } = useTheme();
-  const lastAdded = useRef<number | null>(null);
 
   const goalReached = consumed >= goal;
   const ringColor = goalReached ? GOAL_GREEN : WATER_BLUE;
@@ -80,12 +79,14 @@ export default function WaterTracker({ consumed, goal, onAddWater, onRemoveWater
   const scale1 = useSharedValue(1);
   const scale2 = useSharedValue(1);
   const scale3 = useSharedValue(1);
+  const scale4 = useSharedValue(1); // -8 oz button
   const scales = [scale0, scale1, scale2, scale3];
 
   const anim0 = useAnimatedStyle(() => ({ transform: [{ scale: scale0.value }] }));
   const anim1 = useAnimatedStyle(() => ({ transform: [{ scale: scale1.value }] }));
   const anim2 = useAnimatedStyle(() => ({ transform: [{ scale: scale2.value }] }));
   const anim3 = useAnimatedStyle(() => ({ transform: [{ scale: scale3.value }] }));
+  const anim4 = useAnimatedStyle(() => ({ transform: [{ scale: scale4.value }] }));
   const animStyles = [anim0, anim1, anim2, anim3];
 
   const handlePress = (oz: number) => {
@@ -94,15 +95,19 @@ export default function WaterTracker({ consumed, goal, onAddWater, onRemoveWater
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    lastAdded.current = oz;
     onAddWater(oz);
   };
 
-  const handleUndo = () => {
-    if (lastAdded.current == null) return;
+  const handleRemove = () => {
+    if (consumed <= 0) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onRemoveWater(lastAdded.current);
-    lastAdded.current = null;
+    onRemoveWater(8);
+  };
+
+  const handleReset = () => {
+    if (consumed <= 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onRemoveWater(consumed);
   };
 
   const renderPill = (item: (typeof QUICK_ADD)[number], index: number) => (
@@ -186,25 +191,47 @@ export default function WaterTracker({ consumed, goal, onAddWater, onRemoveWater
             {renderPill(QUICK_ADD[2], 2)}
             {renderPill(QUICK_ADD[3], 3)}
           </View>
-          {/* Undo row */}
-          <View style={[st.pillRow, st.undoRow]}>
+          {/* Remove row */}
+          <View style={[st.pillRow, st.removeRow]}>
+            <Animated.View style={[st.pillWrap, anim4]}>
+              <Pressable
+                onPressIn={() => {
+                  if (consumed > 0) scale4.value = withSpring(0.93, { damping: 15, stiffness: 400 });
+                }}
+                onPressOut={() => {
+                  scale4.value = withSpring(1, { damping: 15, stiffness: 400 });
+                }}
+                onPress={handleRemove}
+                disabled={loading || consumed <= 0}
+                style={[
+                  st.pill,
+                  { backgroundColor: colors.cardAlt, borderColor: colors.border },
+                  (loading || consumed <= 0) && st.removeDisabled,
+                ]}
+              >
+                <Text
+                  style={[
+                    st.pillText,
+                    { color: colors.textMuted, fontFamily: 'DMSans_600SemiBold' },
+                  ]}
+                >
+                  −8 oz
+                </Text>
+              </Pressable>
+            </Animated.View>
             <Pressable
-              onPress={handleUndo}
-              disabled={loading || lastAdded.current == null}
-              style={[
-                st.undoBtn,
-                { backgroundColor: colors.cardAlt, borderColor: colors.border },
-                (loading || lastAdded.current == null) && st.undoDisabled,
-              ]}
+              onPress={handleReset}
+              disabled={loading || consumed <= 0}
+              style={st.resetBtn}
             >
               <Text
                 style={[
-                  st.undoText,
+                  st.resetText,
                   { color: colors.textMuted, fontFamily: 'DMSans_500Medium' },
-                  (loading || lastAdded.current == null) && { opacity: 0.35 },
+                  (loading || consumed <= 0) && { opacity: 0.35 },
                 ]}
               >
-                Undo last
+                Reset
               </Text>
             </Pressable>
           </View>
@@ -277,21 +304,19 @@ const st = StyleSheet.create({
     fontSize: 13,
     color: WATER_BLUE,
   },
-  undoRow: {
+  removeRow: {
     marginTop: 2,
-  },
-  undoBtn: {
-    flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
     alignItems: 'center',
   },
-  undoDisabled: {
-    opacity: 0.5,
+  removeDisabled: {
+    opacity: 0.35,
   },
-  undoText: {
+  resetBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+  },
+  resetText: {
     fontSize: 12,
   },
 });
