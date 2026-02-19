@@ -21,13 +21,13 @@ export function getMealQueryValues(meal: string): string[] {
 
 /**
  * Determines the current meal period based on time of day.
- * Before 10:30 → Breakfast, before 16:00 → Lunch, else Dinner.
+ * Before 10:30 → Breakfast, before 16:30 → Lunch, else Dinner.
  */
 export function getCurrentMealPeriod(): string {
   const h = new Date().getHours();
   const m = new Date().getMinutes();
   if (h < 10 || (h === 10 && m < 30)) return 'Breakfast';
-  if (h < 16) return 'Lunch';
+  if (h < 16 || (h === 16 && m < 30)) return 'Lunch';
   return 'Dinner';
 }
 

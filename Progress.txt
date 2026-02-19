@@ -34,7 +34,7 @@ READ THIS FILE BEFORE STARTING ANY TASK.
 - [x] 2.2 — Create src/utils/ratings.ts — rateHall (upsert), getHallAverages (RPC → map), getHallReviews (RPC), getUserRating with error handling and user_id filtering
 - [x] 3.3 — Create src/utils/hours.ts — getHallHours, isHallOpen (returns isOpen/currentMeal/closingTime/nextOpen), getAllHallStatuses (single batch query, returns map by hallId)
 - [x] 4.3 — Create src/utils/mealPlans.ts — addToPlan, removeFromPlan, getPlannedMeals (joins menu_items→nutrition), getPlannedMealsSummary (totals with servings multiplier)
-- [ ] 5.4 — Add/verify getCurrentMealPeriod() in src/utils/meals.ts
+- [x] 5.4 — Add/verify getCurrentMealPeriod() in src/utils/meals.ts — already existed, fixed lunch/dinner boundary from 16:00 to 16:30 per PRD spec
 
 ## Phase 3: UI Components (Bandhip)
 
