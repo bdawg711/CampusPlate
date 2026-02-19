@@ -71,7 +71,8 @@ export async function getFitsYourMacros(
     if (!items?.length) return [];
 
     const filtered = items.filter((item) => {
-      const n = item.nutrition as any;
+      const rawN = item.nutrition as any;
+      const n = Array.isArray(rawN) ? rawN[0] : rawN;
       if (!n) return false;
       const cal = n.calories ?? 0;
       const pro = n.protein_g ?? 0;
@@ -215,7 +216,8 @@ export async function getQuickAndLight(
     if (error) throw new Error(`Failed to fetch menu items: ${error.message}`);
 
     const light = (items ?? []).filter((item) => {
-      const n = item.nutrition as any;
+      const rawN = item.nutrition as any;
+      const n = Array.isArray(rawN) ? rawN[0] : rawN;
       return n && (n.calories ?? 0) > 0 && (n.calories ?? 0) < 300;
     });
 
@@ -238,7 +240,9 @@ export async function getQuickAndLight(
 
 /** Map a raw Supabase menu item row to a RecommendedItem. */
 function mapToRecommendedItem(item: any): RecommendedItem {
-  const n = item.nutrition ?? {};
+  // Supabase returns nutrition as an array (one-to-many FK) — extract first element
+  const rawN = item.nutrition;
+  const n = Array.isArray(rawN) ? rawN[0] : rawN;
   return {
     id: item.id,
     name: item.name,
@@ -247,9 +251,9 @@ function mapToRecommendedItem(item: any): RecommendedItem {
     dining_hall_id: item.dining_hall_id,
     hall_name: (item.dining_halls as any)?.name ?? '',
     meal: item.meal ?? '',
-    calories: n.calories ?? 0,
-    protein_g: n.protein_g ?? 0,
-    total_carbs_g: n.total_carbs_g ?? 0,
-    total_fat_g: n.total_fat_g ?? 0,
+    calories: n?.calories ?? 0,
+    protein_g: n?.protein_g ?? 0,
+    total_carbs_g: n?.total_carbs_g ?? 0,
+    total_fat_g: n?.total_fat_g ?? 0,
   };
 }

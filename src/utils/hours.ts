@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 export interface HallHourRow {
   id: number;
   dining_hall_id: number;
-  day_of_week: number;
+  date: string; // 'YYYY-MM-DD'
   meal: string;
   open_time: string; // 'HH:MM:SS'
   close_time: string;
@@ -15,6 +15,11 @@ export interface HallStatus {
   closingTime?: string;   // human-readable, e.g. "9:00 PM"
   nextOpen?: string;      // human-readable, e.g. "5:00 PM"
   nextMeal?: string;
+}
+
+/** Format a Date to 'YYYY-MM-DD' local string. */
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** Convert 'HH:MM' or 'HH:MM:SS' to minutes since midnight for comparison. */
@@ -35,15 +40,15 @@ function formatTime12h(time: string): string {
 }
 
 /**
- * Get all hour entries for a specific hall (all days).
+ * Get all hour entries for a specific hall (all dates).
  */
 export async function getHallHours(hallId: number): Promise<HallHourRow[]> {
   try {
     const { data, error } = await supabase
       .from('dining_hall_hours')
-      .select('id, dining_hall_id, day_of_week, meal, open_time, close_time')
+      .select('id, dining_hall_id, date, meal, open_time, close_time')
       .eq('dining_hall_id', hallId)
-      .order('day_of_week')
+      .order('date')
       .order('open_time');
 
     if (error) throw new Error(`Failed to fetch hall hours: ${error.message}`);
@@ -59,22 +64,22 @@ export async function getHallHours(hallId: number): Promise<HallHourRow[]> {
  */
 export async function isHallOpen(hallId: number, now: Date): Promise<HallStatus> {
   try {
-    const dayOfWeek = now.getDay();
-    const nextDay = (dayOfWeek + 1) % 7;
+    const today = toLocalDateStr(now);
+    const tomorrow = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
     // Fetch today's and tomorrow's hours in one query
     const { data, error } = await supabase
       .from('dining_hall_hours')
-      .select('meal, open_time, close_time, day_of_week')
+      .select('meal, open_time, close_time, date')
       .eq('dining_hall_id', hallId)
-      .in('day_of_week', [dayOfWeek, nextDay])
+      .in('date', [today, tomorrow])
       .order('open_time');
 
     if (error) throw new Error(`Failed to fetch hall hours: ${error.message}`);
 
-    const todayHours = (data ?? []).filter((r) => r.day_of_week === dayOfWeek);
-    const tomorrowHours = (data ?? []).filter((r) => r.day_of_week === nextDay);
+    const todayHours = (data ?? []).filter((r) => r.date === today);
+    const tomorrowHours = (data ?? []).filter((r) => r.date === tomorrow);
 
     return computeStatus(nowMinutes, todayHours, tomorrowHours);
   } catch (err) {
@@ -88,15 +93,15 @@ export async function isHallOpen(hallId: number, now: Date): Promise<HallStatus>
  */
 export async function getAllHallStatuses(now: Date): Promise<Record<number, HallStatus>> {
   try {
-    const dayOfWeek = now.getDay();
-    const nextDay = (dayOfWeek + 1) % 7;
+    const today = toLocalDateStr(now);
+    const tomorrow = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
     // Single query for all halls, today + tomorrow
     const { data, error } = await supabase
       .from('dining_hall_hours')
-      .select('dining_hall_id, meal, open_time, close_time, day_of_week')
-      .in('day_of_week', [dayOfWeek, nextDay])
+      .select('dining_hall_id, meal, open_time, close_time, date')
+      .in('date', [today, tomorrow])
       .order('open_time');
 
     if (error) throw new Error(`Failed to fetch hall hours: ${error.message}`);
@@ -107,7 +112,7 @@ export async function getAllHallStatuses(now: Date): Promise<Record<number, Hall
       if (!byHall[row.dining_hall_id]) {
         byHall[row.dining_hall_id] = { today: [], tomorrow: [] };
       }
-      if (row.day_of_week === dayOfWeek) {
+      if (row.date === today) {
         byHall[row.dining_hall_id].today.push(row);
       } else {
         byHall[row.dining_hall_id].tomorrow.push(row);

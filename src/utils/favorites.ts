@@ -142,6 +142,9 @@ export async function getFavoritesOnTodaysMenu(
     for (const item of items) {
       if (!seen.has(item.rec_num)) {
         seen.add(item.rec_num);
+        // Supabase returns nutrition as an array (one-to-many FK) — extract first element
+        const rawN = item.nutrition;
+        const n = Array.isArray(rawN) ? rawN[0] : rawN;
         unique.push({
           id: item.id,
           name: item.name,
@@ -149,7 +152,7 @@ export async function getFavoritesOnTodaysMenu(
           station: item.station,
           dining_hall_id: item.dining_hall_id,
           meal: item.meal,
-          nutrition: item.nutrition as FavoriteMenuItem['nutrition'],
+          nutrition: n ?? null,
         });
       }
     }

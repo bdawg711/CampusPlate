@@ -89,3 +89,12 @@ READ THIS FILE BEFORE STARTING ANY TASK.
 ---
 
 ## Notes / Failure Log
+
+### 2026-02-19 — Full diagnostic & bug fixes (see DEBUG_REPORT.md)
+Ran full diagnostic on all Sprint 2 utility files and main screens. Found and fixed 5 bugs:
+1. **hours.ts (CRITICAL):** Queried `day_of_week` column but table was changed to `date`. Rewrote all queries to use date-based lookups. This was breaking Open Now, hall status badges, and Quick & Light recommendations.
+2. **recommendations.ts (CRITICAL):** `nutrition(...)` Supabase join returns an array (one-to-many FK), but code treated it as an object. All nutrition values were 0, all filter conditions failed, all recommendation lists were empty. Added `Array.isArray` normalization.
+3. **favorites.ts (MODERATE):** Same nutrition array issue — favorites showed 0 calories on dashboard. Fixed with array extraction.
+4. **mealPlans.ts (MODERATE):** Same nutrition array issue — meal plan summary showed 0 for all macros. Fixed by normalizing in `getPlannedMeals()`.
+5. **browse.tsx (LOW):** `loadPlannedItems` referenced in `useFocusEffect` dependency array before its `const` declaration (TDZ violation). Moved declaration above `useFocusEffect`.
+TypeScript: 0 errors after fixes. Metro bundle: exports cleanly, no errors.

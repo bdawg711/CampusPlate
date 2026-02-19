@@ -294,6 +294,17 @@ export default function BrowseScreen() {
     }
   }, []);
 
+  const loadPlannedItems = useCallback(async () => {
+    if (dayOffset === 0) { setPlannedItemIds(new Set()); return; }
+    try {
+      const userId = await requireUserId();
+      const planned = await getPlannedMeals(userId, date);
+      setPlannedItemIds(new Set(planned.map((p) => p.menu_item_id)));
+    } catch {
+      // Non-critical
+    }
+  }, [date, dayOffset]);
+
   useFocusEffect(useCallback(() => {
     setView('halls');
     setHallSearch('');
@@ -318,17 +329,6 @@ export default function BrowseScreen() {
     await loadHalls();
     setRefreshing(false);
   };
-
-  const loadPlannedItems = useCallback(async () => {
-    if (dayOffset === 0) { setPlannedItemIds(new Set()); return; }
-    try {
-      const userId = await requireUserId();
-      const planned = await getPlannedMeals(userId, date);
-      setPlannedItemIds(new Set(planned.map((p) => p.menu_item_id)));
-    } catch {
-      // Non-critical
-    }
-  }, [date, dayOffset]);
 
   const loadHallReviews = async (hallId: number) => {
     setReviewsLoading(true);

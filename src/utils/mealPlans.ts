@@ -93,7 +93,18 @@ export async function getPlannedMeals(
       .order('created_at');
 
     if (error) throw new Error(`Failed to fetch planned meals: ${error.message}`);
-    return (data as unknown as PlannedMeal[]) ?? [];
+
+    // Normalize nutrition: Supabase returns it as an array (one-to-many FK) — extract first element
+    const normalized = (data ?? []).map((row: any) => {
+      const mi = row.menu_items;
+      if (mi) {
+        const rawN = mi.nutrition;
+        mi.nutrition = Array.isArray(rawN) ? rawN[0] ?? null : rawN;
+      }
+      return row;
+    });
+
+    return normalized as unknown as PlannedMeal[];
   } catch (err) {
     throw err instanceof Error ? err : new Error('Failed to fetch planned meals');
   }
