@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Animated,
+  Easing,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,8 +16,11 @@ import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
+import { logBelongsToMealGroup } from '@/src/utils/meals';
 import { getTodayWater, addWater, removeWater, getWaterGoal } from '@/src/utils/water';
 import WaterTracker from '@/src/components/WaterTracker';
+import Skeleton from '@/src/components/Skeleton';
+import { useStaggerAnimation } from '@/src/hooks/useStaggerAnimation';
 
 function getLocalDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -61,6 +65,27 @@ interface CollectionItem {
   filter: string;
 }
 
+// ─── Animated empty-state emoji bounce ───
+function BouncingEmoji({ emoji }: { emoji: string }) {
+  const bounce = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounce, { toValue: -6, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(bounce, { toValue: 0, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [bounce]);
+
+  return (
+    <Animated.Text style={{ fontSize: 24, transform: [{ translateY: bounce }] }}>
+      {emoji}
+    </Animated.Text>
+  );
+}
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -73,6 +98,20 @@ export default function HomeScreen() {
   const [waterOz, setWaterOz] = useState<number>(0);
   const [waterGoal, setWaterGoal] = useState<number>(64);
   const [waterLoading, setWaterLoading] = useState<boolean>(true);
+
+  // ─── Entry stagger animations ───
+  // 0: greeting, 1: calorie ring, 2-4: macro cards, 5: collections, 6: meals
+  const { anims: entryAnims, play: playEntry } = useStaggerAnimation(7, { staggerMs: 80, durationMs: 350, delayMs: 0 });
+
+  // ─── Calorie ring fill animation ───
+  const ringAnim = useRef(new Animated.Value(0)).current;
+  const prevCalPercent = useRef(0);
+
+  // ─── Macro bar animations (animate scaleX) ───
+  const macroProAnim = useRef(new Animated.Value(0)).current;
+  const macroCarbAnim = useRef(new Animated.Value(0)).current;
+  const macroFatAnim = useRef(new Animated.Value(0)).current;
+  const macroAnims = [macroProAnim, macroCarbAnim, macroFatAnim];
 
   const loadData = useCallback(async () => {
     try {
@@ -92,7 +131,6 @@ export default function HomeScreen() {
         getWaterGoal(userId),
       ]);
 
-      console.log('[DashboardData] raw logsRes:', JSON.stringify(logsRes.data, null, 2));
       if (profileRes.data) setProfile(profileRes.data as any);
       if (logsRes.data) setLogs(logsRes.data as any);
       if (collectionsRes) setCollections(collectionsRes);
@@ -147,6 +185,41 @@ export default function HomeScreen() {
     }, [loadData])
   );
 
+  // ─── Animate ring + macros when data changes ───
+  useEffect(() => {
+    if (loading) return;
+
+    const goalCal = profile?.goal_calories || 2000;
+    const goalPro = profile?.goal_protein_g || 150;
+    const goalCarb = profile?.goal_carbs_g || 200;
+    const goalFat = profile?.goal_fat_g || 65;
+
+    const newCalPercent = Math.min(totalCal / goalCal, 1);
+    const proPercent = Math.min(totalPro / goalPro, 1);
+    const carbPercent = Math.min(totalCarb / goalCarb, 1);
+    const fatPercent = Math.min(totalFat / goalFat, 1);
+
+    // Animate ring from old to new
+    Animated.timing(ringAnim, {
+      toValue: newCalPercent,
+      duration: prevCalPercent.current === 0 ? 800 : 600,
+      easing: prevCalPercent.current === 0 ? Easing.out(Easing.cubic) : Easing.inOut(Easing.cubic),
+      useNativeDriver: false, // strokeDashoffset is not natively animatable
+    }).start();
+    prevCalPercent.current = newCalPercent;
+
+    // Animate macro bars
+    const macroDuration = prevCalPercent.current === 0 ? 600 : 600;
+    Animated.parallel([
+      Animated.timing(macroProAnim, { toValue: proPercent, duration: macroDuration, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(macroCarbAnim, { toValue: carbPercent, duration: macroDuration, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(macroFatAnim, { toValue: fatPercent, duration: macroDuration, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+
+    // Play entry stagger on first load
+    playEntry();
+  }, [loading, logs]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -182,7 +255,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Calculate totals from logs — data path: log.menu_items.nutrition
+  // Calculate totals from logs
   const getNutrition = (log: MealLog) => {
     const raw = log.menu_items?.nutrition;
     const n = Array.isArray(raw) ? raw[0] : raw;
@@ -209,8 +282,12 @@ export default function HomeScreen() {
   const strokeWidth = 12;
   const radius = (ringSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const calPercent = Math.min(totalCal / goalCal, 1);
-  const strokeDashoffset = circumference * (1 - calPercent);
+
+  // Animated strokeDashoffset
+  const animatedStrokeDashoffset = ringAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [circumference, 0],
+  });
 
   const getMealName = (log: MealLog): string => {
     const mi = log.menu_items as any;
@@ -220,7 +297,7 @@ export default function HomeScreen() {
   };
 
   const renderMealGroup = (meal: string, label: string) => {
-    const mealLogs = logs.filter((l) => l.meal === meal);
+    const mealLogs = logs.filter((l) => logBelongsToMealGroup(l.meal, meal));
     const mealCals = mealLogs.reduce((sum, l) => sum + getNutrition(l).cal, 0);
     return (
       <View key={meal} style={{ marginBottom: 20 }}>
@@ -229,7 +306,7 @@ export default function HomeScreen() {
         </Text>
         {mealLogs.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-            <Text style={{ fontSize: 24 }}>🍽️</Text>
+            <BouncingEmoji emoji="🍽️" />
             <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 4, fontFamily: 'DMSans_400Regular' }]}>
               No {label.toLowerCase()} logged yet
             </Text>
@@ -260,15 +337,48 @@ export default function HomeScreen() {
     );
   };
 
+  // ─── Loading skeleton ───
   if (loading) {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
-        <View style={st.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.maroon} />
+        <View style={st.scroll}>
+          {/* Greeting skeleton */}
+          <View style={st.header}>
+            <View>
+              <Skeleton width={120} height={14} borderRadius={7} />
+              <Skeleton width={200} height={26} borderRadius={8} style={{ marginTop: 8 }} />
+            </View>
+            <Skeleton width={42} height={42} borderRadius={21} />
+          </View>
+          {/* Ring skeleton */}
+          <View style={{ alignItems: 'center', marginBottom: 24 }}>
+            <Skeleton width={170} height={170} borderRadius={85} />
+          </View>
+          {/* Macro cards skeleton */}
+          <View style={st.macroRow}>
+            <Skeleton width={'100%' as any} height={90} borderRadius={14} style={{ flex: 1 }} />
+            <Skeleton width={'100%' as any} height={90} borderRadius={14} style={{ flex: 1 }} />
+            <Skeleton width={'100%' as any} height={90} borderRadius={14} style={{ flex: 1 }} />
+          </View>
+          {/* Meals skeleton */}
+          <View style={{ marginTop: 28 }}>
+            <Skeleton width={120} height={12} borderRadius={6} />
+            <Skeleton width={'100%' as any} height={44} borderRadius={8} style={{ marginTop: 12 }} />
+            <Skeleton width={'100%' as any} height={44} borderRadius={8} style={{ marginTop: 8 }} />
+          </View>
         </View>
       </SafeAreaView>
     );
   }
+
+  const macroData = [
+    { label: 'Protein', val: totalPro, goal: goalPro, color: colors.blue },
+    { label: 'Carbs', val: totalCarb, goal: goalCarb, color: colors.orange },
+    { label: 'Fat', val: totalFat, goal: goalFat, color: colors.yellow },
+  ];
+
+  // Use an AnimatedCircle wrapper to animate strokeDashoffset
+  const AnimatedCircleComponent = Animated.createAnimatedComponent(Circle);
 
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
@@ -277,8 +387,11 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.maroon} />}
       >
-        {/* Header */}
-        <View style={st.header}>
+        {/* Header — fade in + slide down */}
+        <Animated.View style={[st.header, {
+          opacity: entryAnims[0],
+          transform: [{ translateY: entryAnims[0].interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) }],
+        }]}>
           <View>
             <Text style={[st.dateText, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>
               {formatDate()}
@@ -292,10 +405,13 @@ export default function HomeScreen() {
               {(profile?.name || 'U')[0].toUpperCase()}
             </Text>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Calorie Ring */}
-        <View style={st.ringWrap}>
+        {/* Calorie Ring — fade in + scale */}
+        <Animated.View style={[st.ringWrap, {
+          opacity: entryAnims[1],
+          transform: [{ scale: entryAnims[1].interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }],
+        }]}>
           <Svg width={ringSize} height={ringSize}>
             <Circle
               cx={ringSize / 2}
@@ -305,7 +421,7 @@ export default function HomeScreen() {
               strokeWidth={strokeWidth}
               fill="none"
             />
-            <Circle
+            <AnimatedCircleComponent
               cx={ringSize / 2}
               cy={ringSize / 2}
               r={radius}
@@ -313,7 +429,7 @@ export default function HomeScreen() {
               strokeWidth={strokeWidth}
               fill="none"
               strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
+              strokeDashoffset={animatedStrokeDashoffset}
               strokeLinecap="round"
               transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
             />
@@ -326,22 +442,35 @@ export default function HomeScreen() {
               of {goalCal} cal
             </Text>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Macro Cards */}
+        {/* Macro Cards — fade in + slide up, staggered */}
         <View style={st.macroRow}>
-          {[
-            { label: 'Protein', val: totalPro, goal: goalPro, color: colors.blue },
-            { label: 'Carbs', val: totalCarb, goal: goalCarb, color: colors.orange },
-            { label: 'Fat', val: totalFat, goal: goalFat, color: colors.yellow },
-          ].map((m) => (
-            <View key={m.label} style={[st.macroCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+          {macroData.map((m, i) => (
+            <Animated.View key={m.label} style={[
+              st.macroCard,
+              { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
+              {
+                opacity: entryAnims[2 + i],
+                transform: [{ translateY: entryAnims[2 + i].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+              },
+            ]}>
               <Text style={[st.macroVal, { color: m.color, fontFamily: 'Outfit_700Bold' }]}>{m.val}g</Text>
               <Text style={[st.macroLabel, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{m.label}</Text>
               <View style={[st.macroTrack, { backgroundColor: colors.border }]}>
-                <View style={[st.macroFill, { backgroundColor: m.color, width: `${Math.min((m.val / m.goal) * 100, 100)}%` }]} />
+                <Animated.View
+                  style={[
+                    st.macroFill,
+                    {
+                      backgroundColor: m.color,
+                      width: '100%',
+                      transform: [{ scaleX: macroAnims[i] }],
+                      transformOrigin: 'left',
+                    },
+                  ]}
+                />
               </View>
-            </View>
+            </Animated.View>
           ))}
         </View>
 
@@ -356,9 +485,12 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* For You Collections */}
+        {/* For You Collections — fade in + slide up */}
         {collections.length > 0 && (
-          <View style={{ marginTop: 24 }}>
+          <Animated.View style={[{ marginTop: 24 }, {
+            opacity: entryAnims[5],
+            transform: [{ translateY: entryAnims[5].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+          }]}>
             <View style={st.sectionHead}>
               <Text style={[st.sectionTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>For You</Text>
             </View>
@@ -371,15 +503,17 @@ export default function HomeScreen() {
                 </View>
               ))}
             </ScrollView>
-          </View>
+          </Animated.View>
         )}
 
-        {/* Today's Meals */}
-        <View style={{ marginTop: 28 }}>
+        {/* Today's Meals — fade in */}
+        <Animated.View style={[{ marginTop: 28 }, {
+          opacity: entryAnims[6],
+        }]}>
           {renderMealGroup('Breakfast', 'BREAKFAST')}
           {renderMealGroup('Lunch', 'LUNCH')}
           {renderMealGroup('Dinner', 'DINNER')}
-        </View>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -387,7 +521,6 @@ export default function HomeScreen() {
 
 const st = StyleSheet.create({
   safe: { flex: 1 },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { padding: 20, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   dateText: { fontSize: 13, marginBottom: 4 },
@@ -402,7 +535,7 @@ const st = StyleSheet.create({
   macroCard: { flex: 1, borderRadius: 14, padding: 14, alignItems: 'center' },
   macroVal: { fontSize: 22, marginBottom: 2 },
   macroLabel: { fontSize: 11, marginBottom: 8 },
-  macroTrack: { width: '100%', height: 4, borderRadius: 2 },
+  macroTrack: { width: '100%', height: 4, borderRadius: 2, overflow: 'hidden' },
   macroFill: { height: 4, borderRadius: 2 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 20 },

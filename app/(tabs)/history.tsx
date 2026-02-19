@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
+import { logBelongsToMealGroup } from '@/src/utils/meals';
 
 function getLocalDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -66,6 +68,7 @@ export default function HistoryScreen() {
   useFocusEffect(useCallback(() => { loadData(selectedDate); }, [selectedDate, loadData]));
 
   const selectDate = (date: string) => {
+    Haptics.selectionAsync();
     setSelectedDate(date);
     setLoading(true);
     loadData(date);
@@ -88,7 +91,7 @@ export default function HistoryScreen() {
   const totalFat = logs.reduce((sum: number, l: any) => sum + getNutrition(l).fat, 0);
 
   const renderMealGroup = (meal: string, label: string) => {
-    const mealLogs = logs.filter((l: any) => l.meal === meal);
+    const mealLogs = logs.filter((l: any) => logBelongsToMealGroup(l.meal, meal));
     const mealCals = mealLogs.reduce((sum: number, l: any) => sum + getNutrition(l).cal, 0);
     return (
       <View key={meal} style={{ marginBottom: 20 }}>

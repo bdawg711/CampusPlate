@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -6,6 +6,9 @@ import Animated, {
   useAnimatedProps,
   withSpring,
   withTiming,
+  useDerivedValue,
+  useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -47,10 +50,26 @@ export default function WaterTracker({ consumed, goal, onAddWater, onRemoveWater
   // — Ring fill animation —
   const dashOffset = useSharedValue(CIRCUMFERENCE);
 
+  // — Counting number animation —
+  const animatedConsumed = useSharedValue(consumed);
+  const [displayConsumed, setDisplayConsumed] = useState(consumed);
+
   useEffect(() => {
     const progress = Math.min(consumed / goal, 1);
     dashOffset.value = withTiming(CIRCUMFERENCE * (1 - progress), { duration: 400 });
+    animatedConsumed.value = withTiming(consumed, { duration: 300 });
   }, [consumed, goal]);
+
+  // Bridge animated value to JS state for display
+  useAnimatedReaction(
+    () => Math.round(animatedConsumed.value),
+    (current, prev) => {
+      if (current !== prev) {
+        runOnJS(setDisplayConsumed)(current);
+      }
+    },
+    [animatedConsumed]
+  );
 
   const animatedRingProps = useAnimatedProps(() => ({
     strokeDashoffset: dashOffset.value,
@@ -114,7 +133,7 @@ export default function WaterTracker({ consumed, goal, onAddWater, onRemoveWater
           Hydration
         </Text>
         <Text style={[st.counter, { color: colors.textMuted, fontFamily: 'DMSans_500Medium' }]}>
-          {consumed} / {goal} oz
+          {displayConsumed} / {goal} oz
         </Text>
       </View>
 
@@ -149,7 +168,7 @@ export default function WaterTracker({ consumed, goal, onAddWater, onRemoveWater
           {/* Center text — absolutely positioned over the ring */}
           <View style={st.ringCenter}>
             <Text style={[st.ringNumber, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>
-              {consumed}
+              {displayConsumed}
             </Text>
             <Text style={[st.ringUnit, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>
               oz

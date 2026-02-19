@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Easing,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -11,9 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
+import { getMealQueryValues, getCurrentMealPeriod } from '@/src/utils/meals';
+import Skeleton from '@/src/components/Skeleton';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 function getLocalDate(offset = 0) {
   const d = new Date();
@@ -22,11 +29,7 @@ function getLocalDate(offset = 0) {
 }
 
 function autoMeal(): string {
-  const h = new Date().getHours();
-  const m = new Date().getMinutes();
-  if (h < 10 || (h === 10 && m < 30)) return 'Breakfast';
-  if (h < 16) return 'Lunch';
-  return 'Dinner';
+  return getCurrentMealPeriod();
 }
 
 const STATION_EMOJIS: Record<string, string> = {
@@ -45,6 +48,38 @@ function getStationEmoji(name: string): string {
 }
 
 type ViewState = 'halls' | 'stations' | 'items' | 'detail';
+
+// ─── Pressable card with spring scale effect ───
+function PressableCard({ children, onPress, style, haptic = 'light' }: {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: any;
+  haptic?: 'light' | 'medium' | 'none';
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
+  };
+
+  const handlePress = () => {
+    if (haptic === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    else if (haptic === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity activeOpacity={1} onPress={handlePress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View style={[style, { transform: [{ scale }] }]}>
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
 
 export default function BrowseScreen() {
   const { colors } = useTheme();
@@ -69,6 +104,38 @@ export default function BrowseScreen() {
   const [logSuccess, setLogSuccess] = useState(false);
   const [cameFromSearch, setCameFromSearch] = useState(false);
 
+  // ─── View transition animation ───
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const directionRef = useRef<'forward' | 'back'>('forward');
+
+  // ─── Toast animation ───
+  const toastAnim = useRef(new Animated.Value(-60)).current;
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastCal, setToastCal] = useState(0);
+  const [showToast, setShowToast] = useState(false);
+
+  const animateTransition = (direction: 'forward' | 'back', callback: () => void) => {
+    directionRef.current = direction;
+    const exitX = direction === 'forward' ? -SCREEN_WIDTH * 0.3 : SCREEN_WIDTH * 0.3;
+    const enterX = direction === 'forward' ? SCREEN_WIDTH * 0.3 : -SCREEN_WIDTH * 0.3;
+
+    // Fade out + slide out
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: exitX, duration: 100, useNativeDriver: true }),
+    ]).start(() => {
+      callback();
+      // Reset position to enter side
+      slideAnim.setValue(enterX);
+      // Fade in + slide in
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 150, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    });
+  };
+
   const date = getLocalDate(dayOffset);
 
   const loadHalls = useCallback(async () => {
@@ -84,7 +151,7 @@ export default function BrowseScreen() {
         .from('menu_items')
         .select('dining_hall_id, id')
         .eq('date', date)
-        .eq('meal', meal);
+        .in('meal', getMealQueryValues(meal));
 
       const counts: Record<number, number> = {};
       (itemCounts || []).forEach((i: any) => {
@@ -102,6 +169,8 @@ export default function BrowseScreen() {
   useFocusEffect(useCallback(() => {
     setView('halls');
     setSearch('');
+    slideAnim.setValue(0);
+    fadeAnim.setValue(1);
     loadHalls();
   }, [loadHalls]));
 
@@ -120,7 +189,7 @@ export default function BrowseScreen() {
           .from('menu_items')
           .select('id, name, station, dining_hall_id, dining_halls(name), nutrition(*), dietary_flags')
           .eq('date', date)
-          .eq('meal', meal)
+          .in('meal', getMealQueryValues(meal))
           .ilike('name', `%${search}%`)
           .limit(30);
         setSearchResults(data || []);
@@ -130,15 +199,17 @@ export default function BrowseScreen() {
   }, [search, date, meal]);
 
   const openHall = async (hall: any) => {
-    setSelectedHall(hall);
-    setView('stations');
+    animateTransition('forward', () => {
+      setSelectedHall(hall);
+      setView('stations');
+    });
     try {
       const { data } = await supabase
         .from('menu_items')
         .select('station')
         .eq('dining_hall_id', hall.id)
         .eq('date', date)
-        .eq('meal', meal);
+        .in('meal', getMealQueryValues(meal));
 
       const stationMap: Record<string, number> = {};
       (data || []).forEach((i: any) => {
@@ -152,15 +223,17 @@ export default function BrowseScreen() {
   };
 
   const openStation = async (stationName: string) => {
-    setSelectedStation(stationName);
-    setView('items');
+    animateTransition('forward', () => {
+      setSelectedStation(stationName);
+      setView('items');
+    });
     try {
       const { data } = await supabase
         .from('menu_items')
         .select('id, name, station, dietary_flags, nutrition(*)')
         .eq('dining_hall_id', selectedHall?.id)
         .eq('date', date)
-        .eq('meal', meal)
+        .in('meal', getMealQueryValues(meal))
         .eq('station', stationName)
         .order('name');
       setItems(data || []);
@@ -170,15 +243,41 @@ export default function BrowseScreen() {
   };
 
   const openDetail = (item: any) => {
-    setSelectedItem(item);
-    setServings(1);
-    setLogSuccess(false);
-    setView('detail');
+    animateTransition('forward', () => {
+      setSelectedItem(item);
+      setServings(1);
+      setLogSuccess(false);
+      setView('detail');
+    });
+  };
+
+  const showLogToast = (calories: number) => {
+    setToastCal(calories);
+    setShowToast(true);
+    toastAnim.setValue(-60);
+    toastOpacity.setValue(0);
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Slide in
+    Animated.parallel([
+      Animated.spring(toastAnim, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 6 }),
+      Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+
+    // Auto dismiss after 2 seconds
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(toastAnim, { toValue: -60, duration: 300, useNativeDriver: true }),
+        Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start(() => setShowToast(false));
+    }, 2000);
   };
 
   const logMeal = async () => {
     if (!selectedItem) return;
     setLogging(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const userId = await requireUserId();
       await supabase.from('meal_logs').insert({
@@ -189,9 +288,22 @@ export default function BrowseScreen() {
         servings,
       });
       setLogSuccess(true);
+
+      const n = getNutr(selectedItem);
+      const adjCal = Math.round(n.cal * servings);
+
+      showLogToast(adjCal);
+
       setTimeout(() => {
-        setView('items');
-        setLogSuccess(false);
+        animateTransition('back', () => {
+          if (cameFromSearch) {
+            setView('halls');
+            setCameFromSearch(false);
+          } else {
+            setView('items');
+          }
+          setLogSuccess(false);
+        });
       }, 800);
     } catch (e) {
       console.error('Log error:', e);
@@ -201,16 +313,17 @@ export default function BrowseScreen() {
   };
 
   const goBack = () => {
-    if (view === 'detail') {
-      if (cameFromSearch) {
-        setView('halls');
-        setCameFromSearch(false);
-      } else {
-        setView('items');
-      }
-    }
-    else if (view === 'items') setView('stations');
-    else if (view === 'stations') setView('halls');
+    animateTransition('back', () => {
+      if (view === 'detail') {
+        if (cameFromSearch) {
+          setView('halls');
+          setCameFromSearch(false);
+        } else {
+          setView('items');
+        }
+      } else if (view === 'items') setView('stations');
+      else if (view === 'stations') setView('halls');
+    });
   };
 
   const getNutr = (item: any) => {
@@ -250,6 +363,20 @@ export default function BrowseScreen() {
   };
 
   const hallEmojis = ['🏛️', '🍔', '🍗', '🌮', '🎓', '🏢'];
+
+  // ─── Toast overlay ───
+  const renderToast = () => {
+    if (!showToast) return null;
+    return (
+      <Animated.View style={[st.toast, {
+        backgroundColor: colors.green,
+        transform: [{ translateY: toastAnim }],
+        opacity: toastOpacity,
+      }]}>
+        <Text style={st.toastText}>Logged! +{toastCal} cal</Text>
+      </Animated.View>
+    );
+  };
 
   // ─── RENDER ────────────────────────────────────
 
@@ -313,7 +440,10 @@ export default function BrowseScreen() {
         <TouchableOpacity
           key={m}
           style={[st.filterChip, { backgroundColor: meal === m ? colors.maroon : colors.card, borderColor: meal === m ? colors.maroon : colors.border, borderWidth: 1 }]}
-          onPress={() => setMeal(m)}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setMeal(m);
+          }}
         >
           <Text style={[st.filterChipText, { color: meal === m ? '#fff' : colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{m}</Text>
         </TouchableOpacity>
@@ -321,10 +451,18 @@ export default function BrowseScreen() {
     </View>
   );
 
+  // Wrap content in animated view for transitions
+  const wrapAnimated = (content: React.ReactNode) => (
+    <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
+      {content}
+    </Animated.View>
+  );
+
   // Search results
   if (search.length >= 2 && view === 'halls') {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
+        {renderToast()}
         <View style={st.pad}>
           {renderHeader()}
           {renderSearchBar()}
@@ -341,6 +479,7 @@ export default function BrowseScreen() {
               const hallName = item.dining_halls?.name || '';
               return (
                 <TouchableOpacity key={item.id} style={[st.foodRow, { borderBottomColor: colors.border }]} onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedItem(item);
                   setSelectedHall({ name: hallName });
                   setServings(1);
@@ -368,44 +507,51 @@ export default function BrowseScreen() {
   if (view === 'halls') {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.maroon} />}
-          contentContainerStyle={st.pad}
-        >
-          {renderHeader()}
-          {renderSearchBar()}
-          {renderMealFilter()}
+        {renderToast()}
+        {wrapAnimated(
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.maroon} />}
+            contentContainerStyle={st.pad}
+          >
+            {renderHeader()}
+            {renderSearchBar()}
+            {renderMealFilter()}
 
-          {loading ? (
-            <View style={{ paddingTop: 40, alignItems: 'center' }}><ActivityIndicator size="large" color={colors.maroon} /></View>
-          ) : halls.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingTop: 40 }}>
-              <Text style={{ fontSize: 32 }}>🏛️</Text>
-              <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>No halls found</Text>
-            </View>
-          ) : (
-            halls.map((hall, i) => (
-              <TouchableOpacity
-                key={hall.id}
-                style={[st.hallCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
-                onPress={() => openHall(hall)}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontSize: 36, marginRight: 14 }}>{hallEmojis[i] || '🏛️'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{hall.name}</Text>
-                  <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{hall.count} items</Text>
-                </View>
-                {hall.count > 0 && (
-                  <View style={[st.countBadge, { backgroundColor: colors.maroon }]}>
-                    <Text style={[{ fontSize: 11, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>{hall.count}</Text>
+            {loading ? (
+              <View style={{ gap: 12 }}>
+                <Skeleton width={'100%'} height={80} borderRadius={20} />
+                <Skeleton width={'100%'} height={80} borderRadius={20} />
+                <Skeleton width={'100%'} height={80} borderRadius={20} />
+                <Skeleton width={'100%'} height={80} borderRadius={20} />
+              </View>
+            ) : halls.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <Text style={{ fontSize: 32 }}>🏛️</Text>
+                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>No halls found</Text>
+              </View>
+            ) : (
+              halls.map((hall, i) => (
+                <PressableCard
+                  key={hall.id}
+                  onPress={() => openHall(hall)}
+                  style={[st.hallCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+                >
+                  <Text style={{ fontSize: 36, marginRight: 14 }}>{hallEmojis[i] || '🏛️'}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{hall.name}</Text>
+                    <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{hall.count} items</Text>
                   </View>
-                )}
-              </TouchableOpacity>
-            ))
-          )}
-        </ScrollView>
+                  {hall.count > 0 && (
+                    <View style={[st.countBadge, { backgroundColor: colors.maroon }]}>
+                      <Text style={[{ fontSize: 11, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>{hall.count}</Text>
+                    </View>
+                  )}
+                </PressableCard>
+              ))
+            )}
+          </ScrollView>
+        )}
       </SafeAreaView>
     );
   }
@@ -414,36 +560,39 @@ export default function BrowseScreen() {
   if (view === 'stations') {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false}>
-          {renderHeader()}
-          <TextInput
-            style={[st.searchInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text, fontFamily: 'DMSans_400Regular' }]}
-            placeholder={`🔍 Search in ${selectedHall?.name}...`}
-            placeholderTextColor={colors.textDim}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {stations.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingTop: 40 }}>
-              <Text style={{ fontSize: 32 }}>🍽️</Text>
-              <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>No stations for this meal</Text>
-            </View>
-          ) : (
-            <View style={st.stationGrid}>
-              {stations.map((s) => (
-                <TouchableOpacity
-                  key={s.name}
-                  style={[st.stationCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
-                  onPress={() => openStation(s.name)}
-                >
-                  <Text style={{ fontSize: 28, marginBottom: 8 }}>{getStationEmoji(s.name)}</Text>
-                  <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold', textAlign: 'center' }]} numberOfLines={2}>{s.name}</Text>
-                  <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>{s.count} items</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </ScrollView>
+        {renderToast()}
+        {wrapAnimated(
+          <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false}>
+            {renderHeader()}
+            <TextInput
+              style={[st.searchInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text, fontFamily: 'DMSans_400Regular' }]}
+              placeholder={`🔍 Search in ${selectedHall?.name}...`}
+              placeholderTextColor={colors.textDim}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {stations.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <Text style={{ fontSize: 32 }}>🍽️</Text>
+                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>No stations for this meal</Text>
+              </View>
+            ) : (
+              <View style={st.stationGrid}>
+                {stations.map((s) => (
+                  <PressableCard
+                    key={s.name}
+                    onPress={() => openStation(s.name)}
+                    style={[st.stationCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+                  >
+                    <Text style={{ fontSize: 28, marginBottom: 8 }}>{getStationEmoji(s.name)}</Text>
+                    <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold', textAlign: 'center' }]} numberOfLines={2}>{s.name}</Text>
+                    <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>{s.count} items</Text>
+                  </PressableCard>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        )}
       </SafeAreaView>
     );
   }
@@ -452,45 +601,48 @@ export default function BrowseScreen() {
   if (view === 'items') {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false}>
-          {renderHeader()}
-          {items.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingTop: 40 }}>
-              <Text style={{ fontSize: 32 }}>🍽️</Text>
-              <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>No items found</Text>
-            </View>
-          ) : (
-            items.map((item, i) => {
-              const n = getNutr(item);
-              const badge = getDietaryBadge(item.dietary_flags);
-              return (
-                <TouchableOpacity key={item.id} onPress={() => openDetail(item)}>
-                  <View style={st.itemRow}>
-                    <View style={[st.itemDot, { backgroundColor: getDotColor(item.dietary_flags) }]} />
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={[{ fontSize: 15, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]} numberOfLines={1}>{item.name}</Text>
-                        {badge && (
-                          <View style={[st.badge, { backgroundColor: badge.color + '22' }]}>
-                            <Text style={[{ fontSize: 10, color: badge.color, fontFamily: 'DMSans_700Bold' }]}>{badge.text}</Text>
-                          </View>
-                        )}
+        {renderToast()}
+        {wrapAnimated(
+          <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false}>
+            {renderHeader()}
+            {items.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <Text style={{ fontSize: 32 }}>🍽️</Text>
+                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>No items found</Text>
+              </View>
+            ) : (
+              items.map((item, i) => {
+                const n = getNutr(item);
+                const badge = getDietaryBadge(item.dietary_flags);
+                return (
+                  <TouchableOpacity key={item.id} onPress={() => openDetail(item)}>
+                    <View style={st.itemRow}>
+                      <View style={[st.itemDot, { backgroundColor: getDotColor(item.dietary_flags) }]} />
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={[{ fontSize: 15, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]} numberOfLines={1}>{item.name}</Text>
+                          {badge && (
+                            <View style={[st.badge, { backgroundColor: badge.color + '22' }]}>
+                              <Text style={[{ fontSize: 10, color: badge.color, fontFamily: 'DMSans_700Bold' }]}>{badge.text}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
+                          P: {n.pro}g · C: {n.carb}g · F: {n.fat}g
+                        </Text>
                       </View>
-                      <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
-                        P: {n.pro}g · C: {n.carb}g · F: {n.fat}g
-                      </Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{n.cal}</Text>
+                        <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>cal</Text>
+                      </View>
                     </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{n.cal}</Text>
-                      <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>cal</Text>
-                    </View>
-                  </View>
-                  {i < items.length - 1 && <View style={[st.divider, { backgroundColor: colors.border }]} />}
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </ScrollView>
+                    {i < items.length - 1 && <View style={[st.divider, { backgroundColor: colors.border }]} />}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+        )}
       </SafeAreaView>
     );
   }
@@ -520,99 +672,107 @@ export default function BrowseScreen() {
 
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={[st.pad, { paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
-          {renderHeader()}
+        {renderToast()}
+        {wrapAnimated(
+          <>
+            <ScrollView contentContainerStyle={[st.pad, { paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
+              {renderHeader()}
 
-          {/* Top card */}
-          <View style={[st.detailCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-            <Text style={[{ fontSize: 12, color: colors.textMuted, textAlign: 'center', fontFamily: 'DMSans_400Regular' }]}>
-              {selectedItem.station} · {selectedHall?.name}
-            </Text>
-            <Text style={[{ fontSize: 42, color: colors.text, textAlign: 'center', fontFamily: 'Outfit_800ExtraBold', marginVertical: 8 }]}>
-              {adjCal}
-            </Text>
-            <Text style={[{ fontSize: 13, color: colors.textMuted, textAlign: 'center', fontFamily: 'DMSans_400Regular' }]}>
-              calories per serving
-            </Text>
-            <View style={st.macroRow}>
-              {[
-                { label: 'Protein', val: `${Math.round(n.pro * servings)}g`, color: colors.blue },
-                { label: 'Carbs', val: `${Math.round(n.carb * servings)}g`, color: colors.orange },
-                { label: 'Fat', val: `${Math.round(n.fat * servings)}g`, color: colors.yellow },
-              ].map((m) => (
-                <View key={m.label} style={{ alignItems: 'center' }}>
-                  <Text style={[{ fontSize: 20, color: m.color, fontFamily: 'Outfit_700Bold' }]}>{m.val}</Text>
-                  <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{m.label}</Text>
+              {/* Top card */}
+              <View style={[st.detailCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+                <Text style={[{ fontSize: 12, color: colors.textMuted, textAlign: 'center', fontFamily: 'DMSans_400Regular' }]}>
+                  {selectedItem.station} · {selectedHall?.name}
+                </Text>
+                <Text style={[{ fontSize: 42, color: colors.text, textAlign: 'center', fontFamily: 'Outfit_800ExtraBold', marginVertical: 8 }]}>
+                  {adjCal}
+                </Text>
+                <Text style={[{ fontSize: 13, color: colors.textMuted, textAlign: 'center', fontFamily: 'DMSans_400Regular' }]}>
+                  calories per serving
+                </Text>
+                <View style={st.macroRow}>
+                  {[
+                    { label: 'Protein', val: `${Math.round(n.pro * servings)}g`, color: colors.blue },
+                    { label: 'Carbs', val: `${Math.round(n.carb * servings)}g`, color: colors.orange },
+                    { label: 'Fat', val: `${Math.round(n.fat * servings)}g`, color: colors.yellow },
+                  ].map((m) => (
+                    <View key={m.label} style={{ alignItems: 'center' }}>
+                      <Text style={[{ fontSize: 20, color: m.color, fontFamily: 'Outfit_700Bold' }]}>{m.val}</Text>
+                      <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{m.label}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Servings */}
-          <View style={{ marginTop: 20 }}>
-            <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginBottom: 10 }]}>Servings</Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {[0.5, 1, 1.5, 2].map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[st.servingChip, { backgroundColor: servings === s ? colors.maroon : colors.card, borderColor: servings === s ? colors.maroon : colors.border, borderWidth: 1 }]}
-                  onPress={() => setServings(s)}
-                >
-                  <Text style={[{ fontSize: 14, color: servings === s ? '#fff' : colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Nutrition grid */}
-          <View style={st.nutritionGrid}>
-            {nutritionGrid.map((item) => (
-              <View key={item.label} style={[st.nutritionCell, { backgroundColor: colors.cardAlt }]}>
-                <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{item.val}</Text>
-                <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{item.label}</Text>
               </View>
-            ))}
-          </View>
 
-          {/* Dietary badges */}
-          {selectedItem.dietary_flags && selectedItem.dietary_flags.length > 0 && (
-            <View style={[st.flagRow, { marginTop: 16 }]}>
-              {selectedItem.dietary_flags.map((flag: string) => (
-                <View key={flag} style={[st.flagPill, { backgroundColor: colors.green + '22' }]}>
-                  <Text style={[{ fontSize: 12, color: colors.green, fontFamily: 'DMSans_600SemiBold' }]}>{flag}</Text>
+              {/* Servings */}
+              <View style={{ marginTop: 20 }}>
+                <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginBottom: 10 }]}>Servings</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[0.5, 1, 1.5, 2].map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      style={[st.servingChip, { backgroundColor: servings === s ? colors.maroon : colors.card, borderColor: servings === s ? colors.maroon : colors.border, borderWidth: 1 }]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setServings(s);
+                      }}
+                    >
+                      <Text style={[{ fontSize: 14, color: servings === s ? '#fff' : colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{s}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              ))}
-            </View>
-          )}
+              </View>
 
-          {/* Ingredients */}
-          {selectedItem.ingredients && (
-            <View style={[st.ingredientCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-              <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginBottom: 8 }]}>Ingredients</Text>
-              <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', lineHeight: 18 }]}>{selectedItem.ingredients}</Text>
-            </View>
-          )}
-        </ScrollView>
+              {/* Nutrition grid */}
+              <View style={st.nutritionGrid}>
+                {nutritionGrid.map((item) => (
+                  <View key={item.label} style={[st.nutritionCell, { backgroundColor: colors.cardAlt }]}>
+                    <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{item.val}</Text>
+                    <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{item.label}</Text>
+                  </View>
+                ))}
+              </View>
 
-        {/* Fixed footer */}
-        <View style={[st.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-          <Text style={[{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: 10, fontFamily: 'DMSans_400Regular' }]}>
-            {adjCal} cal · {servings} serving{servings !== 1 ? 's' : ''}
-          </Text>
-          <TouchableOpacity
-            style={[st.logBtn, { backgroundColor: logSuccess ? colors.green : colors.orange, opacity: logging ? 0.6 : 1 }]}
-            onPress={logMeal}
-            disabled={logging || logSuccess}
-          >
-            {logging ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
-                {logSuccess ? 'Logged! ✓' : 'Log This Meal ✓'}
+              {/* Dietary badges */}
+              {selectedItem.dietary_flags && selectedItem.dietary_flags.length > 0 && (
+                <View style={[st.flagRow, { marginTop: 16 }]}>
+                  {selectedItem.dietary_flags.map((flag: string) => (
+                    <View key={flag} style={[st.flagPill, { backgroundColor: colors.green + '22' }]}>
+                      <Text style={[{ fontSize: 12, color: colors.green, fontFamily: 'DMSans_600SemiBold' }]}>{flag}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Ingredients */}
+              {selectedItem.ingredients && (
+                <View style={[st.ingredientCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+                  <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginBottom: 8 }]}>Ingredients</Text>
+                  <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', lineHeight: 18 }]}>{selectedItem.ingredients}</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Fixed footer */}
+            <View style={[st.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+              <Text style={[{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: 10, fontFamily: 'DMSans_400Regular' }]}>
+                {adjCal} cal · {servings} serving{servings !== 1 ? 's' : ''}
               </Text>
-            )}
-          </TouchableOpacity>
-        </View>
+              <TouchableOpacity
+                style={[st.logBtn, { backgroundColor: logSuccess ? colors.green : colors.orange, opacity: logging ? 0.6 : 1 }]}
+                onPress={logMeal}
+                disabled={logging || logSuccess}
+              >
+                {logging ? (
+                  <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>Logging...</Text>
+                ) : (
+                  <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
+                    {logSuccess ? 'Logged! ✓' : 'Log This Meal ✓'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </SafeAreaView>
     );
   }
@@ -651,4 +811,25 @@ const st = StyleSheet.create({
   footer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, borderTopWidth: 1 },
   logBtn: { padding: 16, borderRadius: 14, alignItems: 'center' },
   foodRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
+  toast: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    zIndex: 100,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: 'DMSans_700Bold',
+  },
 });

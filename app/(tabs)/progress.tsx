@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -40,6 +41,7 @@ export default function ProgressScreen() {
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [streak, setStreak] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [showWeightInput, setShowWeightInput] = useState(false);
   const [weightInput, setWeightInput] = useState('');
   const [savingWeight, setSavingWeight] = useState(false);
@@ -134,7 +136,21 @@ export default function ProgressScreen() {
 
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={st.pad}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadData();
+              setRefreshing(false);
+            }}
+            tintColor={colors.maroon}
+          />
+        }
+      >
         <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Progress</Text>
 
         {/* Streak Card */}
