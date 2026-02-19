@@ -53,7 +53,7 @@ READ THIS FILE BEFORE STARTING ANY TASK.
 - [x] 5.3 — Add loading skeletons for For You — added forYouLoading state, renderForYouSkeletonRow() shows 3 skeleton cards per row (3 rows total) using existing Skeleton component, skeletons display while collections load and on pull-to-refresh
 - [x] 1.4 — Add Favorites Today collection to For You — already implemented in 5.2: "Your Favorites Today" horizontal row calls getFavoritesOnTodaysMenu() via getFavoritesToday(), shows tappable cards with name, calories, hall name (via hallNames lookup), hidden when no favorites on today's menu
 - [x] 2.5 — Build reviews list below stations in hall detail — "Recent Reviews" section after station cards, calls getHallReviews() (limit 10), each card shows star rating (⭐/☆), reviewer first name, date, review text. Loading skeletons while fetching, empty state with emoji. Reviews refresh after submitting a rating.
-- [ ] 4.6 — Build meal plan view on dashboard
+- [x] 4.6 — Build meal plan view on dashboard — "Meal Plans" section between For You and Today's Meals. Date switcher chips for Tomorrow/+2/+3 days. Calls getPlannedMeals() on day switch. Summary card shows "Planned: X cal / Goal: Y cal" with progress bar + P/C/F vs goals. Items grouped by meal (Breakfast/Lunch/Dinner) with per-meal calorie totals. Loading skeletons, empty state with "Browse Menus" CTA.
 - [ ] 6.1 — Audit current For You buttons (document findings here)
 - [ ] 6.2 — Wire See All links on each collection
 - [ ] 6.3 — Handle filter params in browse tab
