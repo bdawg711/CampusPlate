@@ -32,19 +32,31 @@ function autoMeal(): string {
   return getCurrentMealPeriod();
 }
 
-const STATION_EMOJIS: Record<string, string> = {
-  grill: '🔥', pizza: '🍕', salad: '🥗', deli: '🥪', soup: '🍲',
-  pasta: '🍝', asian: '🍜', mexican: '🌮', chicken: '🍗', bakery: '🧁',
-  breakfast: '🥞', sushi: '🍣', sandwich: '🥪', burger: '🍔', bbq: '🍖',
-  default: '🍴',
-};
+const STATION_EMOJI_RULES: [string[], string][] = [
+  [['grill', 'burger', 'chop'], '🔥'],
+  [['salad', 'eden'], '🥗'],
+  [['pizza', 'mangia'], '🍕'],
+  [['deli', 'sandwich'], '🥪'],
+  [['pasta', 'noodle'], '🍝'],
+  [['sushi', 'origami', 'asian'], '🍣'],
+  [['mexican', 'salsa', 'qdoba', 'taco'], '🌮'],
+  [['bakery', 'patisserie', 'sweets', 'dessert'], '🧁'],
+  [['soup'], '🍜'],
+  [['chicken', 'chick-fil'], '🍗'],
+  [['coffee', 'dunkin', 'juice', 'smoothie', 'jamba'], '☕'],
+  [['bbq', 'smoke'], '🍖'],
+  [['breakfast', 'waffle', 'pancake', 'egg'], '🍳'],
+  [['byo', 'bowl'], '🥣'],
+  [['market', 'grab', 'express', 'dx'], '🏪'],
+  [['corner'], '🍴'],
+];
 
-function getStationEmoji(name: string): string {
-  const lower = name.toLowerCase();
-  for (const [key, emoji] of Object.entries(STATION_EMOJIS)) {
-    if (key !== 'default' && lower.includes(key)) return emoji;
+function getStationEmoji(stationName: string): string {
+  const lower = stationName.toLowerCase();
+  for (const [keywords, emoji] of STATION_EMOJI_RULES) {
+    if (keywords.some((kw) => lower.includes(kw))) return emoji;
   }
-  return STATION_EMOJIS.default;
+  return '🍽️';
 }
 
 type ViewState = 'halls' | 'stations' | 'items' | 'detail';
@@ -584,9 +596,9 @@ export default function BrowseScreen() {
                     onPress={() => openStation(s.name)}
                     style={[st.stationCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
                   >
-                    <Text style={{ fontSize: 28, marginBottom: 8 }}>{getStationEmoji(s.name)}</Text>
-                    <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold', textAlign: 'center' }]} numberOfLines={2}>{s.name}</Text>
-                    <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>{s.count} items</Text>
+                    <Text style={{ fontSize: 26 }}>{getStationEmoji(s.name)}</Text>
+                    <Text style={[{ fontSize: 12, color: colors.text, fontFamily: 'DMSans_600SemiBold', textAlign: 'center' }]} numberOfLines={2}>{s.name}</Text>
+                    <Text style={[st.stationItemCount, { color: colors.textMuted }]}>{s.count} items</Text>
                   </PressableCard>
                 ))}
               </View>
@@ -795,7 +807,8 @@ const st = StyleSheet.create({
   hallCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, marginBottom: 12 },
   countBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, position: 'absolute', top: 12, right: 12 },
   stationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
-  stationCard: { width: '48%', padding: 16, borderRadius: 14, alignItems: 'center' },
+  stationCard: { width: (SCREEN_WIDTH - 40 - 10) / 2, height: 100, padding: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  stationItemCount: { fontSize: 11, fontFamily: 'DMSans_400Regular', position: 'absolute', bottom: 8 },
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
   itemDot: { width: 8, height: 8, borderRadius: 4, marginRight: 12 },
   badge: { marginLeft: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
