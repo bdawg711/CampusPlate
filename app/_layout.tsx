@@ -113,12 +113,16 @@ function RootContent() {
   useEffect(() => {
     if (!session || !onboardingComplete) return;
 
-    notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (data?.screen === 'browse' && data?.meal) {
-        router.push({ pathname: '/(tabs)/browse', params: { meal: data.meal as string } });
-      }
-    });
+    try {
+      notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        if (data?.screen === 'browse' && data?.meal) {
+          router.push({ pathname: '/(tabs)/browse', params: { meal: data.meal as string } });
+        }
+      });
+    } catch (e) {
+      console.warn('[Notifications] Failed to add notification response listener:', e);
+    }
 
     return () => {
       notificationResponseListener.current?.remove();

@@ -69,14 +69,23 @@ export default function ReminderSettings({ visible, onClose }: ReminderSettingsP
 
     // Request permissions on first enable
     if (newEnabled) {
-      const token = await registerForPushNotifications();
-      if (!token) {
+      try {
+        const token = await registerForPushNotifications();
+        if (!token) {
+          Alert.alert(
+            'Notifications Disabled',
+            'Please enable notifications in your device settings to use meal reminders.',
+            [{ text: 'OK' }],
+          );
+          return;
+        }
+      } catch (e) {
+        console.warn('[Reminders] Failed to register for notifications:', e);
         Alert.alert(
-          'Notifications Disabled',
-          'Please enable notifications in your device settings to use meal reminders.',
+          'Notifications Unavailable',
+          'Notifications are not available in this environment. Your reminder preferences will still be saved.',
           [{ text: 'OK' }],
         );
-        return;
       }
     }
 

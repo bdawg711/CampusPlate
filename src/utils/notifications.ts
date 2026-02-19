@@ -1,6 +1,7 @@
 import { Platform, Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -24,50 +25,76 @@ const DEFAULT_REMINDERS: MealReminders = [
 
 // ── Notification channel (Android) ──────────────────────────────────────────
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch (e) {
+  console.warn('[Notifications] setNotificationHandler not available:', e);
+}
 
 // ── Public functions ────────────────────────────────────────────────────────
 
 /**
  * Request notification permissions and return the Expo push token.
- * Returns null if permissions are denied or device is not physical.
+ * Returns null if permissions are denied, device is not physical,
+ * or notifications are not available (e.g. Expo Go limitations).
  */
 export async function registerForPushNotifications(): Promise<string | null> {
   if (!Device.isDevice) {
-    Alert.alert('Physical device required', 'Push notifications only work on a real device.');
+    console.warn('[Notifications] Not a physical device — push notifications unavailable.');
     return null;
   }
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
+  try {
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let finalStatus = existing;
 
-  if (existing !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
+    if (existing !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
 
-  if (finalStatus !== 'granted') {
+    if (finalStatus !== 'granted') {
+      return null;
+    }
+
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync('meal-reminders', {
+          name: 'Meal Reminders',
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: 'default',
+        });
+      } catch (e) {
+        console.warn('[Notifications] Failed to set Android notification channel:', e);
+      }
+    }
+
+    // In Expo Go, getExpoPushTokenAsync requires a projectId
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId
+      ?? Constants.easConfig?.projectId;
+
+    try {
+      const tokenData = await Notifications.getExpoPushTokenAsync(
+        projectId ? { projectId } : undefined
+      );
+      return tokenData.data;
+    } catch (e) {
+      console.warn('[Notifications] Failed to get push token (expected in Expo Go):', e);
+      // Return a placeholder so local notifications still work even without push token
+      return 'local-only';
+    }
+  } catch (e) {
+    console.warn('[Notifications] registerForPushNotifications failed:', e);
     return null;
   }
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('meal-reminders', {
-      name: 'Meal Reminders',
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
-    });
-  }
-
-  const tokenData = await Notifications.getExpoPushTokenAsync();
-  return tokenData.data;
 }
 
 /**
@@ -76,25 +103,33 @@ export async function registerForPushNotifications(): Promise<string | null> {
  * Includes deep-link data: { screen: 'browse', meal: '<MealName>' }.
  */
 export async function scheduleMealReminders(reminders: MealReminders): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch (e) {
+    console.warn('[Notifications] Failed to cancel existing notifications:', e);
+  }
 
   for (const reminder of reminders) {
     if (!reminder.enabled) continue;
 
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `${reminder.meal} time!`,
-        body: `Don't forget to eat and log your ${reminder.meal.toLowerCase()}.`,
-        sound: 'default',
-        data: { screen: 'browse', meal: reminder.meal },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: reminder.hour,
-        minute: reminder.minute,
-        channelId: Platform.OS === 'android' ? 'meal-reminders' : undefined,
-      },
-    });
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `${reminder.meal} time!`,
+          body: `Don't forget to eat and log your ${reminder.meal.toLowerCase()}.`,
+          sound: 'default',
+          data: { screen: 'browse', meal: reminder.meal },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: reminder.hour,
+          minute: reminder.minute,
+          channelId: Platform.OS === 'android' ? 'meal-reminders' : undefined,
+        },
+      });
+    } catch (e) {
+      console.warn(`[Notifications] Failed to schedule ${reminder.meal} reminder:`, e);
+    }
   }
 }
 
@@ -144,5 +179,9 @@ export async function loadMealReminders(userId: string): Promise<MealReminders> 
  * Cancel all scheduled notifications.
  */
 export async function cancelAllNotifications(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch (e) {
+    console.warn('[Notifications] Failed to cancel all notifications:', e);
+  }
 }
