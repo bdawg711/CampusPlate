@@ -15,6 +15,8 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId, signOut } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { setWaterGoal } from '@/src/utils/water';
+import EditGoals from '@/src/components/EditGoals';
+import { Goals, getGoals, saveCustomGoals, recalculateGoals } from '@/src/utils/goals';
 
 export default function MoreScreen() {
   const { mode, colors, toggleTheme } = useTheme();
@@ -22,6 +24,13 @@ export default function MoreScreen() {
   const [loading, setLoading] = useState(true);
   const [streak, setStreak] = useState(0);
   const [waterGoalOz, setWaterGoalOz] = useState<number>(64);
+  const [goalsModalVisible, setGoalsModalVisible] = useState(false);
+  const [currentGoals, setCurrentGoals] = useState<Goals>({
+    goalCalories: 2000,
+    goalProtein: 150,
+    goalCarbs: 200,
+    goalFat: 65,
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -35,6 +44,9 @@ export default function MoreScreen() {
         setProfile(data);
         setWaterGoalOz(data.water_goal_oz ?? 64);
       }
+
+      const goals = await getGoals(userId);
+      setCurrentGoals(goals);
 
       // Calculate streak
       let s = 0;
@@ -90,6 +102,27 @@ export default function MoreScreen() {
       String(waterGoalOz),
       'numeric',
     );
+  };
+
+  const handleSaveGoals = async (goals: Goals): Promise<void> => {
+    try {
+      const userId = await requireUserId();
+      await saveCustomGoals(userId, goals);
+      setCurrentGoals(goals);
+      // Keep the header "cal goal" text in sync without a full refetch
+      setProfile((p: any) => (p ? { ...p, goal_calories: goals.goalCalories } : p));
+      setGoalsModalVisible(false);
+    } catch (error) {
+      console.error('Failed to save goals:', error);
+    }
+  };
+
+  const handleRecalculateGoals = async (): Promise<Goals> => {
+    const userId = await requireUserId();
+    const newGoals = await recalculateGoals(userId);
+    setCurrentGoals(newGoals);
+    setProfile((p: any) => (p ? { ...p, goal_calories: newGoals.goalCalories } : p));
+    return newGoals;
   };
 
   const handleSignOut = () => {
@@ -151,7 +184,18 @@ export default function MoreScreen() {
         <View style={[st.menuCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
           <MenuItem emoji="👤" label="My Profile" />
           <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem emoji="🎯" label="Goals" />
+          <MenuItem
+            emoji="🎯"
+            label="Nutrition Goals"
+            onPress={() => setGoalsModalVisible(true)}
+            rightContent={
+              <View style={[st.themeChip, { backgroundColor: colors.cardAlt }]}>
+                <Text style={[{ fontSize: 12, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
+                  {currentGoals.goalCalories.toLocaleString()} kcal
+                </Text>
+              </View>
+            }
+          />
           <View style={[st.separator, { backgroundColor: colors.border }]} />
           <MenuItem emoji="🍎" label="Nutrition Preferences" />
           <View style={[st.separator, { backgroundColor: colors.border }]} />
@@ -216,6 +260,14 @@ export default function MoreScreen() {
           CampusPlate v1.0 · Built for Virginia Tech
         </Text>
       </ScrollView>
+
+      <EditGoals
+        visible={goalsModalVisible}
+        currentGoals={currentGoals}
+        onSave={handleSaveGoals}
+        onRecalculate={handleRecalculateGoals}
+        onClose={() => setGoalsModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
