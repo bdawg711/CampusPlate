@@ -78,6 +78,18 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Message cannot be empty" }, 400);
     }
 
+    // ALLOWLIST — remove when paywall is implemented
+    const allowedUsers = [
+      "cc8fc9de-4323-4a15-9c92-9668fa825cfc", // Bandhip
+      "8cda2f5c-880d-4144-a8f5-ce1b2df38237", // Cam
+    ];
+    if (!allowedUsers.includes(userId)) {
+      return jsonResponse(
+        { error: "AI Meal Planner is coming soon! Stay tuned." },
+        403
+      );
+    }
+
     // ── Create admin Supabase client (bypasses RLS for server-side ops) ─
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
