@@ -54,7 +54,20 @@ READ THIS FILE BEFORE STARTING ANY TASK.
 - [x] 1.4 — Add Favorites Today collection to For You — already implemented in 5.2: "Your Favorites Today" horizontal row calls getFavoritesOnTodaysMenu() via getFavoritesToday(), shows tappable cards with name, calories, hall name (via hallNames lookup), hidden when no favorites on today's menu
 - [x] 2.5 — Build reviews list below stations in hall detail — "Recent Reviews" section after station cards, calls getHallReviews() (limit 10), each card shows star rating (⭐/☆), reviewer first name, date, review text. Loading skeletons while fetching, empty state with emoji. Reviews refresh after submitting a rating.
 - [x] 4.6 — Build meal plan view on dashboard — "Meal Plans" section between For You and Today's Meals. Date switcher chips for Tomorrow/+2/+3 days. Calls getPlannedMeals() on day switch. Summary card shows "Planned: X cal / Goal: Y cal" with progress bar + P/C/F vs goals. Items grouped by meal (Breakfast/Lunch/Dinner) with per-meal calorie totals. Loading skeletons, empty state with "Browse Menus" CTA.
-- [ ] 6.1 — Audit current For You buttons (document findings here)
+- [x] 6.1 — Audit current For You buttons (document findings here)
+  **Findings:**
+  - "For You" section header (line ~655): plain Text, NOT tappable, no "See All" link.
+  - 5 collection rows exist, each rendered only when data is non-empty:
+    1. "Your Favorites Today" — subtitle is plain Text (not tappable). Item cards are TouchableOpacity → navigates to `/(tabs)/browse` (generic, no filter).
+    2. "Fits Your Macros" — same: subtitle not tappable, cards → generic browse.
+    3. "Top Rated Halls" — same: subtitle not tappable, hall cards → generic browse.
+    4. "Try Something New" — same: subtitle not tappable, cards → generic browse.
+    5. "Quick & Light" — same: subtitle not tappable, cards → generic browse.
+  - **No collection has a "See All" link.** All subtitles are static `<Text>` with no onPress.
+  - **All item/hall cards are tappable** via TouchableOpacity but only navigate to the generic browse tab (`router.push('/(tabs)/browse')`) with no filter params — they don't deep-link to the specific item or filtered view.
+  - `renderForYouItemRow()` (line ~449) renders 4 of the 5 collections (all except Top Rated Halls which is custom). None pass filter params.
+  - **Action needed for 6.2:** Add "See All →" to each collection subtitle row. Each should navigate to browse with a `filter` param (favorites, macros, new, light). Top Rated Halls may not need a "See All" (only max 5 halls).
+  - **Action needed for 6.3:** Browse tab needs to read `filter` param on mount and show a filtered flat item list instead of the hall → station drill-down.
 - [ ] 6.2 — Wire See All links on each collection
 - [ ] 6.3 — Handle filter params in browse tab
 
