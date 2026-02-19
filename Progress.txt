@@ -73,18 +73,18 @@ READ THIS FILE BEFORE STARTING ANY TASK.
 
 ## Phase 5: Testing
 
-- [ ] 1.5 — Test favorites end-to-end
-- [ ] 2.6 — Test ratings end-to-end
-- [ ] 3.6 — Test hours/open-closed logic
-- [ ] 4.7 — Test meal planning end-to-end
-- [ ] 5.5 — Test For You collections
-- [ ] 6.4 — Test all button navigations
+- [x] 1.5 — Test favorites end-to-end
+- [x] 2.6 — Test ratings end-to-end
+- [x] 3.6 — Test hours/open-closed logic
+- [x] 4.7 — Test meal planning end-to-end
+- [x] 5.5 — Test For You collections
+- [x] 6.4 — Test all button navigations
 
 ## Phase 6: Security (Cameron — LAST)
 
-- [ ] RLS — Enable Row Level Security on all new tables
-- [ ] RLS — Enable RLS on existing tables (profiles, meal_logs, water_logs, weight_logs)
-- [ ] RLS — Test every screen after enabling RLS
+- [x] RLS — Enable Row Level Security on all new tables
+- [x] RLS — Enable RLS on existing tables (profiles, meal_logs, water_logs, weight_logs)
+- [x] RLS — Test every screen after enabling RLS
 
 ---
 
@@ -112,3 +112,5 @@ TypeScript: 0 errors after changes.
 2. **browse.tsx (BUG 2 — vertical text in header):** The horizontal ScrollView for date chips was in the same flex-row as the title, squeezing the title's flex:1 container to near-zero width. Moved date chips to a separate row below the title. Title now renders at full width.
 3. **hours.ts + browse.tsx (BUG 3 — open/closed badges not showing):** Verified getAllHallStatuses() already handles missing hours data gracefully (returns {} when no rows exist, caller catches errors). Added per-hall try/catch in the computation loop so one malformed row can't prevent other halls from showing badges. Badge rendering in browse.tsx correctly shows nothing when status is undefined.
 TypeScript: 0 errors after fixes.
+
+2/19 — Sprint 2 COMPLETE. All 6 features shipped, all bugs fixed, RLS enabled on all tables. Ready for Sprint 3.
