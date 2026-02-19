@@ -21,7 +21,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
-import { getMealQueryValues, getCurrentMealPeriod } from '@/src/utils/meals';
+import { getMealQueryValues, getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
 import { toggleFavorite, getFavorites } from '@/src/utils/favorites';
 import { getHallAverages, HallAverage, rateHall, getUserRating, getHallReviews, HallReview } from '@/src/utils/ratings';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
@@ -203,6 +203,9 @@ export default function BrowseScreen() {
 
   const loadHalls = useCallback(async () => {
     try {
+      const menuDate = dayOffset === 0 ? await getEffectiveMenuDate() : date;
+      const fallback = dayOffset === 0 && menuDate !== date;
+
       const { data: hallData } = await supabase
         .from('dining_halls')
         .select('id, name, location_num')
@@ -213,7 +216,7 @@ export default function BrowseScreen() {
       const { data: itemCounts } = await supabase
         .from('menu_items')
         .select('dining_hall_id, id')
-        .eq('date', date)
+        .eq('date', menuDate)
         .in('meal', getMealQueryValues(meal));
 
       const counts: Record<number, number> = {};
@@ -221,28 +224,8 @@ export default function BrowseScreen() {
         counts[i.dining_hall_id] = (counts[i.dining_hall_id] || 0) + 1;
       });
 
-      const totalItems = Object.values(counts).reduce((sum, c) => sum + c, 0);
-
-      // If today has no items at all, fall back to yesterday's menu
-      if (totalItems === 0 && dayOffset === 0) {
-        const yesterdayDate = getLocalDate(-1);
-        const { data: yesterdayItems } = await supabase
-          .from('menu_items')
-          .select('dining_hall_id, id')
-          .eq('date', yesterdayDate)
-          .in('meal', getMealQueryValues(meal));
-
-        const yesterdayCounts: Record<number, number> = {};
-        (yesterdayItems || []).forEach((i: any) => {
-          yesterdayCounts[i.dining_hall_id] = (yesterdayCounts[i.dining_hall_id] || 0) + 1;
-        });
-
-        setHalls(hallData.map((h: any) => ({ ...h, count: yesterdayCounts[h.id] || 0 })));
-        setUsingFallback(true);
-      } else {
-        setHalls(hallData.map((h: any) => ({ ...h, count: counts[h.id] || 0 })));
-        setUsingFallback(false);
-      }
+      setHalls(hallData.map((h: any) => ({ ...h, count: counts[h.id] || 0 })));
+      setUsingFallback(fallback);
     } catch (e) {
       console.error('Load halls error:', e);
     } finally {
@@ -381,14 +364,14 @@ export default function BrowseScreen() {
     setFilterLoading(true);
     try {
       const userId = await requireUserId();
-      const today = getLocalDate(0);
+      const menuDate = await getEffectiveMenuDate();
       const mealPeriod = getCurrentMealPeriod();
       let items: any[] = [];
 
       switch (filterType) {
         case 'favorites': {
           const [favItems, hallsRes] = await Promise.all([
-            getFavoritesToday(userId, today),
+            getFavoritesToday(userId, menuDate),
             supabase.from('dining_halls').select('id, name'),
           ]);
           const hallMap: Record<number, string> = {};
@@ -405,13 +388,13 @@ export default function BrowseScreen() {
           break;
         }
         case 'macros':
-          items = await getFitsYourMacros(userId, today, mealPeriod);
+          items = await getFitsYourMacros(userId, menuDate, mealPeriod);
           break;
         case 'new':
-          items = await getTrySomethingNew(userId, today);
+          items = await getTrySomethingNew(userId, menuDate);
           break;
         case 'light':
-          items = await getQuickAndLight(today);
+          items = await getQuickAndLight(menuDate);
           break;
       }
 

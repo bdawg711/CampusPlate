@@ -17,7 +17,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
-import { logBelongsToMealGroup, getCurrentMealPeriod } from '@/src/utils/meals';
+import { logBelongsToMealGroup, getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
 import { getTodayWater, addWater, removeWater, getWaterGoal } from '@/src/utils/water';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
 import {
@@ -153,8 +153,21 @@ export default function HomeScreen() {
 
   const loadOpenHalls = async (): Promise<OpenHall[]> => {
     try {
+      const today = getLocalDate();
+      const { count: hoursCount } = await supabase
+        .from('dining_hall_hours')
+        .select('id', { count: 'exact', head: true })
+        .eq('date', today);
+
+      // If no hours for today, use yesterday's schedule with current time
+      let statusDate = new Date();
+      if (!hoursCount || hoursCount === 0) {
+        statusDate = new Date();
+        statusDate.setDate(statusDate.getDate() - 1);
+      }
+
       const [statuses, hallsRes] = await Promise.all([
-        getAllHallStatuses(new Date()),
+        getAllHallStatuses(statusDate),
         supabase.from('dining_halls').select('id, name').order('name'),
       ]);
 
@@ -229,6 +242,7 @@ export default function HomeScreen() {
     try {
       const userId = await requireUserId();
       const today = getLocalDate();
+      const menuDate = await getEffectiveMenuDate();
 
       const [profileRes, logsRes, , waterCount, waterGoalRes, hallStatusMap] = await Promise.all([
         supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g').eq('id', userId).single(),
@@ -238,7 +252,7 @@ export default function HomeScreen() {
           .eq('user_id', userId)
           .eq('date', today)
           .order('created_at', { ascending: true }),
-        loadForYou(userId, today),
+        loadForYou(userId, menuDate),
         getTodayWater(userId),
         getWaterGoal(userId),
         loadOpenHalls(),

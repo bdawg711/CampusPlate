@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 /**
  * Meal filter mapping for database queries.
  *
@@ -45,4 +47,23 @@ export function logBelongsToMealGroup(logMeal: string, group: string): boolean {
   if (logMeal === 'Lunch/Dinner') return group === 'Lunch' || group === 'Dinner';
   if (logMeal === 'Daily Items') return group === getCurrentMealPeriod();
   return false;
+}
+
+/**
+ * Returns today's date if menu_items exist for today, otherwise yesterday's.
+ * Used as fallback when the scraper hasn't run yet (e.g., after midnight).
+ */
+export async function getEffectiveMenuDate(): Promise<string> {
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const { count } = await supabase
+    .from('menu_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('date', today);
+
+  if (count && count > 0) return today;
+
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

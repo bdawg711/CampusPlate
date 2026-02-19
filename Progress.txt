@@ -99,6 +99,14 @@ Ran full diagnostic on all Sprint 2 utility files and main screens. Found and fi
 5. **browse.tsx (LOW):** `loadPlannedItems` referenced in `useFocusEffect` dependency array before its `const` declaration (TDZ violation). Moved declaration above `useFocusEffect`.
 TypeScript: 0 errors after fixes. Metro bundle: exports cleanly, no errors.
 
+### 2026-02-19 — Dashboard midnight fallback (same pattern as browse.tsx)
+Applied the same "no data after midnight" fallback from browse.tsx to the dashboard (index.tsx):
+1. **getEffectiveMenuDate() shared helper (src/utils/meals.ts):** Checks if menu_items has any rows for today. If not, returns yesterday's date string. Used by both index.tsx and browse.tsx for consistency.
+2. **loadOpenHalls() (index.tsx):** Now checks dining_hall_hours for today's date first. If no rows, passes yesterday's Date to getAllHallStatuses() (same current time, yesterday's schedule). Open Now row no longer empty after midnight.
+3. **loadForYou() (index.tsx):** Now receives the effective menu date from loadData() instead of hardcoded today. All 5 For You collections (Favorites, Macros, Top Rated, New, Light) use the fallback date. Today's Meals section still uses actual today for real user meal logs.
+4. **browse.tsx refactored:** Replaced inline fallback logic in loadHalls() and loadFilteredItems() with getEffectiveMenuDate(). Same behavior, shared code path.
+TypeScript: 0 errors after changes.
+
 ### 2026-02-19 — Three browse screen bug fixes
 1. **browse.tsx (BUG 1 — "0 items" when scraper hasn't run):** loadHalls now detects when ALL halls return 0 items for today (dayOffset=0) and automatically falls back to yesterday's date. Shows orange banner "Showing yesterday's menu — today's updates at 7 AM". Fallback also applies to openHall item loading via effectiveDate. Resets when user switches day offset.
 2. **browse.tsx (BUG 2 — vertical text in header):** The horizontal ScrollView for date chips was in the same flex-row as the title, squeezing the title's flex:1 container to near-zero width. Moved date chips to a separate row below the title. Title now renders at full width.
