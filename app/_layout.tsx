@@ -121,9 +121,7 @@ function RootContent() {
     });
 
     return () => {
-      if (notificationResponseListener.current) {
-        Notifications.removeNotificationSubscription(notificationResponseListener.current);
-      }
+      notificationResponseListener.current?.remove();
     };
   }, [session, onboardingComplete]);
 

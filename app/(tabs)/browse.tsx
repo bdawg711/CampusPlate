@@ -153,6 +153,7 @@ export default function BrowseScreen() {
 
   // Date fallback when today has no scraped data
   const [usingFallback, setUsingFallback] = useState(false);
+  const [effectiveDate, setEffectiveDate] = useState(getLocalDate());
 
   // ─── View transition animation ───
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -209,6 +210,7 @@ export default function BrowseScreen() {
 
       setHalls(hallData.map((h: any) => ({ ...h, count: counts[h.id] || 0 })));
       setUsingFallback(fallback);
+      setEffectiveDate(menuDate);
     } catch (e) {
       console.error('Load halls error:', e);
     } finally {
@@ -407,7 +409,7 @@ export default function BrowseScreen() {
         .from('menu_items')
         .select('id, name, rec_num, station, dietary_flags, nutrition(*)')
         .eq('dining_hall_id', hall.id)
-        .eq('date', date)
+        .eq('date', effectiveDate)
         .in('meal', getMealQueryValues(meal))
         .order('name');
       setAllHallItems(data || []);
@@ -416,7 +418,6 @@ export default function BrowseScreen() {
     } finally {
       setHallItemsLoading(false);
     }
-    loadHallReviews(hall.id);
   };
 
   // ─── Open station: items already loaded in allHallItems ───

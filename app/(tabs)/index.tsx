@@ -36,6 +36,8 @@ import AIChat from '@/src/components/AIChat';
 import type { MealItem } from '@/src/utils/ai';
 import { useStaggerAnimation } from '@/src/hooks/useStaggerAnimation';
 
+const AnimatedCircleComponent = Animated.createAnimatedComponent(Circle);
+
 function getLocalDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -519,9 +521,6 @@ export default function HomeScreen() {
     { label: 'Carbs', val: totalCarb, goal: goalCarb, color: colors.orange },
     { label: 'Fat', val: totalFat, goal: goalFat, color: colors.yellow },
   ];
-
-  // Use an AnimatedCircle wrapper to animate strokeDashoffset
-  const AnimatedCircleComponent = Animated.createAnimatedComponent(Circle);
 
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>

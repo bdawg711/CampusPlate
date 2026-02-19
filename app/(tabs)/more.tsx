@@ -2,11 +2,13 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   Share,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -40,6 +42,8 @@ export default function MoreScreen() {
   const [weeklyReportVisible, setWeeklyReportVisible] = useState(false);
   const [remindersVisible, setRemindersVisible] = useState(false);
   const [remindersOn, setRemindersOn] = useState(false);
+  const [waterGoalModalVisible, setWaterGoalModalVisible] = useState(false);
+  const [waterGoalInput, setWaterGoalInput] = useState('');
 
   const [currentGoals, setCurrentGoals] = useState<Goals>({
     goalCalories: 2000,
@@ -66,18 +70,24 @@ export default function MoreScreen() {
       const goals = await getGoals(userId);
       setCurrentGoals(goals);
 
-      // Calculate streak
+      // Calculate streak — single query for last 30 days
+      const thirtyAgo = new Date();
+      thirtyAgo.setDate(thirtyAgo.getDate() - 29);
+      const thirtyAgoStr = `${thirtyAgo.getFullYear()}-${String(thirtyAgo.getMonth() + 1).padStart(2, '0')}-${String(thirtyAgo.getDate()).padStart(2, '0')}`;
+      const { data: logDates } = await supabase
+        .from('meal_logs')
+        .select('date')
+        .eq('user_id', userId)
+        .gte('date', thirtyAgoStr)
+        .order('date', { ascending: false });
+
+      const loggedDates = new Set((logDates || []).map((r: any) => r.date));
       let s = 0;
       for (let i = 0; i < 30; i++) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const { count } = await supabase
-          .from('meal_logs')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('date', date);
-        if ((count || 0) > 0) s++;
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (loggedDates.has(dateStr)) s++;
         else break;
       }
       setStreak(s);
@@ -103,24 +113,21 @@ export default function MoreScreen() {
   };
 
   const handleWaterGoal = () => {
-    Alert.prompt(
-      'Water Goal',
-      'Set your daily water goal in ounces:',
-      async (value) => {
-        const parsed = parseInt(value, 10);
-        if (isNaN(parsed) || parsed < 1) return;
-        try {
-          const userId = await requireUserId();
-          await setWaterGoal(userId, parsed);
-          setWaterGoalOz(parsed);
-        } catch (e) {
-          console.error('Failed to save water goal:', e);
-        }
-      },
-      'plain-text',
-      String(waterGoalOz),
-      'numeric',
-    );
+    setWaterGoalInput(String(waterGoalOz));
+    setWaterGoalModalVisible(true);
+  };
+
+  const saveWaterGoal = async () => {
+    const parsed = parseInt(waterGoalInput, 10);
+    if (isNaN(parsed) || parsed < 1) return;
+    try {
+      const userId = await requireUserId();
+      await setWaterGoal(userId, parsed);
+      setWaterGoalOz(parsed);
+      setWaterGoalModalVisible(false);
+    } catch (e) {
+      console.error('Failed to save water goal:', e);
+    }
   };
 
   const handleSaveGoals = async (goals: Goals): Promise<void> => {
@@ -354,6 +361,46 @@ export default function MoreScreen() {
         visible={remindersVisible}
         onClose={() => { setRemindersVisible(false); loadData(); }}
       />
+
+      {/* Water Goal Modal */}
+      <Modal
+        visible={waterGoalModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setWaterGoalModalVisible(false)}
+      >
+        <View style={st.modalOverlay}>
+          <View style={[st.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[{ fontSize: 20, color: colors.text, fontFamily: 'Outfit_700Bold', textAlign: 'center', marginBottom: 4 }]}>
+              Water Goal
+            </Text>
+            <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'center', marginBottom: 20 }]}>
+              Set your daily water goal in ounces
+            </Text>
+            <TextInput
+              style={[st.waterGoalInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text, fontFamily: 'DMSans_400Regular' }]}
+              placeholder="Ounces"
+              placeholderTextColor={colors.textDim}
+              value={waterGoalInput}
+              onChangeText={setWaterGoalInput}
+              keyboardType="numeric"
+              autoFocus
+            />
+            <TouchableOpacity
+              style={[st.waterGoalSaveBtn, { backgroundColor: colors.maroon }]}
+              onPress={saveWaterGoal}
+            >
+              <Text style={[{ color: '#fff', fontSize: 16, fontFamily: 'DMSans_700Bold' }]}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginTop: 12, alignItems: 'center' }}
+              onPress={() => setWaterGoalModalVisible(false)}
+            >
+              <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_600SemiBold' }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -372,4 +419,8 @@ const st = StyleSheet.create({
   separator: { height: 1, marginLeft: 64 },
   themeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   footer: { textAlign: 'center', fontSize: 12, opacity: 0.2, marginTop: 32 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { width: '100%', borderRadius: 20, padding: 24 },
+  waterGoalInput: { borderRadius: 12, padding: 14, fontSize: 16, borderWidth: 1, marginBottom: 16, textAlign: 'center' },
+  waterGoalSaveBtn: { padding: 16, borderRadius: 14, alignItems: 'center' },
 });
