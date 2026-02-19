@@ -98,3 +98,9 @@ Ran full diagnostic on all Sprint 2 utility files and main screens. Found and fi
 4. **mealPlans.ts (MODERATE):** Same nutrition array issue — meal plan summary showed 0 for all macros. Fixed by normalizing in `getPlannedMeals()`.
 5. **browse.tsx (LOW):** `loadPlannedItems` referenced in `useFocusEffect` dependency array before its `const` declaration (TDZ violation). Moved declaration above `useFocusEffect`.
 TypeScript: 0 errors after fixes. Metro bundle: exports cleanly, no errors.
+
+### 2026-02-19 — Three browse screen bug fixes
+1. **browse.tsx (BUG 1 — "0 items" when scraper hasn't run):** loadHalls now detects when ALL halls return 0 items for today (dayOffset=0) and automatically falls back to yesterday's date. Shows orange banner "Showing yesterday's menu — today's updates at 7 AM". Fallback also applies to openHall item loading via effectiveDate. Resets when user switches day offset.
+2. **browse.tsx (BUG 2 — vertical text in header):** The horizontal ScrollView for date chips was in the same flex-row as the title, squeezing the title's flex:1 container to near-zero width. Moved date chips to a separate row below the title. Title now renders at full width.
+3. **hours.ts + browse.tsx (BUG 3 — open/closed badges not showing):** Verified getAllHallStatuses() already handles missing hours data gracefully (returns {} when no rows exist, caller catches errors). Added per-hall try/catch in the computation loop so one malformed row can't prevent other halls from showing badges. Badge rendering in browse.tsx correctly shows nothing when status is undefined.
+TypeScript: 0 errors after fixes.

@@ -119,10 +119,14 @@ export async function getAllHallStatuses(now: Date): Promise<Record<number, Hall
       }
     }
 
-    // Compute status for each hall
+    // Compute status for each hall (isolate per-hall errors so one bad row doesn't break all badges)
     const result: Record<number, HallStatus> = {};
     for (const [hallIdStr, hours] of Object.entries(byHall)) {
-      result[Number(hallIdStr)] = computeStatus(nowMinutes, hours.today, hours.tomorrow);
+      try {
+        result[Number(hallIdStr)] = computeStatus(nowMinutes, hours.today, hours.tomorrow);
+      } catch {
+        // Skip this hall — malformed data shouldn't prevent other halls from showing badges
+      }
     }
 
     return result;

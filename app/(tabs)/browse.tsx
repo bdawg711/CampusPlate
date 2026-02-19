@@ -168,6 +168,9 @@ export default function BrowseScreen() {
   const [filterItems, setFilterItems] = useState<any[]>([]);
   const [filterLoading, setFilterLoading] = useState(false);
 
+  // Date fallback when today has no scraped data
+  const [usingFallback, setUsingFallback] = useState(false);
+
   // ─── View transition animation ───
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -196,6 +199,7 @@ export default function BrowseScreen() {
   };
 
   const date = getLocalDate(dayOffset);
+  const effectiveDate = (usingFallback && dayOffset === 0) ? getLocalDate(-1) : date;
 
   const loadHalls = useCallback(async () => {
     try {
@@ -217,13 +221,34 @@ export default function BrowseScreen() {
         counts[i.dining_hall_id] = (counts[i.dining_hall_id] || 0) + 1;
       });
 
-      setHalls(hallData.map((h: any) => ({ ...h, count: counts[h.id] || 0 })));
+      const totalItems = Object.values(counts).reduce((sum, c) => sum + c, 0);
+
+      // If today has no items at all, fall back to yesterday's menu
+      if (totalItems === 0 && dayOffset === 0) {
+        const yesterdayDate = getLocalDate(-1);
+        const { data: yesterdayItems } = await supabase
+          .from('menu_items')
+          .select('dining_hall_id, id')
+          .eq('date', yesterdayDate)
+          .in('meal', getMealQueryValues(meal));
+
+        const yesterdayCounts: Record<number, number> = {};
+        (yesterdayItems || []).forEach((i: any) => {
+          yesterdayCounts[i.dining_hall_id] = (yesterdayCounts[i.dining_hall_id] || 0) + 1;
+        });
+
+        setHalls(hallData.map((h: any) => ({ ...h, count: yesterdayCounts[h.id] || 0 })));
+        setUsingFallback(true);
+      } else {
+        setHalls(hallData.map((h: any) => ({ ...h, count: counts[h.id] || 0 })));
+        setUsingFallback(false);
+      }
     } catch (e) {
       console.error('Load halls error:', e);
     } finally {
       setLoading(false);
     }
-  }, [date, meal]);
+  }, [date, meal, dayOffset]);
 
   const loadFavorites = useCallback(async () => {
     try {
@@ -426,7 +451,7 @@ export default function BrowseScreen() {
         .from('menu_items')
         .select('id, name, rec_num, station, dietary_flags, nutrition(*)')
         .eq('dining_hall_id', hall.id)
-        .eq('date', date)
+        .eq('date', effectiveDate)
         .in('meal', getMealQueryValues(meal))
         .order('name');
       setAllHallItems(data || []);
@@ -695,30 +720,32 @@ export default function BrowseScreen() {
   // ─── RENDER ────────────────────────────────────
 
   const renderHeader = () => (
-    <View style={st.headerRow}>
-      {view !== 'halls' && (
-        <TouchableOpacity onPress={goBack} style={st.backBtn}>
-          <Text style={[{ fontSize: 20, color: colors.text }]}>←</Text>
-        </TouchableOpacity>
-      )}
-      <View style={{ flex: 1 }}>
-        {view === 'halls' && <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Log a Meal</Text>}
-        {view === 'stations' && (
-          <>
-            <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{selectedHall?.name}</Text>
-            <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{meal} · {getDayLabel(dayOffset)}</Text>
-          </>
+    <>
+      <View style={st.headerRow}>
+        {view !== 'halls' && (
+          <TouchableOpacity onPress={goBack} style={st.backBtn}>
+            <Text style={[{ fontSize: 20, color: colors.text }]}>←</Text>
+          </TouchableOpacity>
         )}
-        {view === 'items' && (
-          <>
-            <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{getStationEmoji(selectedStation)} {selectedStation}</Text>
-            <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{selectedHall?.name} · {meal}</Text>
-          </>
-        )}
-        {view === 'detail' && <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]} numberOfLines={1}>{selectedItem?.name}</Text>}
+        <View style={{ flex: 1 }}>
+          {view === 'halls' && <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Log a Meal</Text>}
+          {view === 'stations' && (
+            <>
+              <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{selectedHall?.name}</Text>
+              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{meal} · {getDayLabel(dayOffset)}</Text>
+            </>
+          )}
+          {view === 'items' && (
+            <>
+              <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{getStationEmoji(selectedStation)} {selectedStation}</Text>
+              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{selectedHall?.name} · {meal}</Text>
+            </>
+          )}
+          {view === 'detail' && <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]} numberOfLines={1}>{selectedItem?.name}</Text>}
+        </View>
       </View>
       {view === 'halls' && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ marginBottom: 12 }}>
           {DATE_OPTIONS.map((offset) => (
             <TouchableOpacity
               key={offset}
@@ -730,7 +757,7 @@ export default function BrowseScreen() {
           ))}
         </ScrollView>
       )}
-    </View>
+    </>
   );
 
   const renderMealFilter = () => (
@@ -964,6 +991,14 @@ export default function BrowseScreen() {
             </View>
 
             {renderMealFilter()}
+
+            {usingFallback && dayOffset === 0 && (
+              <View style={[st.fallbackBanner, { backgroundColor: colors.orange + '15', borderColor: colors.orange + '40' }]}>
+                <Text style={[{ fontSize: 13, color: colors.orange, fontFamily: 'DMSans_600SemiBold', textAlign: 'center' }]}>
+                  Showing yesterday's menu — today's updates at 7 AM
+                </Text>
+              </View>
+            )}
 
             {loading ? (
               <View style={{ gap: 12 }}>
@@ -1461,6 +1496,13 @@ const st = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
+  },
+  fallbackBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   clearFilterBtn: {
     alignSelf: 'flex-start',
