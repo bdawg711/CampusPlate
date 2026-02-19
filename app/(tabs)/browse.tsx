@@ -24,6 +24,7 @@ import { getMealQueryValues, getCurrentMealPeriod } from '@/src/utils/meals';
 import { toggleFavorite, getFavorites } from '@/src/utils/favorites';
 import { getHallAverages, HallAverage, rateHall, getUserRating } from '@/src/utils/ratings';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
+import { addToPlan, removeFromPlan, getPlannedMeals } from '@/src/utils/mealPlans';
 import Skeleton from '@/src/components/Skeleton';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -150,6 +151,10 @@ export default function BrowseScreen() {
 
   // Hall open/closed statuses
   const [hallStatuses, setHallStatuses] = useState<Record<number, HallStatus>>({});
+
+  // Meal planning (future dates)
+  const [plannedItemIds, setPlannedItemIds] = useState<Set<number>>(new Set());
+  const [planning, setPlanning] = useState(false);
 
   // ─── View transition animation ───
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -286,13 +291,25 @@ export default function BrowseScreen() {
     loadFavorites();
     loadRatings();
     loadHallStatuses();
-  }, [loadHalls, loadFavorites, loadRatings, loadHallStatuses]));
+    loadPlannedItems();
+  }, [loadHalls, loadFavorites, loadRatings, loadHallStatuses, loadPlannedItems]));
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHalls();
     setRefreshing(false);
   };
+
+  const loadPlannedItems = useCallback(async () => {
+    if (dayOffset === 0) { setPlannedItemIds(new Set()); return; }
+    try {
+      const userId = await requireUserId();
+      const planned = await getPlannedMeals(userId, date);
+      setPlannedItemIds(new Set(planned.map((p) => p.menu_item_id)));
+    } catch {
+      // Non-critical
+    }
+  }, [date, dayOffset]);
 
   // ─── Open hall: loads ALL items for the hall at once ───
   const openHall = async (hall: any) => {
@@ -636,6 +653,42 @@ export default function BrowseScreen() {
       {content}
     </Animated.View>
   );
+
+  const handleTogglePlan = async () => {
+    if (!selectedItem || dayOffset === 0) return;
+    const itemId = selectedItem.id as number;
+    const isPlanned = plannedItemIds.has(itemId);
+    setPlanning(true);
+    // Optimistic update
+    setPlannedItemIds((prev) => {
+      const next = new Set(prev);
+      if (isPlanned) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const userId = await requireUserId();
+      if (isPlanned) {
+        await removeFromPlan(userId, itemId, date);
+        showToastMessage('Removed from plan');
+      } else {
+        await addToPlan(userId, itemId, date, meal, servings);
+        showToastMessage('Added to plan!');
+      }
+    } catch {
+      // Revert on failure
+      setPlannedItemIds((prev) => {
+        const next = new Set(prev);
+        if (isPlanned) next.add(itemId);
+        else next.delete(itemId);
+        return next;
+      });
+      Alert.alert('Error', 'Failed to update meal plan. Please try again.');
+    } finally {
+      setPlanning(false);
+    }
+  };
 
   const handleToggleFavorite = async (item: any) => {
     if (!item.rec_num) return;
@@ -1045,19 +1098,30 @@ export default function BrowseScreen() {
               <Text style={[{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: 10, fontFamily: 'DMSans_400Regular' }]}>
                 {adjCal} cal · {servings} serving{servings !== 1 ? 's' : ''}
               </Text>
-              <TouchableOpacity
-                style={[st.logBtn, { backgroundColor: logSuccess ? colors.green : colors.orange, opacity: logging ? 0.6 : 1 }]}
-                onPress={logMeal}
-                disabled={logging || logSuccess}
-              >
-                {logging ? (
-                  <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>Logging...</Text>
-                ) : (
+              {dayOffset === 0 ? (
+                <TouchableOpacity
+                  style={[st.logBtn, { backgroundColor: logSuccess ? colors.green : colors.orange, opacity: logging ? 0.6 : 1 }]}
+                  onPress={logMeal}
+                  disabled={logging || logSuccess}
+                >
                   <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
-                    {logSuccess ? 'Logged! ✓' : 'Log This Meal ✓'}
+                    {logging ? 'Logging...' : logSuccess ? 'Logged! ✓' : 'Log This Meal ✓'}
                   </Text>
-                )}
-              </TouchableOpacity>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[st.logBtn, {
+                    backgroundColor: plannedItemIds.has(selectedItem.id) ? colors.green : colors.maroon,
+                    opacity: planning ? 0.6 : 1,
+                  }]}
+                  onPress={handleTogglePlan}
+                  disabled={planning}
+                >
+                  <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
+                    {planning ? 'Saving...' : plannedItemIds.has(selectedItem.id) ? '✓ Planned — Tap to Remove' : '📋 Plan This Meal'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </>
         )}
