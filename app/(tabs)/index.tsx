@@ -482,7 +482,8 @@ export default function HomeScreen() {
     );
   };
 
-  const hasForYou = forYouLoading || forYouFavs.length > 0 || forYouMacros.length > 0 || forYouTopHalls.length > 0 || forYouNew.length > 0 || forYouLight.length > 0;
+  const hasForYouItems = forYouFavs.length > 0 || forYouMacros.length > 0 || forYouTopHalls.length > 0 || forYouNew.length > 0 || forYouLight.length > 0;
+  const hasForYou = forYouLoading || hasForYouItems;
 
   const renderForYouSkeletonRow = () => (
     <View style={{ marginBottom: 16 }}>
@@ -753,6 +754,13 @@ export default function HomeScreen() {
                 {renderForYouSkeletonRow()}
                 {renderForYouSkeletonRow()}
               </>
+            ) : !hasForYouItems ? (
+              <View style={[st.forYouEmptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={{ fontSize: 28 }}>🍽️</Text>
+                <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_500Medium', marginTop: 8, textAlign: 'center' }]}>
+                  Check back after logging a few meals
+                </Text>
+              </View>
             ) : (
               <>
                 {renderForYouItemRow('Your Favorites Today', '❤️', forYouFavs.map((f) => ({
@@ -878,4 +886,5 @@ const st = StyleSheet.create({
   streakCardNumber: { fontSize: 32, marginTop: 6 },
   streakCardLabel: { fontSize: 13, marginTop: 2 },
   streakCardAccent: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2 },
+  forYouEmptyCard: { borderRadius: 14, borderWidth: 1, padding: 24, alignItems: 'center', justifyContent: 'center' },
 });

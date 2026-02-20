@@ -314,7 +314,7 @@ export default function BrowseScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadHalls();
+    await Promise.all([loadHalls(), loadRatings(), loadHallStatuses()]);
     setRefreshing(false);
   };
 
@@ -1026,8 +1026,11 @@ export default function BrowseScreen() {
               ) : filteredByStation.length === 0 ? (
                 <View style={{ alignItems: 'center', paddingTop: 40 }}>
                   <Text style={{ fontSize: 32 }}>🔍</Text>
-                  <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>
-                    No items found for "{itemSearch}"
+                  <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
+                    No results for "{itemSearch}"
+                  </Text>
+                  <Text style={[{ fontSize: 13, color: colors.textDim, marginTop: 4, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
+                    Try a different search or browse stations below
                   </Text>
                 </View>
               ) : (
@@ -1153,10 +1156,15 @@ export default function BrowseScreen() {
 
             {filteredStationItems.length === 0 ? (
               <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                <Text style={{ fontSize: 32 }}>🍽️</Text>
-                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>
-                  {itemSearch ? `No items found for "${itemSearch}"` : 'No items found'}
+                <Text style={{ fontSize: 32 }}>{itemSearch ? '🔍' : '🍽️'}</Text>
+                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
+                  {itemSearch ? `No results for "${itemSearch}"` : 'No items found'}
                 </Text>
+                {itemSearch ? (
+                  <Text style={[{ fontSize: 13, color: colors.textDim, marginTop: 4, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
+                    Try a different search or browse halls below
+                  </Text>
+                ) : null}
               </View>
             ) : (
               filteredStationItems.map((item, i) => renderItemRow(item, i, filteredStationItems.length))
@@ -1173,21 +1181,29 @@ export default function BrowseScreen() {
     const badge = getDietaryBadge(selectedItem.dietary_flags);
     const adjCal = Math.round(n.cal * servings);
 
+    const getIndicatorDot = (label: string, rawValue: number): string | null => {
+      if (label === 'Sodium' && rawValue > 600) return colors.orange;
+      if (label === 'Fiber' && rawValue > 5) return colors.green;
+      if (label === 'Protein' && rawValue > 20) return colors.blue;
+      if (label === 'Added Sugars' && rawValue > 10) return colors.red;
+      return null;
+    };
+
     const nutritionGrid = [
-      { label: 'Total Fat', val: `${Math.round(n.fat * servings)}g` },
-      { label: 'Sat Fat', val: `${Math.round(n.sat_fat * servings)}g` },
-      { label: 'Trans Fat', val: `${Math.round(n.trans_fat * servings)}g` },
-      { label: 'Cholesterol', val: `${Math.round(n.cholesterol * servings)}mg` },
-      { label: 'Sodium', val: `${Math.round(n.sodium * servings)}mg` },
-      { label: 'Total Carbs', val: `${Math.round(n.carb * servings)}g` },
-      { label: 'Fiber', val: `${Math.round(n.fiber * servings)}g` },
-      { label: 'Sugars', val: `${Math.round(n.sugars * servings)}g` },
-      { label: 'Added Sugars', val: `${Math.round(n.added_sugars * servings)}g` },
-      { label: 'Protein', val: `${Math.round(n.pro * servings)}g` },
-      { label: 'Vitamin D', val: `${Math.round(n.vitamin_d * servings)}mcg` },
-      { label: 'Calcium', val: `${Math.round(n.calcium * servings)}mg` },
-      { label: 'Iron', val: `${Math.round(n.iron * servings)}mg` },
-      { label: 'Potassium', val: `${Math.round(n.potassium * servings)}mg` },
+      { label: 'Total Fat', val: `${Math.round(n.fat * servings)}g`, raw: n.fat * servings },
+      { label: 'Sat Fat', val: `${Math.round(n.sat_fat * servings)}g`, raw: n.sat_fat * servings },
+      { label: 'Trans Fat', val: `${Math.round(n.trans_fat * servings)}g`, raw: n.trans_fat * servings },
+      { label: 'Cholesterol', val: `${Math.round(n.cholesterol * servings)}mg`, raw: n.cholesterol * servings },
+      { label: 'Sodium', val: `${Math.round(n.sodium * servings)}mg`, raw: n.sodium * servings },
+      { label: 'Total Carbs', val: `${Math.round(n.carb * servings)}g`, raw: n.carb * servings },
+      { label: 'Fiber', val: `${Math.round(n.fiber * servings)}g`, raw: n.fiber * servings },
+      { label: 'Sugars', val: `${Math.round(n.sugars * servings)}g`, raw: n.sugars * servings },
+      { label: 'Added Sugars', val: `${Math.round(n.added_sugars * servings)}g`, raw: n.added_sugars * servings },
+      { label: 'Protein', val: `${Math.round(n.pro * servings)}g`, raw: n.pro * servings },
+      { label: 'Vitamin D', val: `${Math.round(n.vitamin_d * servings)}mcg`, raw: n.vitamin_d * servings },
+      { label: 'Calcium', val: `${Math.round(n.calcium * servings)}mg`, raw: n.calcium * servings },
+      { label: 'Iron', val: `${Math.round(n.iron * servings)}mg`, raw: n.iron * servings },
+      { label: 'Potassium', val: `${Math.round(n.potassium * servings)}mg`, raw: n.potassium * servings },
     ];
 
     return (
@@ -1241,12 +1257,18 @@ export default function BrowseScreen() {
               </View>
 
               <View style={st.nutritionGrid}>
-                {nutritionGrid.map((item) => (
-                  <View key={item.label} style={[st.nutritionCell, { backgroundColor: colors.cardAlt }]}>
-                    <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{item.val}</Text>
-                    <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{item.label}</Text>
-                  </View>
-                ))}
+                {nutritionGrid.map((item) => {
+                  const dotColor = getIndicatorDot(item.label, item.raw);
+                  return (
+                    <View key={item.label} style={[st.nutritionCell, { backgroundColor: colors.cardAlt }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{item.val}</Text>
+                        {dotColor && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />}
+                      </View>
+                      <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{item.label}</Text>
+                    </View>
+                  );
+                })}
               </View>
 
               <TouchableOpacity

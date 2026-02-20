@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -35,6 +36,11 @@ function getDays(count: number) {
   return days;
 }
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const PILL_WIDTH = 52;
+const PILL_MARGIN = 8;
+const STRIP_PADDING = 20;
+
 export default function HistoryScreen() {
   const { colors } = useTheme();
   const [selectedDate, setSelectedDate] = useState(getLocalDate());
@@ -42,7 +48,23 @@ export default function HistoryScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const dateStripRef = useRef<ScrollView>(null);
   const days = getDays(30);
+
+  // Auto-scroll date strip to center the selected date
+  useEffect(() => {
+    const selectedIndex = days.findIndex((d) => d.date === selectedDate);
+    if (selectedIndex >= 0 && dateStripRef.current) {
+      const itemFullWidth = PILL_WIDTH + PILL_MARGIN;
+      const offset = Math.max(
+        0,
+        (selectedIndex * itemFullWidth) - (SCREEN_WIDTH / 2) + (PILL_WIDTH / 2) + STRIP_PADDING
+      );
+      setTimeout(() => {
+        dateStripRef.current?.scrollTo({ x: offset, animated: true });
+      }, 100);
+    }
+  }, [selectedDate]);
 
   const loadData = useCallback(async (date: string) => {
     try {
@@ -135,6 +157,7 @@ export default function HistoryScreen() {
 
         {/* Day Strip */}
         <ScrollView
+          ref={dateStripRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 16 }}

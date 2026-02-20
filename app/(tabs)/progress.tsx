@@ -267,6 +267,19 @@ export default function ProgressScreen() {
             ))}
           </View>
 
+          {/* Empty state — no meal logs at all */}
+          {(progressData?.totalMealsLogged ?? 0) === 0 && (
+            <View style={[st.card, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 16, alignItems: 'center', paddingVertical: 32 }]}>
+              <Text style={{ fontSize: 36 }}>📊</Text>
+              <Text style={[{ fontSize: 16, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginTop: 12, textAlign: 'center' }]}>
+                Start logging meals to see your progress here!
+              </Text>
+              <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 8, textAlign: 'center' }]}>
+                Head to Browse to find your first meal 👉
+              </Text>
+            </View>
+          )}
+
           {/* SECTION 1 — Daily Score */}
           {dailyScore && (
             <View style={{ marginBottom: 16 }}>
