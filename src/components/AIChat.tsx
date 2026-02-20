@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -23,6 +22,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/src/context/ThemeContext';
 import { getCurrentUserId } from '@/src/utils/auth';
 import {
@@ -50,13 +50,12 @@ interface AIChatProps {
   onLogItem?: (item: MealItem) => void;
 }
 
-// ── Quick suggestion chips ──────────────────────────────────────────────────
+// ── Suggestion cards ────────────────────────────────────────────────────────
 
-const SUGGESTIONS = [
-  'Plan my meals today',
-  'High protein lunch',
-  'What should I eat next?',
-  'Low cal dinner',
+const SUGGESTIONS: { icon: keyof typeof Feather.glyphMap; title: string; subtitle: string }[] = [
+  { icon: 'trending-up', title: 'Plan my meals today', subtitle: 'Based on your remaining macros' },
+  { icon: 'search', title: "What's high protein?", subtitle: 'Find meals that fit your goals' },
+  { icon: 'clock', title: "What's open now?", subtitle: 'See available dining halls' },
 ];
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -217,19 +216,25 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
   const chatContent = (
     <View style={[styles.container, { backgroundColor: colors.background }, isTab && styles.containerTab]}>
       {/* ── Header ── */}
-      <View style={[styles.header, { borderBottomColor: colors.border }, isTab && { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { borderBottomColor: colors.cardGlassBorder }, isTab && { paddingTop: insets.top + 8 }]}>
         {isTab ? (
-          <View style={styles.headerSide} />
-        ) : (
-          <TouchableOpacity onPress={onClose} style={styles.headerSide} activeOpacity={0.6}>
-            <Text style={[styles.headerAction, { color: colors.textMuted, fontFamily: 'DMSans_500Medium' }]}>
-              Close
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.headerTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>
+              CampusPlate AI
             </Text>
-          </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity onPress={onClose} style={styles.headerSide} activeOpacity={0.6}>
+              <Text style={[styles.headerAction, { color: colors.textMuted, fontFamily: 'DMSans_500Medium' }]}>
+                Close
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text, fontFamily: 'Outfit_700Bold', flex: 1, textAlign: 'center' }]}>
+              CampusPlate AI
+            </Text>
+          </>
         )}
-        <Text style={[styles.headerTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>
-          AI Assistant
-        </Text>
         <TouchableOpacity
           onPress={handleClear}
           style={[styles.headerSide, { alignItems: 'flex-end' }]}
@@ -271,21 +276,28 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
             )}
             ListHeaderComponent={
               showChips ? (
-                <View style={styles.chipsSection}>
-                  <Text style={[styles.chipsLabel, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>
-                    Ask me anything about today's dining options
+                <View style={styles.emptyState}>
+                  <Feather name="zap" size={64} color={colors.textDim} style={{ opacity: 0.15 }} />
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                    What can I help with?
                   </Text>
-                  <View style={styles.chipsWrap}>
+                  <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                    I know today's menus, your goals, and what's open right now.
+                  </Text>
+                  <View style={styles.suggestionsWrap}>
                     {SUGGESTIONS.map((s) => (
-                      <Pressable
-                        key={s}
-                        style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => handleSend(s)}
+                      <TouchableOpacity
+                        key={s.title}
+                        style={[styles.suggestionCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}
+                        onPress={() => handleSend(s.title)}
+                        activeOpacity={0.7}
                       >
-                        <Text style={[styles.chipText, { color: colors.text, fontFamily: 'DMSans_500Medium' }]}>
-                          {s}
-                        </Text>
-                      </Pressable>
+                        <Feather name={s.icon} size={16} color={colors.textMuted} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.suggestionTitle, { color: colors.text }]}>{s.title}</Text>
+                          <Text style={[styles.suggestionSub, { color: colors.textDim }]}>{s.subtitle}</Text>
+                        </View>
+                      </TouchableOpacity>
                     ))}
                   </View>
                 </View>
@@ -293,7 +305,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
             }
             ListFooterComponent={
               <>
-                {loading && <TypingIndicator color={colors.textMuted} bgColor={colors.card} />}
+                {loading && <TypingIndicator color={colors.textDim} bgColor={colors.cardGlass} />}
                 {errorMsg && !loading && (
                   <View style={styles.errorRow}>
                     <Text style={[styles.errorText, { color: colors.red, fontFamily: 'DMSans_400Regular' }]}>
@@ -301,7 +313,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
                     </Text>
                     {lastFailedMessage && (
                       <TouchableOpacity
-                        style={[styles.retryBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        style={[styles.retryBtn, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}
                         onPress={handleRetry}
                         activeOpacity={0.7}
                       >
@@ -320,39 +332,32 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
         )}
 
         {/* ── Input row (TextInput is explicit, never inside .map or conditional re-create) ── */}
-        <View style={[styles.inputRow, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: isTab ? Math.max(insets.bottom, 10) + 100 : Math.max(insets.bottom, 10) }]}>
-          <TextInput
-            style={[
-              styles.textInput,
-              {
-                backgroundColor: colors.inputBg,
-                borderColor: colors.inputBorder,
-                color: colors.text,
-                fontFamily: 'DMSans_400Regular',
-              },
-            ]}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask about today's menu..."
-            placeholderTextColor={colors.textMuted}
-            multiline
-            maxLength={500}
-            returnKeyType="default"
-            editable={!loading}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendBtn,
-              { backgroundColor: input.trim() && !loading ? colors.maroon : colors.cardAlt },
-            ]}
-            onPress={() => handleSend()}
-            disabled={!input.trim() || loading}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.sendIcon}>
-              {loading ? '...' : '↑'}
-            </Text>
-          </TouchableOpacity>
+        <View style={[styles.inputRow, { backgroundColor: colors.background, paddingBottom: isTab ? Math.max(insets.bottom, 10) + 100 : Math.max(insets.bottom, 10) }]}>
+          <View style={[styles.inputBar, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+            <Feather name="camera" size={20} color={colors.textDim} style={{ marginRight: 8 }} />
+            <TextInput
+              style={[styles.textInput, { color: colors.text, fontFamily: 'DMSans_400Regular' }]}
+              value={input}
+              onChangeText={setInput}
+              placeholder="Ask about today's menu..."
+              placeholderTextColor={colors.textDim}
+              multiline
+              maxLength={500}
+              returnKeyType="default"
+              editable={!loading}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendBtn,
+                { backgroundColor: colors.maroon, opacity: input.trim() && !loading ? 1 : 0.4 },
+              ]}
+              onPress={() => handleSend()}
+              disabled={!input.trim() || loading}
+              activeOpacity={0.7}
+            >
+              <Feather name="arrow-up" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -429,7 +434,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerSide: { width: 64 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17 },
+  headerTitle: { fontSize: 20 },
   headerAction: { fontSize: 15 },
 
   // Center fill for loading
@@ -439,17 +444,14 @@ const styles = StyleSheet.create({
   listContent: { paddingTop: 16, paddingBottom: 8 },
   listEmpty: { flexGrow: 1 },
 
-  // Suggestion chips
-  chipsSection: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 16, alignItems: 'center' },
-  chipsLabel: { fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20 },
-  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderWidth: 1,
-  },
-  chipText: { fontSize: 14 },
+  // Empty state
+  emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 16 },
+  emptyTitle: { fontSize: 20, fontFamily: 'Outfit_600SemiBold', marginTop: 16 },
+  emptySubtitle: { fontSize: 14, fontFamily: 'DMSans_400Regular', textAlign: 'center', maxWidth: 280, marginTop: 8, lineHeight: 20 },
+  suggestionsWrap: { width: '100%', marginTop: 32, gap: 8 },
+  suggestionCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, padding: 14 },
+  suggestionTitle: { fontSize: 15, fontFamily: 'DMSans_600SemiBold' },
+  suggestionSub: { fontSize: 13, fontFamily: 'DMSans_400Regular', marginTop: 1 },
 
   // Error + retry
   errorRow: { alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8, gap: 8 },
@@ -467,31 +469,33 @@ const styles = StyleSheet.create({
   typingBubble: {
     flexDirection: 'row',
     gap: 5,
-    borderRadius: 14,
+    borderRadius: 18,
     borderBottomLeftRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
 
   // Input row
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderTopWidth: 1,
-    gap: 8,
+  },
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    gap: 4,
   },
   textInput: {
     flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
     fontSize: 15,
     maxHeight: 100,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   sendBtn: {
     width: 36,
@@ -499,11 +503,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
-  },
-  sendIcon: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    marginBottom: 0,
   },
 });
