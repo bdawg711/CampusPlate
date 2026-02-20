@@ -18,7 +18,7 @@ PHASE 2 — Components (standalone, testable)
 [x] 4.2  Create src/components/DailyScoreCard.tsx
 [x] 5.1  Create src/components/Confetti.tsx
 [x] 5.2  Create src/components/GoalHitBanner.tsx
-[ ] 6.2  Create src/components/CalorieChart.tsx
+[x] 6.2  Create src/components/CalorieChart.tsx
 [ ] 6.3  Create src/components/MacroBreakdown.tsx
 [ ] 7.2  Create src/components/WeightChart.tsx
 [ ] 8.2  Create src/components/MicronutrientScreen.tsx
@@ -55,5 +55,5 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [ ] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 11 / 46 complete
+TOTAL: 12 / 46 complete
 ================================================================================
