@@ -6,6 +6,7 @@ import Animated, {
   withRepeat,
   withTiming,
   withDelay,
+  cancelAnimation,
   Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,6 +36,7 @@ export default function Skeleton({ width, height, borderRadius = 8, style }: Ske
         false  // no reverse
       )
     );
+    return () => cancelAnimation(translateX);
   }, [translateX]);
 
   const shimmerStyle = useAnimatedStyle(() => ({

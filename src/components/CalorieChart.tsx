@@ -197,18 +197,3 @@ export default function CalorieChart({ data, goalCalories, range = '1M' }: Props
     </Box>
   );
 }
-
-// ════════════════════════════════════════════════════════════════════════════════
-// OLD CODE — commented out, not deleted
-// ════════════════════════════════════════════════════════════════════════════════
-//
-// import { View, Text, StyleSheet } from 'react-native';
-// import { useTheme } from '../context/ThemeContext';
-//
-// const styles = StyleSheet.create({
-//   emptyContainer: { height: CHART_HEIGHT, justifyContent: 'center', alignItems: 'center' },
-//   emptyText: { fontSize: 14, fontFamily: 'DMSans_400Regular' },
-//   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-//   avgText: { fontSize: 13, fontFamily: 'DMSans_400Regular' },
-//   trendText: { fontSize: 13, fontFamily: 'DMSans_600SemiBold' },
-// });

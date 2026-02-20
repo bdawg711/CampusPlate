@@ -188,23 +188,3 @@ export default function WeightChart({ entries, trend }: Props) {
     </Box>
   );
 }
-
-// ════════════════════════════════════════════════════════════════════════════════
-// OLD CODE — commented out, not deleted
-// ════════════════════════════════════════════════════════════════════════════════
-//
-// import { View, Text, StyleSheet } from 'react-native';
-// import { useTheme } from '../context/ThemeContext';
-//
-// Old chart used blue for trend line instead of silver, and used
-// colors.textDim for raw line (faded). Now maroon actual + silver dashed avg.
-//
-// const styles = StyleSheet.create({
-//   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-//   avgWeight: { fontSize: 24, fontFamily: 'Outfit_700Bold' },
-//   diff: { fontSize: 16, fontFamily: 'DMSans_600SemiBold', marginTop: 4 },
-//   dateRange: { fontSize: 13, fontFamily: 'DMSans_400Regular', marginTop: 2 },
-//   pillRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
-//   pill: { borderRadius: 20, paddingVertical: 8, paddingHorizontal: 16 },
-//   pillText: { fontSize: 13, fontFamily: 'DMSans_500Medium' },
-// });

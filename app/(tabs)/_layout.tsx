@@ -1,10 +1,8 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { useTheme } from '@/src/context/ThemeContext';
 import FloatingTabBar from '@/src/components/FloatingTabBar';
 
 export default function TabLayout() {
-  const { colors } = useTheme();
 
   return (
     <Tabs

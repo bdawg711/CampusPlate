@@ -6,6 +6,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  cancelAnimation,
   Easing,
 } from 'react-native-reanimated';
 import { Box } from '@/src/theme/restyleTheme';
@@ -59,6 +60,7 @@ function PulsingDot({ delay }: { delay: number }) {
         false
       )
     );
+    return () => cancelAnimation(opacity);
   }, []);
 
   const animStyle = useAnimatedStyle(() => ({

@@ -147,27 +147,3 @@ export default function MacroBreakdown({ actual, target }: Props) {
     </Box>
   );
 }
-
-// ════════════════════════════════════════════════════════════════════════════════
-// OLD CODE — commented out, not deleted
-// ════════════════════════════════════════════════════════════════════════════════
-//
-// import { View, Text, StyleSheet } from 'react-native';
-// import { useTheme } from '../context/ThemeContext';
-//
-// Old colors used colors.blue, colors.orange, colors.yellow for ring strokes.
-// New: steel blue protein, gold metallic carbs (SVG gradient), silver metallic fat.
-// Bar track changed from barTrack to silverLight.
-//
-// const styles = StyleSheet.create({
-//   barTrack: { height: 12, borderRadius: 6, flexDirection: 'row', overflow: 'hidden' },
-//   barSegment: { height: 12 },
-//   columns: { flexDirection: 'row', marginTop: 16, gap: 8 },
-//   column: { flex: 1, alignItems: 'center' },
-//   columnHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-//   dot: { width: 8, height: 8, borderRadius: 4 },
-//   macroLabel: { fontSize: 13, fontFamily: 'DMSans_400Regular' },
-//   macroValue: { fontSize: 15, fontFamily: 'DMSans_600SemiBold', marginBottom: 6 },
-//   ring: { marginTop: 2 },
-//   splitText: { fontSize: 12, fontFamily: 'DMSans_400Regular', textAlign: 'center', marginTop: 14 },
-// });

@@ -124,21 +124,3 @@ export default function StreakBadge({ badge, size = 'small' }: Props) {
     </Box>
   );
 }
-
-// ════════════════════════════════════════════════════════════════════════════════
-// OLD CODE — commented out, not deleted
-// ════════════════════════════════════════════════════════════════════════════════
-//
-// import { View, Text, StyleSheet } from 'react-native';
-// import { useTheme } from '../context/ThemeContext';
-//
-// Old badge used flat bg colors (orange for streak, blue for water, maroon for logging).
-// Locked badges showed emoji 🔒. Now uses Feather lock icon + silver bg.
-// Unlocked badges now have gold metallic gradient bg + MetallicShimmer on unlock.
-//
-// const styles = StyleSheet.create({
-//   container: { alignItems: 'center' },
-//   circle: { justifyContent: 'center', alignItems: 'center' },
-//   name: { fontFamily: 'DMSans_500Medium', textAlign: 'center', marginTop: 6 },
-//   description: { fontFamily: 'DMSans_400Regular', fontSize: 11, textAlign: 'center', marginTop: 2 },
-// });

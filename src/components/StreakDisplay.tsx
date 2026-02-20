@@ -58,20 +58,3 @@ export default function StreakDisplay({ currentStreak, longestStreak }: Props) {
     </Box>
   );
 }
-
-// ════════════════════════════════════════════════════════════════════════════════
-// OLD CODE — commented out, not deleted
-// ════════════════════════════════════════════════════════════════════════════════
-//
-// import { View, Text, StyleSheet } from 'react-native';
-// import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming } from 'react-native-reanimated';
-// import { useTheme } from '../context/ThemeContext';
-//
-// const styles = StyleSheet.create({
-//   container: { paddingVertical: 4 },
-//   row: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-//   number: { fontSize: 32, fontFamily: 'Outfit_800ExtraBold' },
-//   label: { fontSize: 14, fontFamily: 'DMSans_400Regular' },
-//   emptyText: { fontSize: 14, fontFamily: 'DMSans_400Regular' },
-//   best: { fontSize: 12, fontFamily: 'DMSans_400Regular', marginTop: 2 },
-// });

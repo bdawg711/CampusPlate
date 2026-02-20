@@ -253,37 +253,3 @@ function CompactView({ score, grade }: { score: number; grade: string }) {
     </Animated.View>
   );
 }
-
-// ════════════════════════════════════════════════════════════════════════════════
-// OLD CODE — commented out, not deleted
-// ════════════════════════════════════════════════════════════════════════════════
-//
-// import { StyleSheet } from 'react-native';
-// import { useTheme } from '../context/ThemeContext';
-//
-// const CATEGORIES_OLD: { key: keyof ScoreBreakdown; label: string; colorKey: string }[] = [
-//   { key: 'calories', label: 'Calories', colorKey: 'maroon' },
-//   { key: 'protein',  label: 'Protein',  colorKey: 'blue' },
-//   { key: 'carbs',    label: 'Carbs',    colorKey: 'orange' },
-//   { key: 'fat',      label: 'Fat',      colorKey: 'yellow' },
-//   { key: 'meals',    label: 'Meals',    colorKey: 'green' },
-//   { key: 'water',    label: 'Water',    colorKey: 'blue' },
-// ];
-//
-// const styles = StyleSheet.create({
-//   compactCard: { borderRadius: 14, padding: 16, flex: 1, borderWidth: 1 },
-//   compactHeader: { fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 1.5 },
-//   compactGrade: { fontSize: 32, fontFamily: 'Outfit_800ExtraBold', marginTop: 4 },
-//   compactScore: { fontSize: 13, fontFamily: 'DMSans_400Regular', marginTop: 2 },
-//   fullCard: { borderRadius: 14, padding: 20, borderWidth: 1 },
-//   fullHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 16 },
-//   fullGrade: { fontSize: 48, fontFamily: 'Outfit_800ExtraBold' },
-//   fullScore: { fontSize: 16, fontFamily: 'DMSans_400Regular' },
-//   barsContainer: { gap: 10 },
-//   barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-//   barLabel: { fontSize: 13, fontFamily: 'DMSans_400Regular', width: 60 },
-//   barTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
-//   barFill: { height: 6, borderRadius: 3 },
-//   barScore: { fontSize: 13, fontFamily: 'DMSans_500Medium', width: 40, textAlign: 'right' },
-//   tip: { fontSize: 13, fontFamily: 'DMSans_400Regular', fontStyle: 'italic', marginTop: 16 },
-// });
