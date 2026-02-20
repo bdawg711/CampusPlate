@@ -19,6 +19,8 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { getStreakData, StreakData } from '@/src/utils/streaks';
+import { calculateDailyScore, DailyScore } from '@/src/utils/dailyScore';
+import DailyScoreCard from '@/src/components/DailyScoreCard';
 import { logBelongsToMealGroup, getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
 import { getTodayWater, addWater, removeWater, getWaterGoal } from '@/src/utils/water';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
@@ -347,6 +349,15 @@ export default function HomeScreen() {
   const goalCarb = profile?.goal_carbs_g || 200;
   const goalFat = profile?.goal_fat_g || 65;
 
+  // Daily score
+  const dailyScore = calculateDailyScore(
+    { calories: totalCal, protein: totalPro, carbs: totalCarb, fat: totalFat },
+    { calories: goalCal, protein: goalPro, carbs: goalCarb, fat: goalFat },
+    logs.length,
+    waterOz,
+    waterGoal
+  );
+
   // SVG ring
   const ringSize = 170;
   const strokeWidth = 12;
@@ -606,13 +617,14 @@ export default function HomeScreen() {
             <Text style={[st.streakCardLabel, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>days</Text>
             <View style={[st.streakCardAccent, { backgroundColor: colors.maroon }]} />
           </View>
-          {/* RIGHT — Score placeholder (Task 4.3) */}
-          <View style={[st.streakCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[st.streakCardHeader, { color: colors.textDim }]}>TODAY'S SCORE</Text>
-            <Text style={[st.streakCardNumber, { color: colors.text, fontFamily: 'Outfit_800ExtraBold' }]}>—</Text>
-            <Text style={[st.streakCardLabel, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}> </Text>
-            <View style={[st.streakCardAccent, { backgroundColor: colors.maroon }]} />
-          </View>
+          {/* RIGHT — Score */}
+          <DailyScoreCard
+            compact
+            score={dailyScore.score}
+            grade={dailyScore.grade}
+            gradeColor={dailyScore.gradeColor}
+            breakdown={dailyScore.breakdown}
+          />
         </View>
 
         {/* Water Tracker */}

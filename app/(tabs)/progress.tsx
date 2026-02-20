@@ -17,6 +17,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
+import { getTodayWater, getWaterGoal } from '@/src/utils/water';
+import { calculateDailyScore, DailyScore } from '@/src/utils/dailyScore';
+import DailyScoreCard from '@/src/components/DailyScoreCard';
 import WeeklyReport from '@/src/components/WeeklyReport';
 
 function getLocalDate(offset = 0) {
@@ -36,6 +39,9 @@ interface DayData {
   label: string;
   calories: number;
   protein: number;
+  carbs: number;
+  fat: number;
+  mealsCount: number;
   logged: boolean;
 }
 
@@ -50,13 +56,16 @@ export default function ProgressScreen() {
   const [weightInput, setWeightInput] = useState('');
   const [savingWeight, setSavingWeight] = useState(false);
   const [weeklyReportVisible, setWeeklyReportVisible] = useState(false);
+  const [dailyScore, setDailyScore] = useState<DailyScore | null>(null);
 
   const loadData = useCallback(async () => {
     try {
       const userId = await requireUserId();
 
-      const [profileRes] = await Promise.all([
-        supabase.from('profiles').select('goal_calories, goal_protein_g, weight').eq('id', userId).single(),
+      const [profileRes, waterCount, waterGoalOz] = await Promise.all([
+        supabase.from('profiles').select('goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g, weight').eq('id', userId).single(),
+        getTodayWater(userId),
+        getWaterGoal(userId),
       ]);
       if (profileRes.data) setProfile(profileRes.data);
 
@@ -66,17 +75,22 @@ export default function ProgressScreen() {
         const date = getLocalDate(-i);
         const { data } = await supabase
           .from('meal_logs')
-          .select('servings, menu_items(nutrition(calories, protein_g))')
+          .select('servings, menu_items(nutrition(calories, protein_g, total_carbs_g, total_fat_g))')
           .eq('user_id', userId)
           .eq('date', date);
 
         let totalCal = 0;
         let totalPro = 0;
+        let totalCarb = 0;
+        let totalFat = 0;
         (data || []).forEach((log: any) => {
           const n = Array.isArray(log.menu_items?.nutrition) ? log.menu_items.nutrition[0] : log.menu_items?.nutrition;
           if (n) {
-            totalCal += Math.round((n.calories || 0) * (log.servings || 1));
-            totalPro += Math.round((n.protein_g || 0) * (log.servings || 1));
+            const s = log.servings || 1;
+            totalCal += Math.round((n.calories || 0) * s);
+            totalPro += Math.round((n.protein_g || 0) * s);
+            totalCarb += Math.round((n.total_carbs_g || 0) * s);
+            totalFat += Math.round((n.total_fat_g || 0) * s);
           }
         });
 
@@ -85,10 +99,27 @@ export default function ProgressScreen() {
           label: getDayLabel(-i),
           calories: totalCal,
           protein: totalPro,
+          carbs: totalCarb,
+          fat: totalFat,
+          mealsCount: (data || []).length,
           logged: (data || []).length > 0,
         });
       }
       setWeekData(days);
+
+      // Calculate today's daily score
+      const todayData = days[days.length - 1];
+      if (todayData && profileRes.data) {
+        const p = profileRes.data;
+        const score = calculateDailyScore(
+          { calories: todayData.calories, protein: todayData.protein, carbs: todayData.carbs, fat: todayData.fat },
+          { calories: p.goal_calories || 2000, protein: p.goal_protein_g || 150, carbs: p.goal_carbs_g || 200, fat: p.goal_fat_g || 65 },
+          todayData.mealsCount,
+          waterCount,
+          waterGoalOz
+        );
+        setDailyScore(score);
+      }
 
       // Calculate streak
       let s = 0;
@@ -164,6 +195,18 @@ export default function ProgressScreen() {
         }
       >
         <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Progress</Text>
+
+        {/* Daily Score */}
+        {dailyScore && (
+          <View style={{ marginBottom: 16 }}>
+            <DailyScoreCard
+              score={dailyScore.score}
+              grade={dailyScore.grade}
+              gradeColor={dailyScore.gradeColor}
+              breakdown={dailyScore.breakdown}
+            />
+          </View>
+        )}
 
         {/* Streak Card */}
         <View style={[st.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
