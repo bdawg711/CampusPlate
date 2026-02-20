@@ -54,12 +54,12 @@ READ THIS FILE BEFORE STARTING ANY TASK.
 ## Phase 5: Integration + Polish
 
 - [x] 1.9 — "Log this" from AI meal suggestions — Added handleLogAIItem callback in dashboard (index.tsx). Inserts meal_log using menu_item_id from AI MealItem, effective date, meal period, servings=1. Shows success alert with item name + calories. Calls loadData() to refresh dashboard totals. Wired to AIChat via onLogItem prop. Error handling with Alert.alert on failure.
-- [ ] 1.10 — Test AI end-to-end
+- [x] 1.10 — Test AI end-to-end
 
 ## Phase 6: Testing
 
-- [ ] 2.6 — Test weekly report
-- [ ] 3.8 — Test reminders
+- [x] 2.6 — Test weekly report
+- [x] 3.8 — Test reminders
 
 ---
 
@@ -67,3 +67,5 @@ READ THIS FILE BEFORE STARTING ANY TASK.
 
 ```
 ```
+
+2/19 — Sprint 3 COMPLETE. AI chat working with Edge Function + allowlist, weekly report with all 6 sections, reminders with Expo Go compatibility. All features tested and verified.
