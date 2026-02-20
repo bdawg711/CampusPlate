@@ -13,7 +13,7 @@ PHASE 1 — Utilities (new files, no UI changes)
 PHASE 2 — Components (standalone, testable)
 [ ] 1.1  Create src/components/FloatingTabBar.tsx
 [ ] 1.2  Modify src/components/AIChat.tsx — add mode prop
-[ ] 3.2  Create src/components/StreakBadge.tsx
+[x] 3.2  Create src/components/StreakBadge.tsx
 [ ] 3.3  Create src/components/StreakDisplay.tsx
 [ ] 4.2  Create src/components/DailyScoreCard.tsx
 [ ] 5.1  Create src/components/Confetti.tsx
@@ -55,5 +55,5 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [ ] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 6 / 46 complete
+TOTAL: 7 / 46 complete
 ================================================================================
