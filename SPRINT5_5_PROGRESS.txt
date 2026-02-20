@@ -1,0 +1,205 @@
+SPRINT 5.5 PROGRESS TRACKER — UX POLISH FOR STUDENT LAUNCH
+=============================================================
+
+Sprint Start: ___________
+Target Completion: 2 weeks
+PRD Reference: SPRINT5_5_PRD.txt
+Focus: Make every interaction fast, clear, and satisfying for real VT students
+
+HOW TO USE THIS FILE
+--------------------
+- Update status after completing each task
+- Statuses: TODO -> IN PROGRESS -> TESTING -> DONE -> BLOCKED
+- Add notes for anything unexpected
+- One commit per task, reference task ID in commit message
+- CHECKPOINT tasks require device testing before moving to next phase
+
+
+================================================================================
+PHASE 1 — BROWSE FLOW (Highest Priority — this is the core loop)
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+1.1   Smart default meal period — auto-select breakfast/lunch/dinner       Cam    TODO
+      based on time of day
+1.2   Hall cards — show open/closed status, demote item count, remove      Cam    TODO    Uses dining_hall_hours table
+      chevron, dim closed halls and sort to bottom
+1.3   Station grid — switch to compact list layout, sort by relevance      Cam    TODO
+1.4   Food item list — scanability polish (name emphasis, heart tap        Cam    TODO    Test alternating rows on device
+      target 44px, optional alternating row bg)
+1.5   Nutrition detail — sticky "Log This Item · XXX cal" button,          Cam    TODO    Most important button in app
+      dynamic cal with serving selector, post-log green check + haptic
+1.6   Post-log feedback loop — success toast in Browse, haptic medium,     Cam    TODO    Don't auto-navigate away
+      stay in Browse, animate rings on Dashboard return
+1.7   Search improvements — food items across all halls, recent            Cam    TODO    AsyncStorage for recent searches
+      searches, popular items on empty focus, filter-as-you-type
+1.8   CHECKPOINT: Browse flow device test — full flow end to end           Cam    TODO    MUST PASS before Phase 2
+
+Phase 1 Status: NOT STARTED
+
+
+================================================================================
+PHASE 2 — DASHBOARD (The daily check-in screen)
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+2.1   Above-the-fold hierarchy — only greeting + rings + legend visible    Cam    TODO    Push everything else below fold
+      without scrolling
+2.2   Section spacing and dividers — 28-32px gaps + borderLight dividers   Cam    TODO    Creates visual "chapters"
+      between major sections
+2.3   Smarter For You — only show sections with items, max 2 visible,     Cam    TODO    Wider cards (160px+)
+      wider food cards with no name truncation
+2.4   Compact empty states — single line "No lunch · Browse →" with       Cam    TODO    Cuts height from ~80px to ~40px
+      tappable link, remove decorative icons
+2.5   Water tracker — "Almost there!" at 80%, goal hit feedback,          Cam    TODO    Mini confetti burst at 100%
+      bounce animation on buttons
+2.6   Stats row — "Day 1" framing for new users, actionable tip below     Cam    TODO    "Log lunch for +10 pts"
+      score instead of just numbers
+2.7   CHECKPOINT: Dashboard 3-second test — can you answer the three      Cam    TODO    MUST PASS before Phase 3
+      key questions in <3 seconds each?
+
+Phase 2 Status: NOT STARTED
+
+
+================================================================================
+PHASE 3 — PROGRESS (Making data motivating)
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+3.1   Restructure into 3 sections — "This Week" / "Body & Nutrition" /    Cam    TODO    Move Log Weight to modal
+      "Achievements" with section headers and dividers
+3.2   Daily Score card — show real numbers behind each bar, highlight      Cam    TODO
+      most improvable category in gold
+3.3   Streak visualization — 1W dots (keep), 1M mini calendar grid,       Cam    TODO    GitHub contribution graph style
+      3M/All condensed view
+3.4   Badges — show only unlocked prominently, collapse locked behind     Cam    TODO    "Your first badge is one day away"
+      "See All", motivating card when 0 unlocked
+3.5   CHECKPOINT: Progress test — three questions answered quickly         Cam    TODO    MUST PASS before Phase 4
+
+Phase 3 Status: NOT STARTED
+
+
+================================================================================
+PHASE 4 — AI CHAT (The differentiator)
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+4.1   First-message suggestions — context-aware based on time of day,     Cam    TODO    Dynamic if possible, time-aware minimum
+      remaining macros, open halls
+4.2   AI response formatting — visual segments inside bubbles, food       Cam    TODO    Fix the whitespace bug too
+      cards as distinct tappable elements with Log button
+4.3   Chat input — disabled send when empty, disabled during response,    Cam    TODO
+      time-based placeholder text
+4.4   CHECKPOINT: AI Chat test — suggestion tap → response → food         Cam    TODO    MUST PASS before Phase 5
+      card tap → log
+
+Phase 4 Status: NOT STARTED
+
+
+================================================================================
+PHASE 5 — GLOBAL UX POLISH
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+5.1   Haptic feedback audit — verify firing, increase intensity on        Cam    TODO    Add console.log in catch for testing
+      logging/celebrations, remove from frequent actions
+5.2   Tab bar labels — "Browse" → "Menu", "AI" → "Ask AI"                Cam    TODO    Small but meaningful
+5.3   Loading states — 300ms delay before skeletons, AsyncStorage         Cam    TODO    Big UX win for repeat opens
+      cache for instant repeat loads
+5.4   Error handling — consistent error cards with retry button,          Cam    TODO
+      network error messaging
+5.5   Micro-copy pass — conversational tone, time-aware placeholders,     Cam    TODO    See PRD for specific copy changes
+      encouraging empty states, fun celebrations
+5.6   Navigation audit — back buttons on all non-tab screens,             Cam    TODO
+      consistent modal close position, nav stack integrity
+5.7   Pull-to-refresh everywhere — Browse, Progress, Settings             Cam    TODO    Maroon tint on all spinners
+5.8   Accessibility minimum — 44px tap targets, a11y labels,              Cam    TODO    Test Dynamic Type largest setting
+      color not sole indicator
+5.9   CHECKPOINT: First-time user test — have someone else try it         Cam    TODO    THE most important test
+
+Phase 5 Status: NOT STARTED
+
+
+================================================================================
+PHASE 6 — FINAL DETAILS
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+6.1   App icon + splash screen — maroon icon, white splash with logo      Cam    TODO    Skip if already good
+6.2   Version bump — update version number, About screen info             Cam    TODO
+6.3   Performance pass — cold start <2s, tab switching smooth, long       Cam    TODO
+      list 60fps, modal open/close clean
+6.4   CHECKPOINT: Final pre-launch review                                 Cam    TODO    "Would I put this on the App Store?"
+
+Phase 6 Status: NOT STARTED
+
+
+================================================================================
+SUMMARY TABLE
+================================================================================
+
+Phase                           Tasks   Done   Blocked
+------------------------------  -----   ----   -------
+1 — Browse Flow                   8       0       0
+2 — Dashboard                     7       0       0
+3 — Progress                      5       0       0
+4 — AI Chat                       4       0       0
+5 — Global UX Polish              9       0       0
+6 — Final Details                 4       0       0
+TOTAL                            37       0       0
+
+
+================================================================================
+BLOCKERS & ISSUES LOG
+================================================================================
+
+Date       Task    Issue                          Resolution              Resolved?
+--------   -----   ----------------------------   --------------------    ---------
+
+
+================================================================================
+USER TESTING NOTES
+================================================================================
+
+Track observations when someone else uses the app (Task 5.9):
+
+Tester Name: ___________
+Date: ___________
+
+Task Given                              Did they succeed?   Time    Notes
+--------------------------------------  -----------------   -----   ---------
+Find dinner options at D2                                    
+Log a food item                                              
+Check how many calories today                                
+Find a high-protein option                                   
+Understand what the rings mean                               
+Navigate back after viewing food detail                      
+Add water                                                    
+
+
+================================================================================
+BEFORE/AFTER COMPARISON
+================================================================================
+
+Capture screenshots at the same scroll position to compare:
+
+Screen + Section               Sprint 5 (before)    Sprint 5.5 (after)   Better?
+-----------------------------  ------------------   ------------------   -------
+Browse — hall list
+Browse — station grid
+Browse — food items
+Browse — nutrition detail
+Dashboard — above the fold
+Dashboard — For You section
+Dashboard — meal log section
+Progress — top section
+Progress — badges
+AI Chat — suggestions
+AI Chat — response with foods
+Settings — full view

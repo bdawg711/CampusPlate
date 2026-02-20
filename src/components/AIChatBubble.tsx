@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '@/src/theme/restyleTheme';
 import type { MealItem } from '@/src/utils/ai';
 
@@ -16,7 +17,7 @@ interface AIChatBubbleProps {
   onLogItem?: (item: MealItem) => void;
 }
 
-export default function AIChatBubble({ role, content, mealItems }: AIChatBubbleProps) {
+export default function AIChatBubble({ role, content, mealItems, onLogItem }: AIChatBubbleProps) {
   const isUser = role === 'user';
 
   // Entrance animation: slide-in from bottom with fade
@@ -79,43 +80,54 @@ export default function AIChatBubble({ role, content, mealItems }: AIChatBubbleP
             lineHeight: 21,
           }}
         >
-          {content}
+          {content.replace(/\n{3,}/g, '\n\n').trim()}
         </Text>
 
         {mealItems && mealItems.length > 0 && (
           <Box marginTop="s" style={{ gap: 8 }}>
             {mealItems.map((item, idx) => (
-              <Box
+              <TouchableOpacity
                 key={item.id ?? idx}
-                padding="s"
-                borderRadius="m"
-                borderWidth={1}
-                borderColor="border"
-                backgroundColor="card"
+                activeOpacity={0.7}
+                onPress={() => onLogItem?.(item)}
               >
-                <Text
-                  variant="body"
-                  style={{ fontFamily: 'DMSans_600SemiBold' }}
-                  numberOfLines={2}
+                <Box
+                  padding="s"
+                  borderRadius="m"
+                  borderWidth={1}
+                  borderColor="border"
+                  backgroundColor="card"
                 >
-                  {item.name}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text variant="muted" numberOfLines={1}>
-                    {item.hall}
-                  </Text>
-                  <Text variant="muted"> · </Text>
                   <Text
-                    variant="muted"
-                    style={{ color: '#1A1A1A', fontFamily: 'DMSans_600SemiBold' }}
+                    variant="body"
+                    style={{ fontFamily: 'DMSans_600SemiBold' }}
+                    numberOfLines={2}
                   >
-                    {item.calories} cal
+                    {item.name}
                   </Text>
-                </View>
-                <Text variant="dim" style={{ marginTop: 4 }}>
-                  {item.protein_g}p · {item.carbs_g}c · {item.fat_g}f
-                </Text>
-              </Box>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text variant="muted" numberOfLines={1}>
+                      {item.hall}
+                    </Text>
+                    <Text variant="muted"> · </Text>
+                    <Text
+                      variant="muted"
+                      style={{ color: '#1A1A1A', fontFamily: 'DMSans_600SemiBold' }}
+                    >
+                      {item.calories} cal
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                    <Text variant="dim">
+                      {item.protein_g}p · {item.carbs_g}c · {item.fat_g}f
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Feather name="plus-circle" size={14} color="#861F41" />
+                      <Text variant="dim" style={{ color: '#861F41', fontFamily: 'DMSans_600SemiBold' }}>Log</Text>
+                    </View>
+                  </View>
+                </Box>
+              </TouchableOpacity>
             ))}
           </Box>
         )}

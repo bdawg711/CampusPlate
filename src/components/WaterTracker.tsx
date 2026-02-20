@@ -57,6 +57,10 @@ export default function WaterTracker({
 
   const pct = waterGoal > 0 ? Math.min(waterOz / waterGoal, 1) : 0;
 
+  // Dynamic fill color: maroon <50%, gold 50-99%, green at 100%
+  const fillColor =
+    pct >= 1 ? '#2D8A4E' : pct >= 0.5 ? '#C5A55A' : '#861F41';
+
   useEffect(() => {
     fillWidth.value = withTiming(pct, {
       duration: 400,
@@ -83,7 +87,7 @@ export default function WaterTracker({
 
         {/* Silver progress bar */}
         <Box flex={1} style={styles.track}>
-          <Animated.View style={[styles.fill, fillStyle]} />
+          <Animated.View style={[styles.fill, { backgroundColor: fillColor }, fillStyle]} />
         </Box>
 
         {/* Animated count */}

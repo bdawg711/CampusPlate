@@ -1404,7 +1404,7 @@ export default function BrowseScreen() {
 
             {/* Task 4.4: Full-width maroon log button with press-scale + haptic */}
             <Box style={{
-              paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24,
+              paddingHorizontal: 20, paddingTop: 12, paddingBottom: 120,
               borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.offWhite,
             }}>
               <Text variant="muted" style={{ textAlign: 'center', marginBottom: 10 }}>

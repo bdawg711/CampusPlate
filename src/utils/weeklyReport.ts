@@ -173,12 +173,12 @@ export async function getWeeklyReport(
   // ── Water ───────────────────────────────────────────────────────────────
   const waterTotals: WaterEntry[] = (rpc.water_totals ?? []).map((w) => ({
     date: w.date,
-    totalOz: w.total_oz,
+    totalOz: w.total_oz ?? 0,
   }));
 
   const avgWaterOz =
     waterTotals.length > 0
-      ? Math.round(waterTotals.reduce((sum, w) => sum + w.totalOz, 0) / waterTotals.length)
+      ? Math.round(waterTotals.reduce((sum, w) => sum + (w.totalOz || 0), 0) / waterTotals.length)
       : 0;
 
   const daysWaterGoalMet = waterTotals.filter(

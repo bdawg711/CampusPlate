@@ -302,7 +302,7 @@ export default function WeeklyReport({ visible, onClose, initialEndDate }: Weekl
             <View style={{ borderRadius: 12, borderWidth: 1, padding: 16, borderColor: C.border, backgroundColor: C.white }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <View>
-                  <Text style={{ fontSize: 22, color: C.blue, fontFamily: 'Outfit_700Bold' }}>{data.avgWaterOz} oz</Text>
+                  <Text style={{ fontSize: 22, color: C.blue, fontFamily: 'Outfit_700Bold' }}>{isNaN(data.avgWaterOz) ? 0 : data.avgWaterOz} oz</Text>
                   <Text style={{ fontSize: 12, marginTop: 2, color: C.textMuted, fontFamily: 'DMSans_400Regular' }}>avg daily · goal {data.goals.waterGoalOz} oz</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>

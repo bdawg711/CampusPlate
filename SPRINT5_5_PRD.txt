@@ -1,0 +1,665 @@
+CAMPUSPLATE SPRINT 5.5 — UX POLISH FOR STUDENT LAUNCH
+======================================================
+
+PURPOSE
+-------
+Sprint 5 gave us a visual identity. Sprint 5.5 makes the app feel like a product
+students will actually keep on their phones. Every change in this sprint is justified
+by a real user scenario. No aesthetic-only changes. Everything earns its place by
+making the app faster, clearer, or more satisfying to use.
+
+Target user: A VT sophomore checking what's at D2 for dinner while walking across
+the Drillfield. They have 30 seconds of attention. The app either earns their trust
+in that window or gets deleted.
+
+GUIDING PRINCIPLES
+------------------
+1. SPEED TO VALUE — Every screen should answer a question in under 3 seconds
+2. BREATHING ROOM — Content needs space to be scannable, not readable
+3. ONE FOCUS PER VIEWPORT — The first thing you see should be the only thing you see
+4. SMART DEFAULTS — The app should feel like it already knows what you want
+5. DELIGHT ON ACTIONS — The moments where users DO something should feel rewarding
+
+TIMELINE: ~2 weeks
+PRIORITY ORDER: Browse flow → Dashboard → Progress → AI Chat → Global
+
+
+================================================================================
+PHASE 1 — BROWSE FLOW: THE MAKE-OR-BREAK EXPERIENCE (Tasks 1.1–1.8)
+================================================================================
+
+This is the #1 priority because it's the core loop: find food → see nutrition → log it.
+If this flow isn't fast and satisfying, nothing else matters.
+
+USER SCENARIO: "I'm at Turner Place, what should I eat for dinner that's high protein?"
+
+
+TASK 1.1: Smart default meal period
+File: app/(tabs)/browse.tsx
+Right now the meal filter defaults to... whatever it was last, or the first option.
+It should auto-select based on time of day:
+  - Before 10:30 AM → Breakfast selected
+  - 10:30 AM – 4:00 PM → Lunch selected
+  - After 4:00 PM → Dinner selected
+This means when a student opens Browse at 6 PM, they immediately see dinner options
+without having to tap anything. One less decision. One less tap.
+
+
+TASK 1.2: Hall cards — show what matters
+File: app/(tabs)/browse.tsx
+Current hall cards show: Hall name, star rating, item count, chevron.
+
+The problem: "176 items" means nothing to a student. They don't care how many items
+a hall has. They care: is it open, and what's good there.
+
+Redesign hall card content:
+  - Hall name (cardTitle, left-aligned)
+  - Open/Closed badge: small chip next to the name
+      - Open: success green background, white text, "Open"
+      - Closed: silverMuted background, silver text, "Closed"
+      - Closing Soon (within 30 min): warning gold background, text "Closes at 8pm"
+    Use dining_hall_hours table to determine status. If no hours data, omit the badge.
+  - Subtitle line: "X stations · Y items" in muted text (keeps the data but demotes it)
+  - Star rating: move to subtitle line after item count, or remove entirely
+    (ratings are mostly meaningless with <10 reviews)
+  - Remove the chevron arrow — the whole card is tappable, chevrons are redundant
+    on cards with press-scale animation
+
+Keep AnimatedCard with press-scale. Closed halls should appear at the BOTTOM of the
+list and be visually dimmed (0.5 opacity).
+
+
+TASK 1.3: Station grid — faster scanning
+File: The dining hall detail screen (station grid view)
+Current 2-column grid with big cards is slow to scan. When D2 has 15+ stations,
+that's 8 rows of scrolling before you find what you want.
+
+Changes:
+  - Switch to a more compact list layout instead of 2-column grid
+  - Each station row: emoji/icon on left (24px), station name (body bold),
+    item count on right (muted), chevron
+  - This cuts the vertical space roughly in half vs the grid
+  - Group stations by category if possible (Entrees at top, Sides, Beverages, Desserts)
+    OR sort by item count descending (stations with most items first = most relevant)
+  - Keep the search bar at top — it already works and is valuable
+  - Keep "Rate This Hall" but move it to a less prominent position (maybe in a
+    header action, not a standalone button)
+
+
+TASK 1.4: Food item list — scanability upgrade
+File: The food item list screen
+The current list is actually good. Minor polish:
+  - Make the food name slightly larger or bolder so it pops vs the macro line below
+  - The calorie number on the right is great — keep it prominent in maroon
+  - Add a subtle alternating row background: every other row gets a barely-visible
+    offWhite (#FAFAFA) background. This helps the eye track across long lists.
+    (Skip this if it looks bad — test on device first.)
+  - The favorite heart icon — make it slightly larger (24px) and ensure the tap target
+    is at least 44x44px (iOS accessibility minimum). Right now it looks small.
+
+
+TASK 1.5: Nutrition detail — make logging irresistible
+File: The nutrition detail screen
+This screen's job is to make logging feel easy and instant. Current version is good
+but the "Log This Item" button is the most important button in the entire app and it
+needs to feel like it.
+
+Changes:
+  - The button should be FIXED at the bottom of the screen (not scrolling with content).
+    Use a sticky footer: absolute positioned, full width, with a subtle top border or
+    fade gradient above it so it doesn't collide with the content.
+  - Button text: "Log This Item · 706 cal" (include the calorie count IN the button
+    so users see the impact of their action before tapping)
+  - After successful log: button briefly changes to a green checkmark + "Logged!" for
+    1.5 seconds with haptic success, then navigates back or resets
+  - The serving size selector (0.5, 1, 1.5, 2) should update the button calorie count
+    live: selecting "2" makes the button say "Log This Item · 1,412 cal"
+  - Make sure the macro bars are visually tied to the ring colors used on the dashboard
+    (maroon calories, blue protein, gold carbs, silver fat) — consistency helps users
+    build mental models
+
+TASK 1.6: Post-log feedback loop
+This is the moment that determines whether a user becomes a daily user or not.
+After logging an item, the app should:
+  1. Show a brief success toast or banner (not a full modal — don't interrupt flow)
+     "Logged! Sausage Patties · 800 cal" with a green check
+  2. Haptic success (medium intensity — they should FEEL it)
+  3. If they're still in Browse, stay in Browse (don't auto-navigate to Dashboard)
+     Students often log multiple items in one session
+  4. When they eventually navigate back to Dashboard, THAT'S when the rings animate
+     to the new values with the satisfying count-up
+  5. If this log pushed them past their calorie goal, show the celebration
+
+The key insight: don't celebrate prematurely. Let them finish logging, THEN reward
+them when they return to see their full picture.
+
+
+TASK 1.7: Search improvements
+File: app/(tabs)/browse.tsx (search functionality)
+Current search searches hall names and food items. For a student launch, search is
+critical because students think in terms of food, not halls.
+
+Changes:
+  - When a user types "chicken" they should see FOOD ITEMS matching "chicken" across
+    all halls, not just hall names. If search already does this, great — make sure
+    results show: food name, calories, and WHICH HALL it's at. This lets students
+    search by craving and discover where to go.
+  - Search should have recent searches (store last 5 in AsyncStorage)
+  - When search is focused but empty, show popular/trending items or recent searches
+    instead of a blank state
+  - Search should be instant (filter-as-you-type), not require hitting enter
+
+
+TASK 1.8: CHECKPOINT — Browse flow test
+Walk through this exact flow on your phone:
+  1. Open Browse → should auto-select current meal period
+  2. See hall list → should show open/closed status
+  3. Tap a hall → should see stations in compact list
+  4. Tap a station → should see food items that are easy to scan
+  5. Tap a food item → should see nutrition detail with sticky Log button
+  6. Tap Log → should get success feedback without leaving Browse
+  7. Log a second item → should be seamless
+  8. Navigate to Dashboard → rings should update with count-up animation
+  The entire flow should feel fast, informative, and satisfying.
+
+
+================================================================================
+PHASE 2 — DASHBOARD: THE DAILY CHECK-IN (Tasks 2.1–2.7)
+================================================================================
+
+USER SCENARIO: Student opens app at 2 PM. They had breakfast and lunch.
+They want to know: "How am I doing today? How much room do I have for dinner?"
+
+The dashboard should answer that in ONE glance, not after scrolling.
+
+
+TASK 2.1: Above-the-fold hierarchy
+File: app/(tabs)/index.tsx
+The first viewport (what you see without scrolling) needs to show ONLY:
+  - Greeting + name + avatar (compact, single line)
+  - SpiralRings (hero — this is your status at a glance)
+  - MacroLegend (the numbers behind the rings)
+
+That's it. Nothing else above the fold. The rings ARE the dashboard. Everything
+else is secondary context you discover by scrolling.
+
+To achieve this:
+  - Reduce top padding above greeting (it doesn't need much)
+  - Rings can stay the same size or go slightly larger if needed
+  - Add 24-32px of space BELOW MacroLegend before the next section starts
+  - This creates a clear visual "chapter break" between the hero and the details
+
+
+TASK 2.2: Section spacing and dividers
+File: app/(tabs)/index.tsx
+Add clear visual breathing room between dashboard sections:
+  - Between MacroLegend and StatsRow: 28px gap
+  - Between StatsRow and WaterTracker: 20px gap
+  - Between WaterTracker and "For You": 32px gap + a subtle horizontal divider
+    (1px line in borderLight color, with 16px horizontal margin on each side)
+  - Between each "For You" sub-section: 20px gap
+  - Between "For You" and "Today's Meals": 32px gap + divider
+
+These dividers create "chapters" on the dashboard. The user subconsciously
+understands: rings = my status, stats = my streaks, water = hydration,
+for you = suggestions, meals = what I ate.
+
+
+TASK 2.3: Smarter "For You" section
+File: src/components/ForYouSection.tsx
+Current "For You" shows three sub-sections (Favorites, Fits Macros, Try New) which
+is a LOT of horizontal scroll cards. For most users, this is overwhelming.
+
+Changes:
+  - Only show sections that have items. If user has no favorites, don't show
+    "Your Favorites Today" with an empty state — just skip it entirely.
+  - Limit to MAX 2 sub-sections visible at once. Priority order:
+    1. "Fits Your Macros" (most useful — data-driven recommendation)
+    2. "Your Favorites Today" (if they have favorites)
+    3. "Try Something New" (fallback discovery)
+  - Make food cards wider: at least 160px so names don't truncate as much
+  - Add calorie count in a more prominent position on the card
+  - Each card should show: food name (2 lines max, no truncation with ellipsis
+    — if it doesn't fit in 2 lines, that's ok, just clip cleanly),
+    calorie count (bold), dining hall name (dim, 1 line)
+
+
+TASK 2.4: Compact empty states for meals
+File: src/components/MealLogSection.tsx
+When a meal isn't logged, the empty state currently takes up a lot of space
+(icon + text + padding). For a dashboard, this wastes precious viewport.
+
+Change empty states to a single compact line:
+  - "Lunch — 0 cal" header stays as-is (sectionHeader)
+  - Empty state: single line "No lunch logged · Browse →" where "Browse →" is
+    a tappable maroon link that navigates to Browse with Lunch pre-selected
+  - Remove the large icon from empty states — it's decorative, not functional
+  - This cuts each empty meal from ~80px height to ~40px
+  - When 2/3 meals are empty, the dashboard no longer looks barren
+
+For LOGGED meals, the current display is good. Keep the food name + macros + cal + X.
+
+
+TASK 2.5: Water tracker — make the goal feel close
+File: src/components/WaterTracker.tsx
+The water tracker works but it's emotionally flat. At 72/80 oz you're SO CLOSE
+to your goal but the UI doesn't convey that excitement.
+
+Changes:
+  - At 80%+ of goal: show "Almost there!" text in gold, replacing the "Water" label
+    temporarily. Once you hit 100%: "Goal hit!" in success green.
+  - The +8 oz and +16 oz buttons should have a subtle scale bounce animation
+    on tap (not just the card press-scale — the button itself should pop)
+  - When you hit exactly 100%, trigger haptic success (medium) + brief confetti
+    burst (small, not the full celebration — just a 0.5 second pop of 5-6
+    confetti pieces near the water tracker)
+  - Show water as a fraction that makes sense: "9 / 10 glasses" might be more
+    intuitive than "72 / 80 oz" depending on your glasses column. Use whichever
+    unit is in the database.
+
+
+TASK 2.6: Stats row — make numbers meaningful
+File: src/components/DashboardStatsRow.tsx
+"1 day streak" and "F · 18/100" are accurate but demoralizing for new users.
+Every student who downloads the app starts at 0 with an F.
+
+Changes:
+  - For streak = 0 or 1: instead of showing "1 day" which feels like nothing,
+    show "Day 1" with an encouraging subtext: "Log meals daily to build your streak"
+    in dim text. This frames it as the START of something, not a failing score.
+  - For score F: show the grade AND the most impactful tip as a subtext.
+    "F · 18/100" → show grade + "Log lunch for +10 pts" (dynamically pick the
+    easiest action that would gain the most points). This makes the score
+    feel actionable, not judgmental.
+  - For score A: the gold GradientText treatment from Sprint 5 handles this —
+    that's the reward state.
+
+
+TASK 2.7: CHECKPOINT — Dashboard test
+Open the app and answer these questions in under 3 seconds each:
+  1. How many calories have I eaten today? (rings should answer instantly)
+  2. How close am I to my protein goal? (macro legend)
+  3. What should I eat for dinner? (For You section, one scroll down)
+  If any of these take longer than 3 seconds to find, something needs adjustment.
+
+
+================================================================================
+PHASE 3 — PROGRESS: MAKING DATA FEEL MOTIVATING (Tasks 3.1–3.5)
+================================================================================
+
+USER SCENARIO: Student opens Progress on Sunday night to see how their week went.
+They want to feel either proud or informed — never confused or overwhelmed.
+
+
+TASK 3.1: Progress screen — reduce card count
+File: app/(tabs)/progress.tsx
+Current Progress has 10+ cards stacked vertically. That's a data dump, not a dashboard.
+Students don't want to scroll through 10 cards to find what matters.
+
+Restructure into 3 clear sections with headers:
+
+SECTION 1: "This Week" (always visible)
+  - Daily Score card (keep as feature card)
+  - Streak card (keep)
+  - Calorie Trend chart (keep)
+
+SECTION 2: "Body & Nutrition" (collapsible or below a divider)
+  - Weight Trend
+  - Macro Split
+  - Micronutrients link
+
+SECTION 3: "Achievements" (collapsible or below a divider)
+  - Badges
+  - Weekly Report link
+  - Share button
+
+Move "Log Weight" into a modal triggered by tapping the Weight Trend card
+(not a standalone section — it's an action, not a display element).
+
+Add section headers using the silver uppercase sectionHeader style with dividers.
+This turns a 10-card scroll into a structured page with clear chapters.
+
+
+TASK 3.2: Daily Score card — more actionable
+File: src/components/DailyScoreCard.tsx
+The score breakdown bars (Calories 1/40, Protein 0/20, etc.) are informative but
+passive. Make them actionable:
+  - Each bar should show what's needed to max it out:
+    "Calories · 1/40 · eat 2,400 more cal" (obviously they won't, but it's informative)
+    Actually better: "Calories · 1/40 · 3,061 of 3,387 cal" — show the real numbers
+    behind each score component, not just points.
+  - Highlight the bar with the most room for improvement in gold accent
+  - The tip at the bottom ("Hit your protein target...") is good — make sure it's
+    always specific and actionable, not generic.
+
+
+TASK 3.3: Streak visualization — heatmap instead of dots
+File: progress.tsx (streak section)
+The 7-day dots (maroon filled, silver empty, gold today) are fine but basic.
+For the 1M and 3M views, showing 7 dots doesn't make sense.
+
+Changes:
+  - 1W view: keep the 7-day dots, they work at this scale
+  - 1M view: show a mini calendar grid (like GitHub contribution graph).
+    4 rows of 7 squares. Logged days filled in maroon, today has gold border,
+    empty days are borderLight. This gives a much more satisfying visual of
+    consistency over a month.
+  - 3M and All views: show a condensed heatmap or just the streak number +
+    best streak number + a line chart of daily scores over time
+
+
+TASK 3.4: Badges — make unlocked ones shine, hide locked ones
+File: progress.tsx (badges section)
+Right now 0 of 9 badges are unlocked, and you see a row of 9 gray locked badges.
+This is discouraging. A wall of things you haven't earned feels bad.
+
+Changes:
+  - Show ONLY unlocked badges prominently with the gold metallic gradient + shimmer
+  - Below that: "3 more badges to earn" with a "See All" link that expands
+    to show the locked ones
+  - When a user has 0 unlocked badges: show a single motivating card instead
+    "Your first badge is one day away — log meals tomorrow to earn Getting Started"
+  - This reframes badges from "here's everything you've failed to earn" to
+    "here's what's coming next"
+
+
+TASK 3.5: CHECKPOINT — Progress test
+Open Progress and answer:
+  1. How am I doing this week? (score + streak, top of page)
+  2. Am I trending up or down on calories? (chart, one scroll)
+  3. What have I achieved? (badges, clearly separated section)
+
+
+================================================================================
+PHASE 4 — AI CHAT: THE DIFFERENTIATOR (Tasks 4.1–4.4)
+================================================================================
+
+USER SCENARIO: Student at Turner Place, overwhelmed by options.
+Opens AI tab: "What should I eat? I want high protein under 600 calories"
+
+The AI chat is genuinely impressive functionality. The UX just needs to
+support it better.
+
+
+TASK 4.1: First-message experience
+File: src/components/AIChat.tsx
+When a user opens AI chat for the first time (or after clearing), they see
+suggestion cards. These need to be MORE specific and immediately useful:
+
+Current suggestions might be generic. Replace with context-aware suggestions:
+  - "What's high-protein at D2 right now?" (uses current meal period + hall)
+  - "Plan my dinner under 800 calories" (uses their remaining calorie budget)
+  - "What should I eat to hit my protein goal?" (uses their macro gaps)
+
+These suggestions should be dynamically generated based on:
+  - Current time → current meal period
+  - User's remaining macros for the day
+  - Halls that are currently open
+  
+If dynamic generation is too complex, at least make them time-aware:
+  - Morning: breakfast-focused suggestions
+  - Afternoon: lunch suggestions
+  - Evening: dinner suggestions
+
+
+TASK 4.2: AI response formatting — break up the wall
+File: src/components/AIChatBubble.tsx
+When the AI gives a long response with food recommendations, it's currently
+one massive white bubble. This is hard to read and hard to act on.
+
+Break AI responses into visual segments WITHIN the bubble:
+  - Text explanation paragraph: normal body text
+  - Food recommendations: each food item as a distinct card-like element
+    with clear visual boundary (subtle background, border, or indentation)
+  - Each food card should be tappable (navigates to nutrition detail or
+    logs directly — restore the functionality from Bug 1)
+  - The food cards inside AI responses should show: food name (bold),
+    calories, dining hall, and a small "Log" or "+" button on each card
+
+This doesn't mean separate bubbles — it means better visual structure
+INSIDE the response bubble.
+
+
+TASK 4.3: Chat input improvements
+File: src/components/AIChat.tsx
+  - Auto-focus the input field when AI tab is opened (keyboard should appear)
+    ACTUALLY — don't auto-focus, it's annoying on mobile. Instead, make the
+    suggestion cards prominent so users tap those first.
+  - The send button should be disabled/dimmed when input is empty
+  - When the AI is responding (typing indicator visible), disable the send
+    button and input field to prevent double-sends
+  - Input placeholder should be contextual:
+    Before 10:30 AM: "Ask about breakfast..."
+    10:30–4 PM: "Ask about lunch..."
+    After 4 PM: "Ask about dinner..."
+
+
+TASK 4.4: CHECKPOINT — AI Chat test
+  1. Open AI tab → see relevant suggestion cards
+  2. Tap a suggestion → get a useful response with food cards
+  3. Tap a food card → can view nutrition detail or log it
+  4. Type a custom question → get helpful response
+  5. Typing indicator shows while waiting
+
+
+================================================================================
+PHASE 5 — GLOBAL UX POLISH (Tasks 5.1–5.9)
+================================================================================
+
+These are cross-cutting improvements that affect the whole app feel.
+
+
+TASK 5.1: Haptic feedback audit
+File: src/utils/haptics.ts and everywhere haptics are called
+You said you haven't noticed the haptics. They might not be firing, or they
+might be too light. Audit every haptic call:
+
+  - Tab bar switch: haptic light → change to haptic MEDIUM (should be noticeable)
+  - Logging a meal: haptic success (notification type) — this should be strong
+  - Water +8/+16 buttons: haptic light → keep but verify it actually fires
+  - Pull to refresh: no haptic needed
+  - Card press: no haptic (too frequent, would be annoying)
+  - Goal hit / celebration: haptic success (should already work)
+
+Also check: is the try/catch in haptics.ts swallowing errors silently?
+Add a console.log in the catch block during testing to verify haptics are
+being called and not just failing silently.
+
+The rule: haptics on ACHIEVEMENTS and LOGGING ACTIONS. Not on navigation or browsing.
+
+
+TASK 5.2: Tab bar labels — clearer naming
+File: src/components/FloatingTabBar.tsx
+Current tab labels: Home, Browse, AI, Progress, Settings
+
+"Browse" doesn't communicate what it does. "AI" is vague.
+
+Consider:
+  - Home → Home (fine)
+  - Browse → Menu (students think "what's on the menu", not "let me browse")
+  - AI → Ask AI (slightly more descriptive)
+  - Progress → Stats or Progress (both fine)
+  - Settings → Settings (fine)
+
+This is a small change but "Menu" immediately communicates "dining hall menus"
+which is the core value of the app.
+
+
+TASK 5.3: Loading states that feel fast
+File: Dashboard loading, Browse loading
+When data is loading from Supabase, show the skeleton states from Sprint 5.
+But also:
+  - If data loads in under 300ms, DON'T show the skeleton at all. Just show
+    the content. Flashing a skeleton for 200ms looks janky — it's worse than
+    showing nothing. Add a 300ms delay before showing skeletons.
+  - If cached data exists (from the last session), show it immediately and
+    update silently when fresh data arrives. This makes the app feel instant
+    on repeat opens.
+    Implementation: after loading data, save a snapshot to AsyncStorage.
+    On next open, load from AsyncStorage immediately, then fetch from Supabase
+    in the background and update if different. This is a big UX win.
+
+
+TASK 5.4: Better error handling
+Throughout the app, if a Supabase query fails (network error, timeout), the
+user currently sees... nothing? An empty screen? A crash?
+
+Add a consistent error state:
+  - If data fails to load: show a clean error card with Feather alert-circle
+    icon (silver), "Couldn't load data" text, and a "Try Again" button (maroon)
+  - The "Try Again" button should re-attempt the query
+  - If the error is specifically a network issue: "No internet connection ·
+    Check your WiFi and try again"
+  - Never show a blank screen or a technical error message
+
+
+TASK 5.5: Micro-copy pass — make the app talk like a student
+Go through every piece of static text in the app and make it conversational:
+  - "No breakfast logged yet" → "Nothing for breakfast yet"
+  - "Your weekly report is ready" → "Your week in review"
+  - "Log your weight to see trends here" → "Add your weight to start tracking"
+  - "Built for Hokies, by Hokies" (footer) → this is actually good, keep it
+  - "Search halls or food items..." → "Search for food..."
+  - "Ask about today's menu..." → time-based placeholder (see Task 4.3)
+  - "View All Nutrients" → "Nutrition breakdown"
+  - "Share CampusPlate" → "Tell a friend"
+  - "Weight in lbs" (placeholder) → "Enter weight"
+  - Celebration banners: make them fun — "Protein goal crushed!" not
+    "Protein goal reached"
+
+The tone should be: friendly, brief, encouraging. Not formal, not technical.
+Think how a helpful friend would talk, not how a medical app would talk.
+
+
+TASK 5.6: Consistent navigation patterns
+Audit navigation across the app:
+  - Every screen that's NOT a tab should have a visible back button (arrow-left)
+    in the top-left corner. Verify this exists on: hall detail, station list,
+    food item list, nutrition detail.
+  - Modals should have "Close" or "X" in top-left or top-right consistently.
+    Pick one position and use it everywhere.
+  - After logging a food item, the user should be able to easily get back to
+    where they were in Browse. Verify the navigation stack isn't getting reset.
+
+
+TASK 5.7: Pull-to-refresh everywhere
+Add pull-to-refresh to every screen that shows data (not just Dashboard):
+  - Browse hall list → re-fetch menu items for current meal
+  - Progress → re-fetch all analytics data
+  - AI Chat → probably not needed (chat history is local)
+  - Settings → re-fetch profile data
+Use maroon tint on all refresh spinners for consistency.
+
+
+TASK 5.8: Accessibility minimum
+This matters for launch because some students will have accessibility needs:
+  - All tappable elements must have a minimum 44x44px hit target
+  - All images/icons should have accessibility labels
+  - Text should never be smaller than 11px (already handled by dim variant)
+  - Color should never be the ONLY indicator — if a dot is green for "available",
+    it should also have a label or shape difference
+  - Test with iOS Dynamic Type at the largest setting — does the app still work?
+    (It probably breaks. At minimum, make sure it doesn't crash.)
+
+
+TASK 5.9: CHECKPOINT — Full UX flow test
+Have someone who has NEVER used the app try it. Watch them.
+  1. Can they figure out how to find what's at D2 for dinner?
+  2. Can they log a meal without instructions?
+  3. Do they understand what the rings mean?
+  4. Does anything confuse them?
+  This is the most important test in the entire sprint.
+
+
+================================================================================
+PHASE 6 — FINAL DETAILS (Tasks 6.1–6.4)
+================================================================================
+
+TASK 6.1: App icon and splash screen
+These are the VERY first things a user sees.
+  - App icon: Should be simple, recognizable at small size. Maroon background
+    with a white stylized "C" or a simple plate/utensil icon. Not complex.
+  - Splash screen: White background, CampusPlate logo centered, "Built for
+    Hokies, by Hokies" tagline below in muted text. Should display for 1-2
+    seconds max.
+  - If app icon already exists and looks good, skip. If it's the default
+    Expo icon, this MUST be fixed before launch.
+
+
+TASK 6.2: Version bump
+  - Update version to 2.5 or whatever makes sense
+  - Update the "About" section in Settings to reflect current version
+  - Make sure "About" shows something meaningful: version, a one-liner
+    about the app, maybe links to your Instagram or feedback form
+
+
+TASK 6.3: Performance pass
+  - Open the app cold (force quit, reopen). How long until you see the dashboard?
+    Target: under 2 seconds.
+  - Navigate between all 5 tabs rapidly. Any lag or jank? Any blank flashes?
+  - Scroll through a long food list (100+ items at Squires). Smooth 60fps?
+  - Open and close 3 modals quickly. Any stuck states?
+  - Log a meal, immediately switch to Dashboard. Does it update?
+  Fix anything that feels slow or janky.
+
+
+TASK 6.4: CHECKPOINT — Final pre-launch review
+  - Every screen looks intentional (no unstyled screens, no placeholder content)
+  - Every action has feedback (taps scale, logs show confirmation, errors show retry)
+  - Every empty state is helpful (directs user to take action, not just "nothing here")
+  - The app feels like ONE product, not a collection of screens
+  - You'd be comfortable showing this to a stranger and saying "I built this"
+
+
+================================================================================
+TECHNICAL NOTES
+================================================================================
+
+Same rules as Sprint 5 carry forward:
+  - Date formatting: NEVER use toISOString()
+  - Supabase: try/catch, filter by user_id, nutrition[0].calories
+  - Menu date: getEffectiveMenuDate() from dateHelpers.ts
+  - Weight: weight_lbs, Water: glasses
+  - Git: one commit per task, git pull before, git push after
+  - Testing: npx expo start --tunnel -c
+
+New dependencies this sprint:
+  - None expected. Everything should be achievable with existing packages.
+  - AsyncStorage already installed (used for streaks in Sprint 4)
+
+Files most likely to change:
+  - app/(tabs)/browse.tsx (Tasks 1.1-1.2, 1.7)
+  - app/(tabs)/index.tsx (Tasks 2.1-2.2)
+  - src/components/ForYouSection.tsx (Task 2.3)
+  - src/components/MealLogSection.tsx (Task 2.4)
+  - src/components/WaterTracker.tsx (Task 2.5)
+  - src/components/DashboardStatsRow.tsx (Task 2.6)
+  - src/components/AIChat.tsx (Tasks 4.1-4.3)
+  - src/components/AIChatBubble.tsx (Task 4.2)
+  - src/components/FloatingTabBar.tsx (Task 5.2)
+  - app/(tabs)/progress.tsx (Tasks 3.1, 3.3, 3.4)
+  - src/components/DailyScoreCard.tsx (Task 3.2)
+  - Various files for micro-copy (Task 5.5)
+
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+This sprint succeeds if:
+
+1. A student can find dinner options and log a meal in under 30 seconds
+   on their first try without any instructions
+
+2. The dashboard answers "how am I doing today?" in a single glance
+   without scrolling
+
+3. No screen feels empty, broken, or confusing
+
+4. The app feels FAST — no loading delays, no jank, no waiting
+
+5. Every tap has feedback — the user always knows the app heard them
+
+6. Someone who didn't build it says "this looks like a real app"
+
+7. You'd put it on the App Store tomorrow without embarrassment

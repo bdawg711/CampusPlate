@@ -119,8 +119,8 @@ export default function CalorieChart({ data, goalCalories, range = '1M' }: Props
       <Svg width={chartWidth} height={CHART_HEIGHT}>
         <Defs>
           <LinearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="rgba(134,31,65,0.15)" />
-            <Stop offset="1" stopColor="rgba(134,31,65,0)" />
+            <Stop offset="0" stopColor="#861F41" stopOpacity={0.15} />
+            <Stop offset="1" stopColor="#861F41" stopOpacity={0} />
           </LinearGradient>
         </Defs>
 
