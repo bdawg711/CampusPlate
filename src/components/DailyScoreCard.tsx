@@ -109,7 +109,7 @@ function CompactView({ score, grade, gradeColor, colors }: { score: number; grad
   }));
 
   return (
-    <Animated.View style={[styles.compactCard, { backgroundColor: colors.card, borderColor: colors.border }, animStyle]}>
+    <Animated.View style={[styles.compactCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }, animStyle]}>
       <Text style={[styles.compactHeader, { color: colors.textDim }]}>TODAY'S SCORE</Text>
       <Text style={[styles.compactGrade, { color: gradeColor }]}>{grade}</Text>
       <Text style={[styles.compactScore, { color: colors.textMuted }]}>{score} / 100</Text>

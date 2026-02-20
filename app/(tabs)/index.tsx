@@ -26,7 +26,7 @@ import DailyScoreCard from '@/src/components/DailyScoreCard';
 import Confetti from '@/src/components/Confetti';
 import GoalHitBanner from '@/src/components/GoalHitBanner';
 import { logBelongsToMealGroup, getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
-import { getTodayWater, addWater, removeWater, getWaterGoal } from '@/src/utils/water';
+import { getTodayWater, addWater, getWaterGoal } from '@/src/utils/water';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
 import {
   getFavoritesToday,
@@ -38,7 +38,7 @@ import {
   TopRatedHallItem,
 } from '@/src/utils/recommendations';
 import { FavoriteMenuItem } from '@/src/utils/favorites';
-import WaterTracker from '@/src/components/WaterTracker';
+import { Feather } from '@expo/vector-icons';
 import Skeleton from '@/src/components/Skeleton';
 import HistoryScreen from './history';
 import { useStaggerAnimation } from '@/src/hooks/useStaggerAnimation';
@@ -130,7 +130,6 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [waterOz, setWaterOz] = useState<number>(0);
   const [waterGoal, setWaterGoal] = useState<number>(64);
-  const [waterLoading, setWaterLoading] = useState<boolean>(true);
   const [openHalls, setOpenHalls] = useState<OpenHall[]>([]);
   const [forYouLoading, setForYouLoading] = useState(true);
   const [streakData, setStreakData] = useState<StreakData | null>(null);
@@ -291,7 +290,6 @@ export default function HomeScreen() {
       console.error('Dashboard load error:', e);
     } finally {
       setLoading(false);
-      setWaterLoading(false);
     }
   }, []);
 
@@ -369,16 +367,6 @@ export default function HomeScreen() {
     }
   };
 
-  const handleRemoveWater = async (oz: number) => {
-    try {
-      const userId = await requireUserId();
-      const newTotal = await removeWater(userId, oz);
-      setWaterOz(newTotal);
-    } catch (error) {
-      console.error('Failed to remove water:', error);
-    }
-  };
-
   // Calculate totals from logs
   const getNutrition = (log: MealLog) => {
     const raw = log.menu_items?.nutrition;
@@ -443,7 +431,7 @@ export default function HomeScreen() {
     const mealCals = mealLogs.reduce((sum, l) => sum + getNutrition(l).cal, 0);
     return (
       <View key={meal} style={{ marginBottom: 20 }}>
-        <Text style={[st.mealHeader, { color: colors.text }]}>
+        <Text style={[st.mealHeader, { color: colors.textDim, fontFamily: 'DMSans_600SemiBold' }]}>
           {label} — {mealCals} cal
         </Text>
         {mealLogs.length === 0 ? (
@@ -459,18 +447,17 @@ export default function HomeScreen() {
             return (
               <View key={log.id}>
                 <View style={st.logRow}>
-                  <View style={[st.logDot, { backgroundColor: colors.maroon }]} />
                   <Text style={[st.logName, { color: colors.text, fontFamily: 'DMSans_500Medium' }]} numberOfLines={1}>
                     {getMealName(log)}
                   </Text>
-                  <Text style={[st.logCal, { color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
-                    {n.cal}
+                  <Text style={[st.logCal, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>
+                    {n.cal} cal
                   </Text>
                   <TouchableOpacity onPress={() => deleteLog(log.id)} style={st.deleteBtn}>
-                    <Text style={[{ fontSize: 16, color: colors.textDim }]}>✕</Text>
+                    <Feather name="x" size={16} color={colors.textDim} />
                   </TouchableOpacity>
                 </View>
-                {i < mealLogs.length - 1 && <View style={[st.divider, { backgroundColor: colors.border }]} />}
+                {i < mealLogs.length - 1 && <View style={[st.divider, { backgroundColor: colors.cardGlassBorder }]} />}
               </View>
             );
           })
@@ -487,9 +474,8 @@ export default function HomeScreen() {
       <Skeleton width={130} height={15} borderRadius={7} style={{ marginBottom: 10 }} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
         {[0, 1, 2].map((i) => (
-          <View key={i} style={[st.forYouCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-            <Skeleton width={28} height={28} borderRadius={14} />
-            <Skeleton width={100} height={13} borderRadius={6} style={{ marginTop: 8 }} />
+          <View key={i} style={[st.forYouCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}>
+            <Skeleton width={100} height={13} borderRadius={6} />
             <Skeleton width={60} height={12} borderRadius={6} style={{ marginTop: 6 }} />
             <Skeleton width={80} height={11} borderRadius={6} style={{ marginTop: 4 }} />
           </View>
@@ -498,7 +484,7 @@ export default function HomeScreen() {
     </View>
   );
 
-  const renderForYouItemRow = (title: string, emoji: string, items: { id: number; name: string; calories: number; hallName: string }[], filter?: string) => {
+  const renderForYouItemRow = (title: string, iconName: string, items: { id: number; name: string; calories: number; hallName: string }[], filter?: string) => {
     if (items.length === 0) return null;
     return (
       <View style={{ marginBottom: 16 }}>
@@ -517,12 +503,14 @@ export default function HomeScreen() {
           {items.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={[st.forYouCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+              style={[st.forYouCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}
               onPress={() => router.push({ pathname: '/(tabs)/browse', params: filter ? { filter } : {} })}
               activeOpacity={0.7}
             >
-              <Text style={{ fontSize: 24 }}>{emoji}</Text>
-              <Text style={[st.forYouName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+              <View style={{ position: 'absolute', top: 10, right: 10 }}>
+                <Feather name={iconName as any} size={14} color={colors.textDim} />
+              </View>
+              <Text style={[st.forYouName, { color: colors.text, marginTop: 0 }]} numberOfLines={1}>{item.name}</Text>
               <Text style={[st.forYouDetail, { color: colors.textMuted }]}>{item.calories} cal</Text>
               {item.hallName ? <Text style={[st.forYouHall, { color: colors.textMuted }]} numberOfLines={1}>{item.hallName}</Text> : null}
             </TouchableOpacity>
@@ -665,10 +653,10 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Streak + Score Cards */}
+        {/* Streak + Score Cards — glass style */}
         <View style={st.streakScoreRow}>
           {/* LEFT — Streak */}
-          <View style={[st.streakCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[st.streakCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
             <Text style={[st.streakCardHeader, { color: colors.textDim }]}>CURRENT STREAK</Text>
             <Text style={[st.streakCardNumber, { color: colors.text, fontFamily: 'Outfit_800ExtraBold' }]}>
               {streakData?.currentStreak ?? 0}
@@ -686,18 +674,32 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Water Tracker */}
-        <View style={{ marginTop: 16 }}>
-          <WaterTracker
-            consumed={waterOz}
-            goal={waterGoal}
-            onAddWater={handleAddWater}
-            onRemoveWater={handleRemoveWater}
-            loading={waterLoading}
-          />
+        {/* Water — compact inline card */}
+        <View style={[st.waterCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+          <Text style={[st.waterLabel, { color: colors.text, fontFamily: 'DMSans_500Medium' }]}>Water</Text>
+          <View style={[st.waterBarTrack, { backgroundColor: colors.barTrack }]}>
+            <View style={[st.waterBarFill, { backgroundColor: colors.blue, width: `${Math.min((waterOz / waterGoal) * 100, 100)}%` }]} />
+          </View>
+          <Text style={[st.waterAmount, { color: colors.text, fontFamily: 'DMSans_500Medium' }]}>
+            {waterOz} / {waterGoal} oz
+          </Text>
+          <TouchableOpacity
+            style={[st.waterPill, { borderColor: colors.cardGlassBorder }]}
+            onPress={() => handleAddWater(8)}
+            activeOpacity={0.7}
+          >
+            <Text style={[st.waterPillText, { color: colors.textMuted, fontFamily: 'DMSans_500Medium' }]}>+8 oz</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[st.waterPill, { borderColor: colors.cardGlassBorder }]}
+            onPress={() => handleAddWater(16)}
+            activeOpacity={0.7}
+          >
+            <Text style={[st.waterPillText, { color: colors.textMuted, fontFamily: 'DMSans_500Medium' }]}>+16 oz</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Open Now */}
+        {/* Open Now — glass cards, no emojis */}
         {openHalls.length > 0 && (
           <View style={{ marginTop: 24 }}>
             <View style={st.sectionHead}>
@@ -707,17 +709,20 @@ export default function HomeScreen() {
               {openHalls.map((hall) => (
                 <TouchableOpacity
                   key={hall.id}
-                  style={[st.openHallCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+                  style={[st.openHallCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}
                   onPress={() => router.push('/(tabs)/browse')}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 28 }}>🏛️</Text>
-                  <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_700Bold', marginTop: 8 }]} numberOfLines={1}>{hall.name}</Text>
-                  <View style={[st.openBadge, { backgroundColor: colors.green + '22' }]}>
-                    <Text style={[{ fontSize: 11, color: colors.green, fontFamily: 'DMSans_700Bold' }]}>{hall.currentMeal}</Text>
+                  <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]} numberOfLines={1}>{hall.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.green }} />
+                    <Text style={[{ fontSize: 12, color: colors.green, fontFamily: 'DMSans_500Medium' }]}>Open</Text>
+                    <Text style={[{ fontSize: 12, color: colors.textDim }]}> · </Text>
+                    <Feather name="star" size={10} color={colors.yellow} />
+                    <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>4.2</Text>
                   </View>
                   <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>
-                    Closes {hall.closingTime}
+                    {hall.currentMeal} · Closes {hall.closingTime}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -742,7 +747,7 @@ export default function HomeScreen() {
                 {renderForYouSkeletonRow()}
               </>
             ) : !hasForYouItems ? (
-              <View style={[st.forYouEmptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[st.forYouEmptyCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
                 <Text style={{ fontSize: 28 }}>🍽️</Text>
                 <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_500Medium', marginTop: 8, textAlign: 'center' }]}>
                   Check back after logging a few meals
@@ -750,11 +755,11 @@ export default function HomeScreen() {
               </View>
             ) : (
               <>
-                {renderForYouItemRow('Your Favorites Today', '❤️', forYouFavs.map((f) => ({
+                {renderForYouItemRow('Your Favorites Today', 'heart', forYouFavs.map((f) => ({
                   id: f.id, name: f.name, calories: f.nutrition?.calories ?? 0, hallName: hallNames[f.dining_hall_id] ?? '',
                 })), 'favorites')}
 
-                {renderForYouItemRow('Fits Your Macros', '🎯', forYouMacros.map((i) => ({
+                {renderForYouItemRow('Fits Your Macros', 'target', forYouMacros.map((i) => ({
                   id: i.id, name: i.name, calories: i.calories, hallName: i.hall_name,
                 })), 'macros')}
 
@@ -765,13 +770,15 @@ export default function HomeScreen() {
                       {forYouTopHalls.map((hall) => (
                         <TouchableOpacity
                           key={hall.id}
-                          style={[st.forYouCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+                          style={[st.forYouCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}
                           onPress={() => router.push('/(tabs)/browse')}
                           activeOpacity={0.7}
                         >
-                          <Text style={{ fontSize: 24 }}>🏛️</Text>
-                          <Text style={[st.forYouName, { color: colors.text }]} numberOfLines={1}>{hall.name}</Text>
-                          <Text style={[st.forYouDetail, { color: colors.textMuted }]}>⭐ {hall.avg} ({hall.count})</Text>
+                          <Text style={[st.forYouName, { color: colors.text, marginTop: 0 }]} numberOfLines={1}>{hall.name}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                            <Feather name="star" size={12} color={colors.yellow} />
+                            <Text style={[st.forYouDetail, { color: colors.textMuted, marginTop: 0 }]}>{hall.avg} ({hall.count})</Text>
+                          </View>
                           <View style={[st.forYouBadge, { backgroundColor: hall.status.isOpen ? colors.green + '22' : colors.border }]}>
                             <Text style={{ fontSize: 10, color: hall.status.isOpen ? colors.green : colors.textMuted, fontFamily: 'DMSans_600SemiBold' }}>
                               {hall.status.isOpen ? `Open · ${hall.status.currentMeal}` : 'Closed'}
@@ -783,11 +790,11 @@ export default function HomeScreen() {
                   </View>
                 )}
 
-                {renderForYouItemRow('Try Something New', '✨', forYouNew.map((i) => ({
+                {renderForYouItemRow('Try Something New', 'zap', forYouNew.map((i) => ({
                   id: i.id, name: i.name, calories: i.calories, hallName: i.hall_name,
                 })), 'new')}
 
-                {renderForYouItemRow('Quick & Light', '🥗', forYouLight.map((i) => ({
+                {renderForYouItemRow('Quick & Light', 'feather', forYouLight.map((i) => ({
                   id: i.id, name: i.name, calories: i.calories, hallName: i.hall_name,
                 })), 'light')}
               </>
@@ -847,23 +854,28 @@ const st = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 12, fontFamily: 'DMSans_500Medium' },
+  waterCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, padding: 14, marginTop: 16 },
+  waterLabel: { fontSize: 14 },
+  waterBarTrack: { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden', marginHorizontal: 12 },
+  waterBarFill: { height: 4, borderRadius: 2 },
+  waterAmount: { fontSize: 14, marginRight: 8 },
+  waterPill: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, marginLeft: 4 },
+  waterPillText: { fontSize: 12 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 20 },
   forYouSubtitle: { fontSize: 15, marginBottom: 10 },
-  forYouCard: { width: 140, padding: 14, borderRadius: 14, marginRight: 10 },
+  forYouCard: { width: 140, padding: 12, borderRadius: 14, marginRight: 10 },
   forYouName: { fontSize: 13, fontFamily: 'DMSans_600SemiBold', marginTop: 8 },
   forYouDetail: { fontSize: 12, fontFamily: 'DMSans_400Regular', marginTop: 2 },
   forYouHall: { fontSize: 11, fontFamily: 'DMSans_400Regular', marginTop: 2 },
   forYouBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginTop: 6, alignSelf: 'flex-start' as const },
-  openHallCard: { minWidth: 140, padding: 16, borderRadius: 16, marginRight: 10, alignItems: 'flex-start' },
-  openBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginTop: 6 },
-  mealHeader: { fontSize: 12, fontWeight: '700', letterSpacing: 1.5, opacity: 0.3, textTransform: 'uppercase', marginBottom: 12 },
+  openHallCard: { width: 140, padding: 12, borderRadius: 14, marginRight: 10, borderWidth: 1, alignItems: 'flex-start' as const },
+  mealHeader: { fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 },
   logRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  logDot: { width: 8, height: 8, borderRadius: 4, marginRight: 12 },
-  logName: { flex: 1, fontSize: 14 },
-  logCal: { fontSize: 14, opacity: 0.7, marginRight: 8 },
+  logName: { flex: 1, fontSize: 15 },
+  logCal: { fontSize: 14, marginRight: 8 },
   deleteBtn: { padding: 4 },
-  divider: { height: 1, marginLeft: 20 },
+  divider: { height: 1 },
   historyModalHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
   streakScoreRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
   streakCard: { flex: 1, borderRadius: 14, padding: 16, borderWidth: 1, overflow: 'hidden' },
