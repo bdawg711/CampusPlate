@@ -30,7 +30,8 @@
       "Bash(npx expo start)",
       "WebFetch(domain:)",
       "Bash(cat:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(python3:*)"
     ]
   }
 }
