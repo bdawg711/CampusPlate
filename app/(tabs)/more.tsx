@@ -26,12 +26,15 @@ import WeeklyReport from '@/src/components/WeeklyReport';
 import ReminderSettings from '@/src/components/ReminderSettings';
 import { Goals, getGoals, saveCustomGoals, recalculateGoals } from '@/src/utils/goals';
 import { loadMealReminders } from '@/src/utils/notifications';
+import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged, StreakData, Badge } from '@/src/utils/streaks';
+import StreakBadge from '@/src/components/StreakBadge';
 
 export default function MoreScreen() {
   const { mode, colors, toggleTheme } = useTheme();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [streak, setStreak] = useState(0);
+  const [streakData, setStreakData] = useState<StreakData | null>(null);
+  const [badges, setBadges] = useState<Badge[]>([]);
   const [waterGoalOz, setWaterGoalOz] = useState<number>(64);
 
   // Modal visibility
@@ -70,27 +73,14 @@ export default function MoreScreen() {
       const goals = await getGoals(userId);
       setCurrentGoals(goals);
 
-      // Calculate streak — single query for last 30 days
-      const thirtyAgo = new Date();
-      thirtyAgo.setDate(thirtyAgo.getDate() - 29);
-      const thirtyAgoStr = `${thirtyAgo.getFullYear()}-${String(thirtyAgo.getMonth() + 1).padStart(2, '0')}-${String(thirtyAgo.getDate()).padStart(2, '0')}`;
-      const { data: logDates } = await supabase
-        .from('meal_logs')
-        .select('date')
-        .eq('user_id', userId)
-        .gte('date', thirtyAgoStr)
-        .order('date', { ascending: false });
-
-      const loggedDates = new Set((logDates || []).map((r: any) => r.date));
-      let s = 0;
-      for (let i = 0; i < 30; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        if (loggedDates.has(dateStr)) s++;
-        else break;
-      }
-      setStreak(s);
+      // Fetch streak, water streak, and total meals in parallel
+      const [streakResult, waterStreak, totalMeals] = await Promise.all([
+        getStreakData(userId),
+        getWaterStreak(userId),
+        getTotalMealsLogged(userId),
+      ]);
+      setStreakData(streakResult);
+      setBadges(getBadges(streakResult, waterStreak, totalMeals));
     } catch (e) {
       console.error('More load error:', e);
     } finally {
@@ -225,12 +215,31 @@ export default function MoreScreen() {
             {profile?.year || ''}{profile?.year && profile?.dorm ? ' · ' : ''}{profile?.dorm || ''}
           </Text>
           <Text style={[{ fontSize: 12, color: colors.textDim, fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>
-            {streak} day streak 🔥 · {profile?.goal_calories?.toLocaleString() || '2,000'} cal goal
+            {streakData?.currentStreak ?? 0} day streak 🔥 · {profile?.goal_calories?.toLocaleString() || '2,000'} cal goal
           </Text>
           <Text style={[{ fontSize: 12, color: colors.maroon, fontFamily: 'DMSans_500Medium', marginTop: 6 }]}>
             Edit Profile
           </Text>
         </TouchableOpacity>
+
+        {/* Badges */}
+        {badges.length > 0 && (
+          <View style={st.badgesSection}>
+            <View style={st.badgesHeader}>
+              <Text style={[{ fontSize: 16, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>Badges</Text>
+              <Text style={[{ fontSize: 12, color: colors.textDim, fontFamily: 'DMSans_400Regular' }]}>
+                {badges.filter((b) => b.earned).length} of {badges.length}
+              </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.badgesScroll}>
+              {badges.map((b) => (
+                <View key={b.id} style={st.badgeItem}>
+                  <StreakBadge badge={b} size="small" />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Menu Items */}
         <View style={[st.menuCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
@@ -419,6 +428,10 @@ const st = StyleSheet.create({
   separator: { height: 1, marginLeft: 64 },
   themeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   footer: { textAlign: 'center', fontSize: 12, opacity: 0.2, marginTop: 32 },
+  badgesSection: { marginBottom: 20 },
+  badgesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  badgesScroll: { paddingRight: 20 },
+  badgeItem: { marginRight: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { width: '100%', borderRadius: 20, padding: 24 },
   waterGoalInput: { borderRadius: 12, padding: 14, fontSize: 16, borderWidth: 1, marginBottom: 16, textAlign: 'center' },
