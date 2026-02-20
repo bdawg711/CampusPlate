@@ -18,6 +18,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
+import { getStreakData, StreakData } from '@/src/utils/streaks';
 import { logBelongsToMealGroup, getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
 import { getTodayWater, addWater, removeWater, getWaterGoal } from '@/src/utils/water';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
@@ -119,6 +120,7 @@ export default function HomeScreen() {
   const [waterLoading, setWaterLoading] = useState<boolean>(true);
   const [openHalls, setOpenHalls] = useState<OpenHall[]>([]);
   const [forYouLoading, setForYouLoading] = useState(true);
+  const [streakData, setStreakData] = useState<StreakData | null>(null);
 
   const [showHistory, setShowHistory] = useState(false);
 
@@ -216,7 +218,7 @@ export default function HomeScreen() {
       const today = getLocalDate();
       const menuDate = await getEffectiveMenuDate();
 
-      const [profileRes, logsRes, , waterCount, waterGoalRes, hallStatusMap] = await Promise.all([
+      const [profileRes, logsRes, , waterCount, waterGoalRes, hallStatusMap, streakResult] = await Promise.all([
         supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g').eq('id', userId).single(),
         supabase
           .from('meal_logs')
@@ -228,6 +230,7 @@ export default function HomeScreen() {
         getTodayWater(userId),
         getWaterGoal(userId),
         loadOpenHalls(),
+        getStreakData(userId),
       ]);
 
       if (profileRes.data) setProfile(profileRes.data as any);
@@ -235,6 +238,7 @@ export default function HomeScreen() {
       setWaterOz(waterCount);
       setWaterGoal(waterGoalRes);
       if (hallStatusMap) setOpenHalls(hallStatusMap);
+      if (streakResult) setStreakData(streakResult);
     } catch (e) {
       console.error('Dashboard load error:', e);
     } finally {
@@ -591,6 +595,26 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {/* Streak + Score Cards */}
+        <View style={st.streakScoreRow}>
+          {/* LEFT — Streak */}
+          <View style={[st.streakCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[st.streakCardHeader, { color: colors.textDim }]}>CURRENT STREAK</Text>
+            <Text style={[st.streakCardNumber, { color: colors.text, fontFamily: 'Outfit_800ExtraBold' }]}>
+              {streakData?.currentStreak ?? 0}
+            </Text>
+            <Text style={[st.streakCardLabel, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>days</Text>
+            <View style={[st.streakCardAccent, { backgroundColor: colors.maroon }]} />
+          </View>
+          {/* RIGHT — Score placeholder (Task 4.3) */}
+          <View style={[st.streakCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[st.streakCardHeader, { color: colors.textDim }]}>TODAY'S SCORE</Text>
+            <Text style={[st.streakCardNumber, { color: colors.text, fontFamily: 'Outfit_800ExtraBold' }]}>—</Text>
+            <Text style={[st.streakCardLabel, { color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}> </Text>
+            <View style={[st.streakCardAccent, { backgroundColor: colors.maroon }]} />
+          </View>
+        </View>
+
         {/* Water Tracker */}
         <View style={{ marginTop: 16 }}>
           <WaterTracker
@@ -765,4 +789,10 @@ const st = StyleSheet.create({
   deleteBtn: { padding: 4 },
   divider: { height: 1, marginLeft: 20 },
   historyModalHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  streakScoreRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  streakCard: { flex: 1, borderRadius: 14, padding: 16, borderWidth: 1, overflow: 'hidden' },
+  streakCardHeader: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, fontFamily: 'DMSans_500Medium' },
+  streakCardNumber: { fontSize: 32, marginTop: 6 },
+  streakCardLabel: { fontSize: 13, marginTop: 2 },
+  streakCardAccent: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2 },
 });
