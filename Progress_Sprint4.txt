@@ -11,7 +11,7 @@ PHASE 1 — Utilities (new files, no UI changes)
 [x] 8.1  Create src/utils/micronutrients.ts
 
 PHASE 2 — Components (standalone, testable)
-[ ] 1.1  Create src/components/FloatingTabBar.tsx
+[x] 1.1  Create src/components/FloatingTabBar.tsx
 [x] 1.2  Modify src/components/AIChat.tsx — add mode prop
 [x] 3.2  Create src/components/StreakBadge.tsx
 [x] 3.3  Create src/components/StreakDisplay.tsx
@@ -39,11 +39,11 @@ PHASE 3 — Integration (modifies shared files)
 [x] 9.3  Wire share button on Progress tab
 
 PHASE 4 — Polish (UI/UX bug fixes)
-[x] 10.1 Fix pulsing + button state (SKIPPED — Feature 1 done, old + button removed)
+[x] 10.1 Fix pulsing + button state (skip if Feature 1 done)
 [x] 10.2 Pull-to-refresh on Browse
 [x] 10.3 Improve empty states (For You, Search, Progress)
 [x] 10.4 Nutrition detail goal indicators
-[x] 10.5 Promote Weekly Report + Weight logging (SKIPPED — 6.4 already handles both)
+[x] 10.5 Promote Weekly Report + Weight logging (skip if 6.4 done)
 [x] 10.6 Date strip scroll-to-selected animation
 
 PHASE 5 — Visual Restyle (apply AFTER all features integrated)
@@ -55,5 +55,7 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [x] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 39 / 46 complete
+TOTAL: 46 / 46 complete
 ================================================================================
+
+2/19 — Sprint 4 COMPLETE. All 46 tasks across 5 phases done. 11 features shipped.
