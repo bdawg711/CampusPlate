@@ -6,20 +6,31 @@ import {
   Dimensions,
   Easing,
   Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useTheme } from '@/src/context/ThemeContext';
+import ReanimatedAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing as REasing,
+} from 'react-native-reanimated';
+
+// Restyle primitives
+import { Box, Text } from '@/src/theme/restyleTheme';
+import AnimatedCard from '@/src/components/AnimatedCard';
+import Skeleton from '@/src/components/Skeleton';
+import MicronutrientScreen from '@/src/components/MicronutrientScreen';
+
+// Data utilities
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { getMealQueryValues, getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
@@ -27,10 +38,34 @@ import { toggleFavorite, getFavorites } from '@/src/utils/favorites';
 import { getHallAverages, HallAverage, rateHall, getUserRating, getHallReviews, HallReview } from '@/src/utils/ratings';
 import { getAllHallStatuses, HallStatus } from '@/src/utils/hours';
 import { getFavoritesToday, getFitsYourMacros, getTrySomethingNew, getQuickAndLight } from '@/src/utils/recommendations';
-import Skeleton from '@/src/components/Skeleton';
-import MicronutrientScreen from '@/src/components/MicronutrientScreen';
+import { triggerHaptic } from '@/src/utils/haptics';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+
+// ─── Colors (direct refs for non-Restyle elements) ─────────────────────────
+const C = {
+  white: '#FFFFFF',
+  offWhite: '#FAFAFA',
+  maroon: '#861F41',
+  maroonDark: '#6B1835',
+  maroonMuted: 'rgba(134,31,65,0.08)',
+  gold: '#C5A55A',
+  goldMuted: 'rgba(197,165,90,0.12)',
+  silver: '#A8A9AD',
+  silverLight: '#C8C9CC',
+  text: '#1A1A1A',
+  textMuted: '#6B6B6F',
+  textDim: '#9A9A9E',
+  border: '#E8E8EA',
+  borderLight: '#F0F0F2',
+  inputBg: '#F5F5F7',
+  success: '#2D8A4E',
+  successTint: 'rgba(45,138,78,0.10)',
+  warning: '#D4A024',
+  error: '#C0392B',
+  errorTint: 'rgba(192,57,43,0.10)',
+  blue: '#4A7FC5',
+};
 
 function getLocalDate() {
   const d = new Date();
@@ -60,61 +95,49 @@ const STATION_EMOJI_RULES: [string[], string][] = [
   [['corner'], '🍴'],
 ];
 
-function getStationEmoji(stationName: string): string {
+function getStationEmoji(stationName: string): string | null {
   const lower = stationName.toLowerCase();
   for (const [keywords, emoji] of STATION_EMOJI_RULES) {
     if (keywords.some((kw) => lower.includes(kw))) return emoji;
   }
-  return '🍽️';
+  return null; // Task 4.2: no fallback emoji — return null for unknown stations
+}
+
+// ─── Press-scale log button ─────────────────────────────────────────────────
+const AnimatedPressable = ReanimatedAnimated.createAnimatedComponent(Pressable);
+
+function PressScaleButton({ onPress, disabled, children, style }: {
+  onPress: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  style?: any;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <AnimatedPressable
+      onPress={() => { if (!disabled) { triggerHaptic('medium'); onPress(); } }}
+      onPressIn={() => { scale.value = withTiming(0.97, { duration: 100, easing: REasing.out(REasing.quad) }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 150 }); }}
+      style={[animStyle, style]}
+      disabled={disabled}
+    >
+      {children}
+    </AnimatedPressable>
+  );
 }
 
 type ViewState = 'halls' | 'stations' | 'items' | 'detail';
 
-// ─── Pressable card with spring scale effect ───
-function PressableCard({ children, onPress, style, haptic = 'light' }: {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: any;
-  haptic?: 'light' | 'medium' | 'none';
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () => {
-    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
-  };
-
-  const onPressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
-  };
-
-  const handlePress = () => {
-    if (haptic === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    else if (haptic === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onPress();
-  };
-
-  return (
-    <TouchableOpacity activeOpacity={1} onPress={handlePress} onPressIn={onPressIn} onPressOut={onPressOut}>
-      <Animated.View style={[style, { transform: [{ scale }] }]}>
-        {children}
-      </Animated.View>
-    </TouchableOpacity>
-  );
-}
-
 export default function BrowseScreen() {
-  const { colors } = useTheme();
   const params = useLocalSearchParams<{ filter?: string; meal?: string }>();
   const [view, setView] = useState<ViewState>('halls');
   const [meal, setMeal] = useState(params.meal && ['Breakfast', 'Lunch', 'Dinner'].includes(params.meal) ? params.meal : autoMeal);
 
-  // Hall-level search — filters dining hall names only
   const [hallSearch, setHallSearch] = useState('');
-
-  // Item-level search — filters items within the selected hall
   const [itemSearch, setItemSearch] = useState('');
 
-  // Data
   const [halls, setHalls] = useState<any[]>([]);
   const [selectedHall, setSelectedHall] = useState<any>(null);
   const [allHallItems, setAllHallItems] = useState<any[]>([]);
@@ -128,43 +151,31 @@ export default function BrowseScreen() {
   const [logging, setLogging] = useState(false);
   const [logSuccess, setLogSuccess] = useState(false);
 
-  // Favorites
   const [favRecNums, setFavRecNums] = useState<Set<string>>(new Set());
-
-  // Hall ratings
   const [hallRatings, setHallRatings] = useState<Record<number, HallAverage>>({});
 
-  // Rating modal
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [ratingStars, setRatingStars] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingLoading, setRatingLoading] = useState(false);
 
-  // Hall open/closed statuses
   const [hallStatuses, setHallStatuses] = useState<Record<number, HallStatus>>({});
-
-  // Hall reviews
   const [hallReviews, setHallReviews] = useState<HallReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
-  // Filter view (from "See All" navigation)
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [filterItems, setFilterItems] = useState<any[]>([]);
   const [filterLoading, setFilterLoading] = useState(false);
 
-  // Micronutrient modal
   const [showMicros, setShowMicros] = useState(false);
 
-  // Date fallback when today has no scraped data
   const [usingFallback, setUsingFallback] = useState(false);
   const [effectiveDate, setEffectiveDate] = useState(getLocalDate());
 
-  // ─── View transition animation ───
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  // ─── Toast animation ───
   const toastAnim = useRef(new Animated.Value(-60)).current;
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const [toastMessage, setToastMessage] = useState('');
@@ -173,7 +184,6 @@ export default function BrowseScreen() {
   const animateTransition = (direction: 'forward' | 'back', callback: () => void) => {
     const exitX = direction === 'forward' ? -SCREEN_WIDTH * 0.3 : SCREEN_WIDTH * 0.3;
     const enterX = direction === 'forward' ? SCREEN_WIDTH * 0.3 : -SCREEN_WIDTH * 0.3;
-
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: exitX, duration: 100, useNativeDriver: true }),
@@ -190,29 +200,26 @@ export default function BrowseScreen() {
   const today = getLocalDate();
   const date = today;
 
+  // ─── Data Loading (unchanged) ─────────────────────────────────────────────
+
   const loadHalls = useCallback(async () => {
     try {
       const menuDate = await getEffectiveMenuDate();
       const fallback = menuDate !== today;
-
       const { data: hallData } = await supabase
         .from('dining_halls')
         .select('id, name, location_num')
         .order('name');
-
       if (!hallData) { setHalls([]); return; }
-
       const { data: itemCounts } = await supabase
         .from('menu_items')
         .select('dining_hall_id, id')
         .eq('date', menuDate)
         .in('meal', getMealQueryValues(meal));
-
       const counts: Record<number, number> = {};
       (itemCounts || []).forEach((i: any) => {
         counts[i.dining_hall_id] = (counts[i.dining_hall_id] || 0) + 1;
       });
-
       setHalls(hallData.map((h: any) => ({ ...h, count: counts[h.id] || 0 })));
       setUsingFallback(fallback);
       setEffectiveDate(menuDate);
@@ -228,18 +235,14 @@ export default function BrowseScreen() {
       const userId = await requireUserId();
       const favs = await getFavorites(userId);
       setFavRecNums(new Set(favs.map((f) => f.rec_num)));
-    } catch {
-      // Non-critical — heart icons just won't show filled state
-    }
+    } catch {}
   }, []);
 
   const loadRatings = useCallback(async () => {
     try {
       const averages = await getHallAverages();
       setHallRatings(averages);
-    } catch {
-      // Non-critical — ratings just won't show
-    }
+    } catch {}
   }, []);
 
   const openRatingModal = async () => {
@@ -251,15 +254,13 @@ export default function BrowseScreen() {
     try {
       const userId = await requireUserId();
       const d = new Date();
-      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const existing = await getUserRating(userId, selectedHall.id, today);
+      const td = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const existing = await getUserRating(userId, selectedHall.id, td);
       if (existing) {
         setRatingStars(existing.rating);
         setReviewText(existing.review_text ?? '');
       }
-    } catch {
-      // Pre-fill failed — user can still rate fresh
-    } finally {
+    } catch {} finally {
       setRatingLoading(false);
     }
   };
@@ -270,8 +271,8 @@ export default function BrowseScreen() {
     try {
       const userId = await requireUserId();
       const d = new Date();
-      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      await rateHall(userId, selectedHall.id, ratingStars, reviewText.trim() || undefined, today);
+      const td = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      await rateHall(userId, selectedHall.id, ratingStars, reviewText.trim() || undefined, td);
       setRatingModalVisible(false);
       showToastMessage('Rating submitted!');
       loadRatings();
@@ -287,9 +288,7 @@ export default function BrowseScreen() {
     try {
       const statuses = await getAllHallStatuses(new Date());
       setHallStatuses(statuses);
-    } catch {
-      // Non-critical — badges just won't show
-    }
+    } catch {}
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -348,7 +347,6 @@ export default function BrowseScreen() {
       const menuDate = await getEffectiveMenuDate();
       const mealPeriod = getCurrentMealPeriod();
       let items: any[] = [];
-
       switch (filterType) {
         case 'favorites': {
           const [favItems, hallsRes] = await Promise.all([
@@ -378,7 +376,6 @@ export default function BrowseScreen() {
           items = await getQuickAndLight(menuDate);
           break;
       }
-
       setFilterItems(items);
     } catch (err) {
       console.error('Load filtered items error:', err);
@@ -398,7 +395,6 @@ export default function BrowseScreen() {
     loadHallStatuses();
   };
 
-  // ─── Open hall: loads ALL items for the hall at once ───
   const openHall = async (hall: any) => {
     animateTransition('forward', () => {
       setSelectedHall(hall);
@@ -425,7 +421,6 @@ export default function BrowseScreen() {
     }
   };
 
-  // ─── Open station: items already loaded in allHallItems ───
   const openStation = (stationName: string) => {
     animateTransition('forward', () => {
       setSelectedStation(stationName);
@@ -447,14 +442,11 @@ export default function BrowseScreen() {
     setShowToast(true);
     toastAnim.setValue(-60);
     toastOpacity.setValue(0);
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
+    triggerHaptic('success');
     Animated.parallel([
       Animated.spring(toastAnim, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 6 }),
       Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
-
     setTimeout(() => {
       Animated.parallel([
         Animated.timing(toastAnim, { toValue: -60, duration: 300, useNativeDriver: true }),
@@ -466,7 +458,7 @@ export default function BrowseScreen() {
   const logMeal = async () => {
     if (!selectedItem) return;
     setLogging(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    triggerHaptic('medium');
     try {
       const userId = await requireUserId();
       const { error } = await supabase.from('meal_logs').insert({
@@ -495,14 +487,9 @@ export default function BrowseScreen() {
 
   const goBack = () => {
     animateTransition('back', () => {
-      if (view === 'detail') {
-        setView('items');
-      } else if (view === 'items') {
-        setView('stations');
-      } else if (view === 'stations') {
-        setItemSearch('');
-        setView('halls');
-      }
+      if (view === 'detail') setView('items');
+      else if (view === 'items') setView('stations');
+      else if (view === 'stations') { setItemSearch(''); setView('halls'); }
     });
   };
 
@@ -529,21 +516,21 @@ export default function BrowseScreen() {
 
   const getDietaryBadge = (flags: string[] | null) => {
     if (!flags || flags.length === 0) return null;
-    if (flags.includes('vegan')) return { text: 'VG', color: colors.green };
-    if (flags.includes('vegetarian')) return { text: 'V', color: colors.green };
-    if (flags.includes('halal')) return { text: 'H', color: colors.blue };
+    if (flags.includes('vegan')) return { text: 'VG', bg: C.goldMuted, color: C.gold };
+    if (flags.includes('vegetarian')) return { text: 'V', bg: C.maroonMuted, color: C.maroon };
+    if (flags.includes('halal')) return { text: 'H', bg: C.maroonMuted, color: C.maroon };
     return null;
   };
 
   const getDotColor = (flags: string[] | null) => {
     if (!flags) return 'transparent';
-    if (flags.includes('vegan') || flags.includes('vegetarian')) return colors.green;
-    if (flags.includes('halal')) return colors.blue;
+    if (flags.includes('vegan') || flags.includes('vegetarian')) return C.success;
+    if (flags.includes('halal')) return C.blue;
     return 'transparent';
   };
 
+  // ─── Derived data ─────────────────────────────────────────────────────────
 
-  // ─── Derived: stations from allHallItems ───
   const derivedStations: { name: string; count: number }[] = (() => {
     const map: Record<string, number> = {};
     allHallItems.forEach((item) => {
@@ -555,19 +542,15 @@ export default function BrowseScreen() {
       .sort((a, b) => a.name.localeCompare(b.name));
   })();
 
-  // ─── Derived: items for selected station, filtered by itemSearch ───
   const stationItems = allHallItems.filter((item) => item.station === selectedStation);
-
   const filteredStationItems = itemSearch
     ? stationItems.filter((item) => item.name.toLowerCase().includes(itemSearch.toLowerCase()))
     : stationItems;
 
-  // ─── Derived: when searching across all stations ───
   const filteredAllItems = itemSearch
     ? allHallItems.filter((item) => item.name.toLowerCase().includes(itemSearch.toLowerCase()))
     : [];
 
-  // Group filtered items by station for display
   const filteredByStation: { station: string; items: any[] }[] = (() => {
     const map: Record<string, any[]> = {};
     filteredAllItems.forEach((item) => {
@@ -580,7 +563,6 @@ export default function BrowseScreen() {
       .sort((a, b) => a.station.localeCompare(b.station));
   })();
 
-  // ─── Filtered halls for hall-level search, open halls sorted to top ───
   const filteredHalls = (() => {
     const list = hallSearch
       ? halls.filter((h) => h.name.toLowerCase().includes(hallSearch.toLowerCase()))
@@ -592,161 +574,20 @@ export default function BrowseScreen() {
     });
   })();
 
-  // ─── Toast overlay ───
-  const renderToast = () => {
-    if (!showToast) return null;
-    return (
-      <Animated.View style={[st.toast, {
-        backgroundColor: colors.green,
-        transform: [{ translateY: toastAnim }],
-        opacity: toastOpacity,
-      }]}>
-        <Text style={st.toastText}>{toastMessage}</Text>
-      </Animated.View>
-    );
-  };
-
-  // ─── Rating modal ───
-  const renderRatingModal = () => (
-    <Modal
-      visible={ratingModalVisible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setRatingModalVisible(false)}
-    >
-      <View style={st.modalOverlay}>
-        <View style={[st.modalContent, { backgroundColor: colors.background }]}>
-          <Text style={[{ fontSize: 20, color: colors.text, fontFamily: 'Outfit_700Bold', textAlign: 'center', marginBottom: 4 }]}>
-            Rate {selectedHall?.name}
-          </Text>
-          <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'center', marginBottom: 20 }]}>
-            Tap a star to rate
-          </Text>
-
-          {ratingLoading ? (
-            <ActivityIndicator color={colors.maroon} style={{ marginVertical: 20 }} />
-          ) : (
-            <>
-              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 20 }}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    onPress={() => {
-                      setRatingStars(star);
-                      Haptics.selectionAsync();
-                    }}
-                  >
-                    <Feather name="star" size={36} color={star <= ratingStars ? colors.yellow : colors.textDim} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <TextInput
-                style={[st.reviewInput, { color: colors.text, backgroundColor: colors.inputBg, borderColor: colors.inputBorder, fontFamily: 'DMSans_400Regular' }]}
-                placeholder="Write a short review (optional)"
-                placeholderTextColor={colors.textDim}
-                value={reviewText}
-                onChangeText={(t) => setReviewText(t.slice(0, 200))}
-                maxLength={200}
-                multiline
-                numberOfLines={3}
-              />
-              <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'right', marginTop: 4, marginBottom: 16 }]}>
-                {reviewText.length}/200
-              </Text>
-
-              <TouchableOpacity
-                style={[st.logBtn, { backgroundColor: ratingStars > 0 ? colors.maroon : colors.border, opacity: ratingSubmitting ? 0.6 : 1 }]}
-                onPress={submitRating}
-                disabled={ratingStars === 0 || ratingSubmitting}
-              >
-                <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
-                  {ratingSubmitting ? 'Submitting...' : 'Submit Rating'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{ marginTop: 12, alignItems: 'center' }}
-                onPress={() => setRatingModalVisible(false)}
-              >
-                <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_600SemiBold' }]}>Cancel</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-
-  // ─── RENDER ────────────────────────────────────
-
-  const renderHeader = () => (
-    <>
-      <View style={st.headerRow}>
-        {view !== 'halls' && (
-          <TouchableOpacity onPress={goBack} style={st.backBtn}>
-            <Feather name="arrow-left" size={20} color={colors.text} />
-          </TouchableOpacity>
-        )}
-        <View style={{ flex: 1 }}>
-          {view === 'halls' && <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Log a Meal</Text>}
-          {view === 'stations' && (
-            <>
-              <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{selectedHall?.name}</Text>
-              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{meal} · Today</Text>
-            </>
-          )}
-          {view === 'items' && (
-            <>
-              <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{getStationEmoji(selectedStation)} {selectedStation}</Text>
-              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{selectedHall?.name} · {meal}</Text>
-            </>
-          )}
-          {view === 'detail' && <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]} numberOfLines={1}>{selectedItem?.name}</Text>}
-        </View>
-      </View>
-    </>
-  );
-
-  const renderMealFilter = () => (
-    <View style={[st.filterRow, { marginBottom: 16 }]}>
-      {['Breakfast', 'Lunch', 'Dinner'].map((m) => (
-        <TouchableOpacity
-          key={m}
-          style={[st.filterChip, { backgroundColor: meal === m ? colors.maroon : colors.cardGlass, borderColor: meal === m ? colors.maroon : colors.cardGlassBorder, borderWidth: 1 }]}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setMeal(m);
-          }}
-        >
-          <Text style={[st.filterChipText, { color: meal === m ? '#fff' : colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{m}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-
-  const wrapAnimated = (content: React.ReactNode) => (
-    <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
-      {content}
-    </Animated.View>
-  );
-
   const handleToggleFavorite = async (item: any) => {
     if (!item.rec_num) return;
     const recNum = item.rec_num as string;
-    // Optimistic update
     setFavRecNums((prev) => {
       const next = new Set(prev);
       if (next.has(recNum)) next.delete(recNum);
       else next.add(recNum);
       return next;
     });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic('light');
     try {
       const userId = await requireUserId();
       await toggleFavorite(userId, recNum, item.name);
     } catch {
-      // Revert on failure
       setFavRecNums((prev) => {
         const next = new Set(prev);
         if (next.has(recNum)) next.delete(recNum);
@@ -756,218 +597,433 @@ export default function BrowseScreen() {
     }
   };
 
+  // ─── Shared render helpers ────────────────────────────────────────────────
+
+  const wrapAnimated = (content: React.ReactNode) => (
+    <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
+      {content}
+    </Animated.View>
+  );
+
+  const renderToast = () => {
+    if (!showToast) return null;
+    return (
+      <Animated.View style={{
+        position: 'absolute', top: 60, left: 20, right: 20,
+        paddingVertical: 14, paddingHorizontal: 20, borderRadius: 8,
+        zIndex: 100, alignItems: 'center',
+        backgroundColor: C.success,
+        transform: [{ translateY: toastAnim }],
+        opacity: toastOpacity,
+      }}>
+        <Text variant="body" style={{ color: C.white, fontFamily: 'DMSans_700Bold' }}>{toastMessage}</Text>
+      </Animated.View>
+    );
+  };
+
+  const renderSearchBar = (value: string, onChangeText: (t: string) => void, placeholder: string) => (
+    <Box
+      flexDirection="row"
+      alignItems="center"
+      borderRadius="s"
+      marginBottom="m"
+      style={{ backgroundColor: C.inputBg, paddingHorizontal: 14 }}
+    >
+      <Feather name="search" size={18} color={C.silver} style={{ marginRight: 10 }} />
+      <TextInput
+        style={{ flex: 1, fontSize: 15, paddingVertical: 13, color: C.text, fontFamily: 'DMSans_400Regular' }}
+        placeholder={placeholder}
+        placeholderTextColor={C.textDim}
+        value={value}
+        onChangeText={onChangeText}
+        returnKeyType="search"
+      />
+      {value.length > 0 && (
+        <TouchableOpacity onPress={() => onChangeText('')} style={{ paddingLeft: 8, paddingVertical: 8 }}>
+          <Feather name="x" size={14} color={C.textMuted} />
+        </TouchableOpacity>
+      )}
+    </Box>
+  );
+
+  const renderHeader = () => (
+    <Box flexDirection="row" alignItems="center" marginBottom="m">
+      {view !== 'halls' && (
+        <TouchableOpacity onPress={goBack} style={{ width: 36, height: 36, justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
+          <Feather name="arrow-left" size={20} color={C.text} />
+        </TouchableOpacity>
+      )}
+      <Box flex={1}>
+        {view === 'halls' && <Text variant="pageTitle">Log a Meal</Text>}
+        {view === 'stations' && (
+          <>
+            <Text variant="pageTitle">{selectedHall?.name}</Text>
+            <Text variant="muted">{meal} · Today</Text>
+          </>
+        )}
+        {view === 'items' && (
+          <>
+            <Text variant="pageTitle">
+              {getStationEmoji(selectedStation) ? `${getStationEmoji(selectedStation)} ` : ''}{selectedStation}
+            </Text>
+            <Text variant="muted">{selectedHall?.name} · {meal}</Text>
+          </>
+        )}
+        {view === 'detail' && (
+          <Text variant="pageTitle" numberOfLines={1}>{selectedItem?.name}</Text>
+        )}
+      </Box>
+    </Box>
+  );
+
+  // ─── Task 4.1: Rectangular meal filter tabs ───────────────────────────────
+
+  const renderMealFilter = () => (
+    <Box flexDirection="row" marginBottom="m" style={{ gap: 0 }}>
+      {['Breakfast', 'Lunch', 'Dinner'].map((m) => {
+        const isActive = meal === m;
+        return (
+          <TouchableOpacity
+            key={m}
+            onPress={() => { triggerHaptic('light'); setMeal(m); }}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              alignItems: 'center',
+              backgroundColor: isActive ? C.maroon : 'transparent',
+              borderRadius: isActive ? 6 : 0,
+              borderBottomWidth: isActive ? 0 : 2,
+              borderBottomColor: isActive ? 'transparent' : C.borderLight,
+            }}
+          >
+            <Text
+              variant="body"
+              style={{
+                fontFamily: 'DMSans_600SemiBold',
+                fontSize: 13,
+                color: isActive ? C.white : C.textMuted,
+              }}
+            >
+              {m}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </Box>
+  );
+
+  // ─── Task 4.3: Item row with new tokens ───────────────────────────────────
+
   const renderItemRow = (item: any, i: number, total: number) => {
     const n = getNutr(item);
     const badge = getDietaryBadge(item.dietary_flags);
     const isFav = !!item.rec_num && favRecNums.has(item.rec_num);
     return (
       <TouchableOpacity key={item.id} onPress={() => openDetail(item)}>
-        <View style={st.itemRow}>
-          <View style={[st.itemDot, { backgroundColor: getDotColor(item.dietary_flags) }]} />
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={[{ fontSize: 15, color: colors.text, fontFamily: 'DMSans_600SemiBold', flexShrink: 1 }]} numberOfLines={1}>{item.name}</Text>
+        <Box flexDirection="row" alignItems="center" style={{ paddingVertical: 14 }}>
+          {/* Green availability dot */}
+          <Box
+            style={{
+              width: 8, height: 8, borderRadius: 4, marginRight: 12,
+              backgroundColor: getDotColor(item.dietary_flags),
+            }}
+          />
+          <Box flex={1}>
+            <Box flexDirection="row" alignItems="center">
+              <Text
+                variant="body"
+                style={{ fontFamily: 'DMSans_600SemiBold', flexShrink: 1 }}
+                numberOfLines={1}
+              >
+                {item.name}
+              </Text>
               {badge && (
-                <View style={[st.badge, { backgroundColor: badge.color + '22' }]}>
-                  <Text style={[{ fontSize: 10, color: badge.color, fontFamily: 'DMSans_700Bold' }]}>{badge.text}</Text>
-                </View>
+                <Box
+                  style={{
+                    marginLeft: 6, paddingHorizontal: 6, paddingVertical: 2,
+                    borderRadius: 4, backgroundColor: badge.bg,
+                  }}
+                >
+                  <Text style={{ fontSize: 10, color: badge.color, fontFamily: 'DMSans_700Bold' }}>{badge.text}</Text>
+                </Box>
               )}
-            </View>
-            <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
+            </Box>
+            <Text variant="dim" style={{ marginTop: 2 }}>
               P: {n.pro}g · C: {n.carb}g · F: {n.fat}g
             </Text>
-          </View>
+          </Box>
+          {/* Heart: silver unfavorited, maroon favorited */}
           <TouchableOpacity
             onPress={() => handleToggleFavorite(item)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{ paddingHorizontal: 8 }}
           >
-            <Feather name="heart" size={18} color={isFav ? colors.red : colors.textDim} />
+            <Feather name="heart" size={18} color={isFav ? C.maroon : C.silver} />
           </TouchableOpacity>
-          <View style={{ alignItems: 'flex-end', minWidth: 40 }}>
-            <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{n.cal}</Text>
-            <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>cal</Text>
-          </View>
-        </View>
-        {i < total - 1 && <View style={[st.divider, { backgroundColor: colors.border }]} />}
+          {/* Calorie: statValue maroon */}
+          <Box style={{ alignItems: 'flex-end', minWidth: 40 }}>
+            <Text style={{ fontSize: 22, color: C.maroon, fontFamily: 'DMSans_700Bold' }}>{n.cal}</Text>
+            <Text variant="dim">cal</Text>
+          </Box>
+        </Box>
+        {/* borderLight divider */}
+        {i < total - 1 && <Box style={{ height: 1, marginLeft: 20, backgroundColor: C.borderLight }} />}
       </TouchableOpacity>
     );
   };
 
-  // ── Halls view ──
+  // ─── Rating modal ─────────────────────────────────────────────────────────
+
+  const renderRatingModal = () => (
+    <Modal
+      visible={ratingModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setRatingModalVisible(false)}
+    >
+      <Box flex={1} justifyContent="center" alignItems="center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 }}>
+        <Box
+          borderRadius="xl"
+          padding="l"
+          style={{ backgroundColor: C.white, width: '100%' }}
+        >
+          {/* Modal handle */}
+          <Box alignSelf="center" style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: C.silver, marginBottom: 16 }} />
+
+          <Text variant="pageTitle" style={{ fontSize: 20, textAlign: 'center', marginBottom: 4 }}>
+            Rate {selectedHall?.name}
+          </Text>
+          <Text variant="muted" style={{ textAlign: 'center', marginBottom: 20 }}>Tap a star to rate</Text>
+
+          {ratingLoading ? (
+            <ActivityIndicator color={C.maroon} style={{ marginVertical: 20 }} />
+          ) : (
+            <>
+              <Box flexDirection="row" justifyContent="center" style={{ gap: 12, marginBottom: 20 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity key={star} onPress={() => { setRatingStars(star); triggerHaptic('light'); }}>
+                    <Feather name="star" size={36} color={star <= ratingStars ? C.gold : C.textDim} />
+                  </TouchableOpacity>
+                ))}
+              </Box>
+              <TextInput
+                style={{
+                  borderRadius: 6, borderWidth: 1, padding: 14, fontSize: 14,
+                  minHeight: 80, textAlignVertical: 'top',
+                  color: C.text, backgroundColor: C.inputBg, borderColor: C.border,
+                  fontFamily: 'DMSans_400Regular',
+                }}
+                placeholder="Write a short review (optional)"
+                placeholderTextColor={C.textDim}
+                value={reviewText}
+                onChangeText={(t) => setReviewText(t.slice(0, 200))}
+                maxLength={200}
+                multiline
+                numberOfLines={3}
+              />
+              <Text variant="dim" style={{ textAlign: 'right', marginTop: 4, marginBottom: 16 }}>
+                {reviewText.length}/200
+              </Text>
+              <PressScaleButton
+                onPress={submitRating}
+                disabled={ratingStars === 0 || ratingSubmitting}
+                style={{
+                  height: 52, borderRadius: 6, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: ratingStars > 0 ? C.maroon : C.border,
+                  opacity: ratingSubmitting ? 0.6 : 1,
+                }}
+              >
+                <Text variant="body" style={{ color: C.white, fontFamily: 'DMSans_700Bold', fontSize: 16 }}>
+                  {ratingSubmitting ? 'Submitting...' : 'Submit Rating'}
+                </Text>
+              </PressScaleButton>
+              <TouchableOpacity style={{ marginTop: 12, alignItems: 'center' }} onPress={() => setRatingModalVisible(false)}>
+                <Text variant="muted" style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14 }}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </Box>
+      </Box>
+    </Modal>
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER — HALLS VIEW (Task 4.1)
+  // ═══════════════════════════════════════════════════════════════════════════
+
   if (view === 'halls') {
-    // ── Filtered view (from "See All" navigation) ──
+    // Filtered view (from "See All" navigation)
     if (activeFilter) {
       return (
-        <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.offWhite }}>
           {renderToast()}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={st.pad}
-          >
-            <View style={st.headerRow}>
-              <TouchableOpacity onPress={clearFilter} style={st.backBtn}>
-                <Feather name="arrow-left" size={20} color={colors.text} />
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+            <Box flexDirection="row" alignItems="center" marginBottom="m">
+              <TouchableOpacity onPress={clearFilter} style={{ width: 36, height: 36, justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
+                <Feather name="arrow-left" size={20} color={C.text} />
               </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <Text style={[st.title, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{getFilterTitle(activeFilter)}</Text>
-              </View>
-            </View>
+              <Box flex={1}>
+                <Text variant="pageTitle">{getFilterTitle(activeFilter)}</Text>
+              </Box>
+            </Box>
 
             <TouchableOpacity
               onPress={clearFilter}
-              style={[st.clearFilterBtn, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}
+              style={{
+                alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8,
+                borderRadius: 6, marginBottom: 16,
+                backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
+              }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="x" size={13} color={colors.maroon} />
-                <Text style={[{ fontSize: 13, color: colors.maroon, fontFamily: 'DMSans_600SemiBold' }]}>Clear Filter</Text>
-              </View>
+              <Box flexDirection="row" alignItems="center" style={{ gap: 4 }}>
+                <Feather name="x" size={13} color={C.maroon} />
+                <Text variant="body" style={{ fontSize: 13, color: C.maroon, fontFamily: 'DMSans_600SemiBold' }}>Clear Filter</Text>
+              </Box>
             </TouchableOpacity>
 
             {filterLoading ? (
-              <View style={{ gap: 12 }}>
-                <Skeleton width={'100%'} height={60} borderRadius={14} />
-                <Skeleton width={'100%'} height={60} borderRadius={14} />
-                <Skeleton width={'100%'} height={60} borderRadius={14} />
-                <Skeleton width={'100%'} height={60} borderRadius={14} />
-              </View>
+              <Box style={{ gap: 12 }}>
+                <Skeleton width={'100%'} height={60} borderRadius={8} />
+                <Skeleton width={'100%'} height={60} borderRadius={8} />
+                <Skeleton width={'100%'} height={60} borderRadius={8} />
+              </Box>
             ) : filterItems.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                <Text style={{ fontSize: 32 }}>🔍</Text>
-                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
-                  No items found for this filter
-                </Text>
-              </View>
+              <Box alignItems="center" style={{ paddingTop: 40 }}>
+                <Feather name="search" size={32} color={C.silver} />
+                <Text variant="muted" style={{ marginTop: 8, textAlign: 'center' }}>No items found for this filter</Text>
+              </Box>
             ) : (
-              <View style={[st.groupCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+              <Box
+                borderRadius="m"
+                style={{ borderWidth: 1, borderColor: C.border, backgroundColor: C.white, overflow: 'hidden' }}
+              >
                 {filterItems.map((item, i) => {
                   const isFav = !!item.rec_num && favRecNums.has(item.rec_num);
                   return (
-                    <View key={i}>
-                      <View style={st.itemRow}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[{ fontSize: 15, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]} numberOfLines={1}>{item.name}</Text>
-                          <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
+                    <Box key={i}>
+                      <Box flexDirection="row" alignItems="center" style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
+                        <Box flex={1}>
+                          <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold' }} numberOfLines={1}>{item.name}</Text>
+                          <Text variant="dim" style={{ marginTop: 2 }}>
                             {item.hall_name ? `${item.hall_name} · ` : ''}P: {item.protein_g}g · C: {item.total_carbs_g}g · F: {item.total_fat_g}g
                           </Text>
-                        </View>
+                        </Box>
                         {item.rec_num ? (
                           <TouchableOpacity
                             onPress={() => handleToggleFavorite({ rec_num: item.rec_num, name: item.name })}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             style={{ paddingHorizontal: 8 }}
                           >
-                            <Feather name="heart" size={18} color={isFav ? colors.red : colors.textDim} />
+                            <Feather name="heart" size={18} color={isFav ? C.maroon : C.silver} />
                           </TouchableOpacity>
                         ) : null}
-                        <View style={{ alignItems: 'flex-end', minWidth: 40 }}>
-                          <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{item.calories}</Text>
-                          <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>cal</Text>
-                        </View>
-                      </View>
-                      {i < filterItems.length - 1 && <View style={[st.divider, { backgroundColor: colors.border }]} />}
-                    </View>
+                        <Box style={{ alignItems: 'flex-end', minWidth: 40 }}>
+                          <Text style={{ fontSize: 22, color: C.maroon, fontFamily: 'DMSans_700Bold' }}>{item.calories}</Text>
+                          <Text variant="dim">cal</Text>
+                        </Box>
+                      </Box>
+                      {i < filterItems.length - 1 && <Box style={{ height: 1, marginLeft: 20, backgroundColor: C.borderLight }} />}
+                    </Box>
                   );
                 })}
-              </View>
+              </Box>
             )}
           </ScrollView>
         </SafeAreaView>
       );
     }
 
+    // ── Main halls list ──
     return (
-      <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.offWhite }}>
         {renderToast()}
         {wrapAnimated(
           <ScrollView
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.maroon} />}
-            contentContainerStyle={st.pad}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.maroon} />}
+            contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
             keyboardShouldPersistTaps="handled"
           >
             {renderHeader()}
-
-            {/* Hall-level search bar — filters hall names only */}
-            <View style={[st.searchWrap, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
-              <Feather name="search" size={18} color={colors.textDim} style={{ marginRight: 10 }} />
-              <TextInput
-                style={[st.searchInput, { color: colors.text, fontFamily: 'DMSans_400Regular' }]}
-                placeholder="Search halls or food items..."
-                placeholderTextColor={colors.textDim}
-                value={hallSearch}
-                onChangeText={setHallSearch}
-                returnKeyType="search"
-              />
-              {hallSearch.length > 0 && (
-                <TouchableOpacity onPress={() => setHallSearch('')} style={st.clearBtn}>
-                  <Feather name="x" size={14} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
-
+            {renderSearchBar(hallSearch, setHallSearch, 'Search halls or food items...')}
             {renderMealFilter()}
 
             {usingFallback && (
-              <View style={[st.fallbackBanner, { backgroundColor: colors.orange + '15', borderColor: colors.orange + '40' }]}>
-                <Text style={[{ fontSize: 13, color: colors.orange, fontFamily: 'DMSans_600SemiBold', textAlign: 'center' }]}>
+              <Box
+                borderRadius="m"
+                style={{
+                  borderWidth: 1, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 16,
+                  backgroundColor: 'rgba(212,160,36,0.08)', borderColor: 'rgba(212,160,36,0.3)',
+                }}
+              >
+                <Text variant="muted" style={{ color: C.warning, fontFamily: 'DMSans_600SemiBold', textAlign: 'center', fontSize: 13 }}>
                   Showing yesterday's menu — today's updates at 7 AM
                 </Text>
-              </View>
+              </Box>
             )}
 
             {loading ? (
-              <View style={{ gap: 12 }}>
-                <Skeleton width={'100%'} height={80} borderRadius={20} />
-                <Skeleton width={'100%'} height={80} borderRadius={20} />
-                <Skeleton width={'100%'} height={80} borderRadius={20} />
-                <Skeleton width={'100%'} height={80} borderRadius={20} />
-              </View>
+              <Box style={{ gap: 12 }}>
+                <Skeleton width={'100%'} height={80} borderRadius={8} />
+                <Skeleton width={'100%'} height={80} borderRadius={8} />
+                <Skeleton width={'100%'} height={80} borderRadius={8} />
+                <Skeleton width={'100%'} height={80} borderRadius={8} />
+              </Box>
             ) : filteredHalls.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                <Text style={{ fontSize: 32 }}>🏛️</Text>
-                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>
+              <Box alignItems="center" style={{ paddingTop: 40 }}>
+                <Feather name="home" size={32} color={C.silver} />
+                <Text variant="muted" style={{ marginTop: 8 }}>
                   {hallSearch ? `No dining halls match "${hallSearch}"` : 'No halls found'}
                 </Text>
-              </View>
+              </Box>
             ) : (
               filteredHalls.map((hall) => {
                 const rating = hallRatings[hall.id];
                 const status = hallStatuses[hall.id];
                 return (
-                  <PressableCard
+                  <AnimatedCard
                     key={hall.id}
                     onPress={() => openHall(hall)}
-                    style={[st.hallCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}
+                    haptic
+                    padding="m"
+                    marginBottom="s"
+                    flexDirection="row"
+                    alignItems="center"
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[{ fontSize: 17, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{hall.name}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                    <Box flex={1}>
+                      <Text variant="cardTitle">{hall.name}</Text>
+                      <Box flexDirection="row" alignItems="center" style={{ gap: 6, marginTop: 6 }}>
                         {rating ? (
                           <>
-                            <Feather name="star" size={12} color={colors.yellow} />
-                            <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{rating.avg.toFixed(1)}</Text>
-                            <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>·</Text>
+                            <Feather name="star" size={12} color={C.gold} />
+                            <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14 }}>{rating.avg.toFixed(1)}</Text>
+                            <Text variant="muted" style={{ fontSize: 14 }}>·</Text>
                           </>
                         ) : null}
-                        <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>{hall.count} items</Text>
-                      </View>
+                        <Text variant="muted" style={{ fontSize: 14 }}>{hall.count} items</Text>
+                      </Box>
                       {status?.isOpen ? (
-                        <View style={[st.statusBadge, { backgroundColor: 'rgba(52,199,89,0.1)', marginTop: 8 }]}>
-                          <Text style={[{ fontSize: 11, color: colors.green, fontFamily: 'DMSans_700Bold' }]}>
+                        <Box style={{
+                          paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
+                          backgroundColor: C.successTint, marginTop: 8, alignSelf: 'flex-start',
+                        }}>
+                          <Text style={{ fontSize: 11, color: C.success, fontFamily: 'DMSans_700Bold' }}>
                             Open{status.currentMeal ? ` until ${status.currentMeal}` : ''}
                           </Text>
-                        </View>
+                        </Box>
                       ) : status ? (
-                        <View style={[st.statusBadge, { backgroundColor: 'rgba(255,69,58,0.1)', marginTop: 8 }]}>
-                          <Text style={[{ fontSize: 11, color: colors.red, fontFamily: 'DMSans_700Bold' }]}>
+                        <Box style={{
+                          paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
+                          backgroundColor: C.errorTint, marginTop: 8, alignSelf: 'flex-start',
+                        }}>
+                          <Text style={{ fontSize: 11, color: C.error, fontFamily: 'DMSans_700Bold' }}>
                             Closed{status.nextOpen ? ` · Opens ${status.nextOpen}` : ''}
                           </Text>
-                        </View>
+                        </Box>
                       ) : null}
-                    </View>
-                    <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
-                  </PressableCard>
+                    </Box>
+                    <Feather name="chevron-right" size={18} color={C.silver} />
+                  </AnimatedCard>
                 );
               })
             )}
@@ -977,148 +1033,155 @@ export default function BrowseScreen() {
     );
   }
 
-  // ── Stations view ──
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER — STATIONS VIEW (Task 4.2)
+  // ═══════════════════════════════════════════════════════════════════════════
+
   if (view === 'stations') {
     return (
-      <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.offWhite }}>
         {renderToast()}
         {renderRatingModal()}
         {wrapAnimated(
-          <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {renderHeader()}
 
-            {/* Rate this hall button */}
+            {/* Rate this hall */}
             <TouchableOpacity
-              style={[st.rateBtn, { borderColor: colors.cardGlassBorder }]}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
+                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 6,
+                borderWidth: 1, borderColor: C.silver, marginBottom: 16,
+              }}
               onPress={openRatingModal}
             >
-              <Feather name="star" size={16} color={colors.yellow} />
-              <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>Rate This Hall</Text>
+              <Feather name="star" size={16} color={C.gold} />
+              <Text variant="body" style={{ fontSize: 13, fontFamily: 'DMSans_600SemiBold' }}>Rate This Hall</Text>
             </TouchableOpacity>
 
-            {/* Item-level search bar — always rendered at stable position */}
-            <View style={[st.searchWrap, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
-              <Feather name="search" size={18} color={colors.textDim} style={{ marginRight: 10 }} />
-              <TextInput
-                style={[st.searchInput, { color: colors.text, fontFamily: 'DMSans_400Regular' }]}
-                placeholder="Search items..."
-                placeholderTextColor={colors.textDim}
-                value={itemSearch}
-                onChangeText={setItemSearch}
-                returnKeyType="search"
-              />
-              {itemSearch.length > 0 && (
-                <TouchableOpacity onPress={() => setItemSearch('')} style={st.clearBtn}>
-                  <Feather name="x" size={14} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
+            {renderSearchBar(itemSearch, setItemSearch, 'Search items...')}
 
-            {/* Search active: show filtered items grouped by station */}
+            {/* Search active: filtered items grouped by station */}
             {itemSearch.length > 0 ? (
               hallItemsLoading ? (
-                <View style={{ gap: 12 }}>
-                  <Skeleton width={'100%'} height={60} borderRadius={14} />
-                  <Skeleton width={'100%'} height={60} borderRadius={14} />
-                </View>
+                <Box style={{ gap: 12 }}>
+                  <Skeleton width={'100%'} height={60} borderRadius={8} />
+                  <Skeleton width={'100%'} height={60} borderRadius={8} />
+                </Box>
               ) : filteredByStation.length === 0 ? (
-                <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                  <Text style={{ fontSize: 32 }}>🔍</Text>
-                  <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
-                    No results for "{itemSearch}"
-                  </Text>
-                  <Text style={[{ fontSize: 13, color: colors.textDim, marginTop: 4, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
-                    Try a different search or browse stations below
-                  </Text>
-                </View>
+                <Box alignItems="center" style={{ paddingTop: 40 }}>
+                  <Feather name="search" size={32} color={C.silver} />
+                  <Text variant="muted" style={{ marginTop: 8, textAlign: 'center' }}>No results for "{itemSearch}"</Text>
+                  <Text variant="dim" style={{ marginTop: 4, textAlign: 'center' }}>Try a different search or browse stations below</Text>
+                </Box>
               ) : (
                 filteredByStation.map(({ station, items }) => (
-                  <View key={station}>
-                    <Text style={[st.stationGroupHeader, { color: colors.textMuted, fontFamily: 'DMSans_600SemiBold' }]}>
-                      {getStationEmoji(station)} {station}
+                  <Box key={station}>
+                    <Text variant="sectionHeader" style={{ marginBottom: 8, marginTop: 16 }}>
+                      {getStationEmoji(station) ? `${getStationEmoji(station)} ` : ''}{station}
                     </Text>
-                    <View style={[st.groupCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+                    <Box borderRadius="m" style={{ borderWidth: 1, borderColor: C.border, backgroundColor: C.white, overflow: 'hidden', paddingHorizontal: 16 }}>
                       {items.map((item, i) => renderItemRow(item, i, items.length))}
-                    </View>
-                  </View>
+                    </Box>
+                  </Box>
                 ))
               )
             ) : (
-              /* Normal: show station cards */
+              /* Normal: 2-column station grid */
               hallItemsLoading ? (
-                <View style={st.stationGrid}>
-                  <Skeleton width={(SCREEN_WIDTH - 40 - 10) / 2} height={100} borderRadius={14} />
-                  <Skeleton width={(SCREEN_WIDTH - 40 - 10) / 2} height={100} borderRadius={14} />
-                  <Skeleton width={(SCREEN_WIDTH - 40 - 10) / 2} height={100} borderRadius={14} />
-                  <Skeleton width={(SCREEN_WIDTH - 40 - 10) / 2} height={100} borderRadius={14} />
-                </View>
+                <Box flexDirection="row" flexWrap="wrap" style={{ gap: 10, marginTop: 8 }}>
+                  <Skeleton width={(SCREEN_WIDTH - 40 - 10) / 2} height={100} borderRadius={8} />
+                  <Skeleton width={(SCREEN_WIDTH - 40 - 10) / 2} height={100} borderRadius={8} />
+                  <Skeleton width={(SCREEN_WIDTH - 40 - 10) / 2} height={100} borderRadius={8} />
+                  <Skeleton width={(SCREEN_WIDTH - 40 - 10) / 2} height={100} borderRadius={8} />
+                </Box>
               ) : derivedStations.length === 0 ? (
-                <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                  <Text style={{ fontSize: 32 }}>🍽️</Text>
-                  <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular' }]}>No stations for this meal</Text>
-                </View>
+                <Box alignItems="center" style={{ paddingTop: 40 }}>
+                  <Feather name="coffee" size={32} color={C.silver} />
+                  <Text variant="muted" style={{ marginTop: 8 }}>No stations for this meal</Text>
+                </Box>
               ) : (
-                <View style={st.stationGrid}>
-                  {derivedStations.map((s) => (
-                    <PressableCard
-                      key={s.name}
-                      onPress={() => openStation(s.name)}
-                      style={[st.stationCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}
-                    >
-                      <Text style={{ fontSize: 26 }}>{getStationEmoji(s.name)}</Text>
-                      <Text style={[{ fontSize: 12, color: colors.text, fontFamily: 'DMSans_600SemiBold', textAlign: 'center' }]} numberOfLines={2}>{s.name}</Text>
-                      <Text style={[st.stationItemCount, { color: colors.textMuted }]}>{s.count} items</Text>
-                    </PressableCard>
-                  ))}
-                </View>
+                <Box flexDirection="row" flexWrap="wrap" style={{ gap: 10, marginTop: 8 }}>
+                  {derivedStations.map((s) => {
+                    const emoji = getStationEmoji(s.name);
+                    return (
+                      <AnimatedCard
+                        key={s.name}
+                        onPress={() => openStation(s.name)}
+                        haptic
+                        alignItems="center"
+                        justifyContent="center"
+                        padding="s"
+                        style={{
+                          width: (SCREEN_WIDTH - 40 - 10) / 2,
+                          height: 100,
+                        }}
+                      >
+                        {emoji ? (
+                          <Text style={{ fontSize: 26 }}>{emoji}</Text>
+                        ) : (
+                          <Feather name="grid" size={22} color={C.silver} />
+                        )}
+                        <Text
+                          variant="body"
+                          style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 12, textAlign: 'center', marginTop: 4 }}
+                          numberOfLines={2}
+                        >
+                          {s.name}
+                        </Text>
+                        <Text variant="dim" style={{ position: 'absolute', bottom: 8 }}>{s.count} items</Text>
+                      </AnimatedCard>
+                    );
+                  })}
+                </Box>
               )
             )}
 
-            {/* Recent Reviews — hidden during item search */}
+            {/* Recent Reviews — hidden during search */}
             {itemSearch.length === 0 && (
-              <View style={{ marginTop: 28 }}>
-                <Text style={[st.reviewSectionTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>Recent Reviews</Text>
+              <Box style={{ marginTop: 28 }}>
+                <Text variant="cardTitle" style={{ fontSize: 18, fontFamily: 'Outfit_700Bold', marginBottom: 12 }}>Recent Reviews</Text>
                 {reviewsLoading ? (
-                  <View style={{ gap: 10 }}>
-                    <Skeleton width={'100%'} height={80} borderRadius={14} />
-                    <Skeleton width={'100%'} height={80} borderRadius={14} />
-                  </View>
+                  <Box style={{ gap: 10 }}>
+                    <Skeleton width={'100%'} height={80} borderRadius={8} />
+                    <Skeleton width={'100%'} height={80} borderRadius={8} />
+                  </Box>
                 ) : hallReviews.length === 0 ? (
-                  <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-                    <Text style={{ fontSize: 28 }}>💬</Text>
-                    <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 6, fontFamily: 'DMSans_400Regular' }]}>
-                      No reviews yet — be the first!
-                    </Text>
-                  </View>
+                  <Box alignItems="center" style={{ paddingVertical: 24 }}>
+                    <Feather name="message-circle" size={28} color={C.silver} />
+                    <Text variant="muted" style={{ marginTop: 6 }}>No reviews yet — be the first!</Text>
+                  </Box>
                 ) : (
                   hallReviews.map((review, i) => {
                     const [yr, mo, dy] = review.date.split('-').map(Number);
                     const dateStr = new Date(yr, mo - 1, dy).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     return (
-                      <View key={i} style={[st.reviewCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Box
+                        key={i}
+                        borderRadius="m"
+                        padding="m"
+                        marginBottom="s"
+                        style={{ backgroundColor: C.white, borderWidth: 1, borderColor: C.border }}
+                      >
+                        <Box flexDirection="row" justifyContent="space-between" alignItems="center" style={{ marginBottom: 6 }}>
+                          <Box flexDirection="row" alignItems="center" style={{ gap: 4 }}>
                             {[1, 2, 3, 4, 5].map((s) => (
-                              <Feather key={s} name="star" size={14} color={s <= review.rating ? colors.yellow : colors.textDim} />
+                              <Feather key={s} name="star" size={14} color={s <= review.rating ? C.gold : C.textDim} />
                             ))}
-                            <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginLeft: 4 }]}>
+                            <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, marginLeft: 4 }}>
                               {review.user_name?.split(' ')[0] || 'Anonymous'}
                             </Text>
-                          </View>
-                          <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }]}>
-                            {dateStr}
-                          </Text>
-                        </View>
+                          </Box>
+                          <Text variant="dim">{dateStr}</Text>
+                        </Box>
                         {review.review_text ? (
-                          <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', lineHeight: 18 }]}>
-                            {review.review_text}
-                          </Text>
+                          <Text variant="muted" style={{ lineHeight: 18 }}>{review.review_text}</Text>
                         ) : null}
-                      </View>
+                      </Box>
                     );
                   })
                 )}
-              </View>
+              </Box>
             )}
           </ScrollView>
         )}
@@ -1126,47 +1189,37 @@ export default function BrowseScreen() {
     );
   }
 
-  // ── Items view ──
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER — ITEMS VIEW (Task 4.3)
+  // ═══════════════════════════════════════════════════════════════════════════
+
   if (view === 'items') {
     return (
-      <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.offWhite }}>
         {renderToast()}
         {wrapAnimated(
-          <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {renderHeader()}
-
-            {/* Item search bar — always rendered at stable position */}
-            <View style={[st.searchWrap, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
-              <Feather name="search" size={18} color={colors.textDim} style={{ marginRight: 10 }} />
-              <TextInput
-                style={[st.searchInput, { color: colors.text, fontFamily: 'DMSans_400Regular' }]}
-                placeholder="Search items..."
-                placeholderTextColor={colors.textDim}
-                value={itemSearch}
-                onChangeText={setItemSearch}
-                returnKeyType="search"
-              />
-              {itemSearch.length > 0 && (
-                <TouchableOpacity onPress={() => setItemSearch('')} style={st.clearBtn}>
-                  <Feather name="x" size={14} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
+            {renderSearchBar(itemSearch, setItemSearch, 'Search items...')}
 
             {filteredStationItems.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                <Text style={{ fontSize: 32 }}>{itemSearch ? '🔍' : '🍽️'}</Text>
-                <Text style={[{ fontSize: 14, color: colors.textMuted, marginTop: 8, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
+              <Box alignItems="center" style={{ paddingTop: 40 }}>
+                <Feather name={itemSearch ? 'search' : 'inbox'} size={32} color={C.silver} />
+                <Text variant="muted" style={{ marginTop: 8, textAlign: 'center' }}>
                   {itemSearch ? `No results for "${itemSearch}"` : 'No items found'}
                 </Text>
                 {itemSearch ? (
-                  <Text style={[{ fontSize: 13, color: colors.textDim, marginTop: 4, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
-                    Try a different search or browse halls below
-                  </Text>
+                  <Text variant="dim" style={{ marginTop: 4, textAlign: 'center' }}>Try a different search or browse halls below</Text>
                 ) : null}
-              </View>
+              </Box>
             ) : (
-              filteredStationItems.map((item, i) => renderItemRow(item, i, filteredStationItems.length))
+              <Box
+                borderRadius="m"
+                padding="m"
+                style={{ backgroundColor: C.white, borderWidth: 1, borderColor: C.border }}
+              >
+                {filteredStationItems.map((item, i) => renderItemRow(item, i, filteredStationItems.length))}
+              </Box>
             )}
           </ScrollView>
         )}
@@ -1174,19 +1227,31 @@ export default function BrowseScreen() {
     );
   }
 
-  // ── Detail view ──
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER — DETAIL VIEW (Task 4.4)
+  // ═══════════════════════════════════════════════════════════════════════════
+
   if (view === 'detail' && selectedItem) {
     const n = getNutr(selectedItem);
     const badge = getDietaryBadge(selectedItem.dietary_flags);
     const adjCal = Math.round(n.cal * servings);
 
     const getIndicatorDot = (label: string, rawValue: number): string | null => {
-      if (label === 'Sodium' && rawValue > 600) return colors.orange;
-      if (label === 'Fiber' && rawValue > 5) return colors.green;
-      if (label === 'Protein' && rawValue > 20) return colors.blue;
-      if (label === 'Added Sugars' && rawValue > 10) return colors.red;
+      if (label === 'Sodium' && rawValue > 600) return C.warning;
+      if (label === 'Fiber' && rawValue > 5) return C.success;
+      if (label === 'Protein' && rawValue > 20) return C.blue;
+      if (label === 'Added Sugars' && rawValue > 10) return C.error;
       return null;
     };
+
+    // Task 4.4: Macro bars with correct colors
+    const macroBarData = [
+      { label: 'Protein', val: Math.round(n.pro * servings), unit: 'g', color: C.blue },
+      { label: 'Carbs', val: Math.round(n.carb * servings), unit: 'g', color: C.gold },
+      { label: 'Fat', val: Math.round(n.fat * servings), unit: 'g', color: C.silver },
+    ];
+
+    const maxMacro = Math.max(...macroBarData.map((m) => m.val), 1);
 
     const nutritionGrid = [
       { label: 'Total Fat', val: `${Math.round(n.fat * servings)}g`, raw: n.fat * servings },
@@ -1206,114 +1271,159 @@ export default function BrowseScreen() {
     ];
 
     return (
-      <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.offWhite }}>
         {renderToast()}
         {wrapAnimated(
           <>
-            <ScrollView contentContainerStyle={[st.pad, { paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
               {renderHeader()}
 
-              <View style={[st.detailCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}>
-                <Text style={[{ fontSize: 24, color: colors.text, textAlign: 'center', fontFamily: 'Outfit_700Bold' }]}>
-                  {selectedItem.name}
-                </Text>
-                <Text style={[{ fontSize: 12, color: colors.textMuted, textAlign: 'center', fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>
+              {/* Hero card */}
+              <Box
+                borderRadius="m"
+                padding="l"
+                style={{ backgroundColor: C.white, borderWidth: 1, borderColor: C.border, marginTop: 8 }}
+              >
+                <Text variant="pageTitle" style={{ fontSize: 24, textAlign: 'center' }}>{selectedItem.name}</Text>
+                <Text variant="muted" style={{ textAlign: 'center', marginTop: 4 }}>
                   {selectedItem.station} · {selectedHall?.name}
                 </Text>
-                <Text style={[{ fontSize: 32, color: colors.text, textAlign: 'center', fontFamily: 'Outfit_800ExtraBold', marginTop: 12 }]}>
+
+                {/* Calorie hero: maroon */}
+                <Text style={{ fontSize: 36, color: C.maroon, textAlign: 'center', fontFamily: 'Outfit_700Bold', marginTop: 12 }}>
                   {adjCal}
                 </Text>
-                <Text style={[{ fontSize: 14, color: colors.textMuted, textAlign: 'center', fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
-                  calories per serving
-                </Text>
-                <View style={st.macroRow}>
-                  {[
-                    { label: 'protein', val: `${Math.round(n.pro * servings)}g`, color: colors.blue },
-                    { label: 'carbs', val: `${Math.round(n.carb * servings)}g`, color: colors.orange },
-                    { label: 'fat', val: `${Math.round(n.fat * servings)}g`, color: colors.yellow },
-                  ].map((m) => (
-                    <View key={m.label} style={[st.macroPill, { borderColor: m.color }]}>
-                      <Text style={[{ fontSize: 14, color: m.color, fontFamily: 'DMSans_600SemiBold' }]}>{m.val} {m.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
+                <Text variant="muted" style={{ textAlign: 'center', marginTop: 2 }}>calories per serving</Text>
 
-              <View style={{ marginTop: 20 }}>
-                <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginBottom: 10 }]}>Servings</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+                {/* Task 4.4: Macro bars */}
+                <Box style={{ marginTop: 20, gap: 12 }}>
+                  {macroBarData.map((m) => (
+                    <Box key={m.label} flexDirection="row" alignItems="center" style={{ gap: 10 }}>
+                      <Text variant="dim" style={{ width: 50, textAlign: 'right' }}>{m.label}</Text>
+                      <Box flex={1} style={{ height: 8, borderRadius: 4, backgroundColor: C.borderLight }}>
+                        <Box
+                          style={{
+                            height: 8, borderRadius: 4,
+                            backgroundColor: m.color,
+                            width: `${Math.min((m.val / maxMacro) * 100, 100)}%`,
+                          }}
+                        />
+                      </Box>
+                      <Text variant="body" style={{ fontFamily: 'DMSans_700Bold', fontSize: 14, width: 40 }}>
+                        {m.val}{m.unit}
+                      </Text>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Servings */}
+              <Box style={{ marginTop: 20 }}>
+                <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold', marginBottom: 10 }}>Servings</Text>
+                <Box flexDirection="row" style={{ gap: 8 }}>
                   {[0.5, 1, 1.5, 2].map((s) => (
                     <TouchableOpacity
                       key={s}
-                      style={[st.servingChip, { backgroundColor: servings === s ? colors.maroon : colors.cardGlass, borderColor: servings === s ? colors.maroon : colors.cardGlassBorder, borderWidth: 1 }]}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setServings(s);
+                      style={{
+                        flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: 'center',
+                        backgroundColor: servings === s ? C.maroon : C.white,
+                        borderWidth: 1, borderColor: servings === s ? C.maroon : C.border,
                       }}
+                      onPress={() => { triggerHaptic('light'); setServings(s); }}
                     >
-                      <Text style={[{ fontSize: 14, color: servings === s ? '#fff' : colors.text, fontFamily: 'DMSans_600SemiBold' }]}>{s}</Text>
+                      <Text variant="body" style={{
+                        fontFamily: 'DMSans_600SemiBold', fontSize: 14,
+                        color: servings === s ? C.white : C.text,
+                      }}>{s}</Text>
                     </TouchableOpacity>
                   ))}
-                </View>
-              </View>
+                </Box>
+              </Box>
 
-              <View style={st.nutritionGrid}>
-                {nutritionGrid.map((item) => {
+              {/* Micronutrient grid: flat silver labels, values right-aligned */}
+              <Box style={{ marginTop: 20 }}>
+                <Text variant="sectionHeader" style={{ marginBottom: 12 }}>NUTRITION DETAILS</Text>
+                {nutritionGrid.map((item, i) => {
                   const dotColor = getIndicatorDot(item.label, item.raw);
                   return (
-                    <View key={item.label} style={[st.nutritionCell, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text style={[{ fontSize: 18, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>{item.val}</Text>
-                        {dotColor && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />}
-                      </View>
-                      <Text style={[{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>{item.label}</Text>
-                    </View>
+                    <Box
+                      key={item.label}
+                      flexDirection="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      style={{
+                        paddingVertical: 10,
+                        borderBottomWidth: i < nutritionGrid.length - 1 ? 1 : 0,
+                        borderBottomColor: C.borderLight,
+                      }}
+                    >
+                      <Box flexDirection="row" alignItems="center" style={{ gap: 6 }}>
+                        <Text variant="body" style={{ color: C.silver, fontSize: 14 }}>{item.label}</Text>
+                        {dotColor && <Box style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />}
+                      </Box>
+                      <Text variant="body" style={{ fontFamily: 'DMSans_700Bold', fontSize: 14 }}>{item.val}</Text>
+                    </Box>
                   );
                 })}
-              </View>
+              </Box>
 
               <TouchableOpacity
                 onPress={() => setShowMicros(true)}
                 style={{ marginTop: 12, paddingVertical: 8 }}
                 activeOpacity={0.7}
               >
-                <Text style={[{ fontSize: 14, color: colors.maroon, fontFamily: 'DMSans_600SemiBold' }]}>
+                <Text variant="body" style={{ color: C.maroon, fontFamily: 'DMSans_600SemiBold', fontSize: 14 }}>
                   View All Nutrients →
                 </Text>
               </TouchableOpacity>
 
               {selectedItem.dietary_flags && selectedItem.dietary_flags.length > 0 && (
-                <View style={[st.flagRow, { marginTop: 16 }]}>
+                <Box flexDirection="row" flexWrap="wrap" style={{ gap: 8, marginTop: 16 }}>
                   {selectedItem.dietary_flags.map((flag: string) => (
-                    <View key={flag} style={[st.flagPill, { backgroundColor: colors.green + '22' }]}>
-                      <Text style={[{ fontSize: 12, color: colors.green, fontFamily: 'DMSans_600SemiBold' }]}>{flag}</Text>
-                    </View>
+                    <Box key={flag} style={{
+                      paddingHorizontal: 12, paddingVertical: 6,
+                      borderRadius: 4, backgroundColor: C.maroonMuted,
+                    }}>
+                      <Text style={{ fontSize: 12, color: C.maroon, fontFamily: 'DMSans_600SemiBold' }}>{flag}</Text>
+                    </Box>
                   ))}
-                </View>
+                </Box>
               )}
 
               {selectedItem.ingredients && (
-                <View style={[st.ingredientCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, borderWidth: 1 }]}>
-                  <Text style={[{ fontSize: 13, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginBottom: 8 }]}>Ingredients</Text>
-                  <Text style={[{ fontSize: 12, color: colors.textMuted, fontFamily: 'DMSans_400Regular', lineHeight: 18 }]}>{selectedItem.ingredients}</Text>
-                </View>
+                <Box
+                  borderRadius="m"
+                  padding="m"
+                  style={{ backgroundColor: C.white, borderWidth: 1, borderColor: C.border, marginTop: 16 }}
+                >
+                  <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold', marginBottom: 8, fontSize: 13 }}>Ingredients</Text>
+                  <Text variant="muted" style={{ lineHeight: 18, fontSize: 12 }}>{selectedItem.ingredients}</Text>
+                </Box>
               )}
             </ScrollView>
 
-            <View style={[st.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-              <Text style={[{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: 10, fontFamily: 'DMSans_400Regular' }]}>
+            {/* Task 4.4: Full-width maroon log button with press-scale + haptic */}
+            <Box style={{
+              paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24,
+              borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.offWhite,
+            }}>
+              <Text variant="muted" style={{ textAlign: 'center', marginBottom: 10 }}>
                 {adjCal} cal · {servings} serving{servings !== 1 ? 's' : ''}
               </Text>
-              <TouchableOpacity
-                style={[st.logBtn, { backgroundColor: logSuccess ? colors.green : colors.maroon, opacity: logging ? 0.6 : 1 }]}
+              <PressScaleButton
                 onPress={logMeal}
                 disabled={logging || logSuccess}
+                style={{
+                  height: 52, borderRadius: 6, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: logSuccess ? C.success : C.maroon,
+                  opacity: logging ? 0.6 : 1,
+                }}
               >
-                <Text style={[{ fontSize: 16, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>
-                  {logging ? 'Logging...' : logSuccess ? 'Logged!' : 'Log This Meal'}
+                <Text variant="body" style={{ color: C.white, fontFamily: 'DMSans_700Bold', fontSize: 16 }}>
+                  {logging ? 'Logging...' : logSuccess ? 'Logged!' : 'Log This Item'}
                 </Text>
-              </TouchableOpacity>
-            </View>
+              </PressScaleButton>
+            </Box>
           </>
         )}
         <Modal
@@ -1331,6 +1441,26 @@ export default function BrowseScreen() {
   return null;
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OLD SPRINT 4 BROWSE CODE — COMMENTED OUT (DO NOT DELETE)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Removed imports:
+//   import { StyleSheet, Text, View } from 'react-native';
+//   import { useTheme } from '@/src/context/ThemeContext';
+//   import * as Haptics from 'expo-haptics';
+//
+// Removed: PressableCard component (replaced with AnimatedCard),
+// pill-shaped filterChip (replaced with rectangular tabs),
+// old colors references (colors.cardGlass, colors.cardGlassBorder, etc.)
+// All emoji fallbacks removed from station cards (Feather icons or null).
+// Heart icons changed from red/textDim to maroon/silver.
+// Calorie numbers changed to statValue + maroon color.
+// Dietary badges changed to xs borderRadius + maroonMuted/goldMuted bg.
+// Detail view rebuilt with macro bars + press-scale log button.
+//
+/*
 const st = StyleSheet.create({
   safe: { flex: 1 },
   pad: { padding: 20, paddingBottom: 100 },
@@ -1450,3 +1580,4 @@ const st = StyleSheet.create({
     marginBottom: 16,
   },
 });
+*/
