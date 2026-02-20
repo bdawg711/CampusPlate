@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId, signOut } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { setWaterGoal } from '@/src/utils/water';
+import { calculateDailyScore } from '@/src/utils/dailyScore';
 import EditGoals from '@/src/components/EditGoals';
 import EditProfile from '@/src/components/EditProfile';
 import EditNutritionPrefs from '@/src/components/EditNutritionPrefs';
@@ -25,7 +27,6 @@ import HelpFAQ from '@/src/components/HelpFAQ';
 import WeeklyReport from '@/src/components/WeeklyReport';
 import ReminderSettings from '@/src/components/ReminderSettings';
 import { Goals, getGoals, saveCustomGoals, recalculateGoals } from '@/src/utils/goals';
-import { loadMealReminders } from '@/src/utils/notifications';
 import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged, StreakData, Badge } from '@/src/utils/streaks';
 import StreakBadge from '@/src/components/StreakBadge';
 
@@ -36,6 +37,9 @@ export default function MoreScreen() {
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [waterGoalOz, setWaterGoalOz] = useState<number>(64);
+  const [totalMeals, setTotalMeals] = useState(0);
+  const [scoreGrade, setScoreGrade] = useState('—');
+  const [scoreGradeColor, setScoreGradeColor] = useState('#34C759');
 
   // Modal visibility
   const [goalsModalVisible, setGoalsModalVisible] = useState(false);
@@ -74,13 +78,45 @@ export default function MoreScreen() {
       setCurrentGoals(goals);
 
       // Fetch streak, water streak, and total meals in parallel
-      const [streakResult, waterStreak, totalMeals] = await Promise.all([
+      const d = new Date();
+      const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const [streakResult, waterStreak, totalMealsCount, logsRes, waterRes] = await Promise.all([
         getStreakData(userId),
         getWaterStreak(userId),
         getTotalMealsLogged(userId),
+        supabase.from('meal_logs')
+          .select('servings, menu_items(nutrition(calories, protein_g, total_carbs_g, total_fat_g))')
+          .eq('user_id', userId).eq('date', todayStr),
+        supabase.from('water_logs')
+          .select('amount_oz')
+          .eq('user_id', userId).eq('date', todayStr),
       ]);
       setStreakData(streakResult);
-      setBadges(getBadges(streakResult, waterStreak, totalMeals));
+      setTotalMeals(totalMealsCount);
+      setBadges(getBadges(streakResult, waterStreak, totalMealsCount));
+
+      // Compute daily score for stats row
+      const consumed = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      let mealsToday = 0;
+      for (const log of logsRes.data ?? []) {
+        const n = (log as any).menu_items?.nutrition;
+        const nutr = Array.isArray(n) ? n[0] : n;
+        if (nutr) {
+          consumed.calories += (nutr.calories || 0) * (log.servings || 1);
+          consumed.protein += (nutr.protein_g || 0) * (log.servings || 1);
+          consumed.carbs += (nutr.total_carbs_g || 0) * (log.servings || 1);
+          consumed.fat += (nutr.total_fat_g || 0) * (log.servings || 1);
+        }
+        mealsToday++;
+      }
+      const waterToday = (waterRes.data ?? []).reduce((sum: number, w: any) => sum + (w.amount_oz || 0), 0);
+      const dailyScore = calculateDailyScore(
+        consumed,
+        { calories: goals.goalCalories, protein: goals.goalProtein, carbs: goals.goalCarbs, fat: goals.goalFat },
+        mealsToday, waterToday, data?.water_goal_oz ?? 64,
+      );
+      setScoreGrade(dailyScore.grade);
+      setScoreGradeColor(dailyScore.gradeColor);
     } catch (e) {
       console.error('More load error:', e);
     } finally {
@@ -155,14 +191,6 @@ export default function MoreScreen() {
     setWeeklyReportVisible(true);
   };
 
-  const handleDiningHalls = () => {
-    Alert.alert(
-      'Dining Halls',
-      'Browse all VT dining halls in the Log tab. Tap any hall to see today\'s full menu.',
-      [{ text: 'Got it' }],
-    );
-  };
-
   const handleShare = async () => {
     try {
       await Share.share({
@@ -171,23 +199,25 @@ export default function MoreScreen() {
     } catch { /* ignore */ }
   };
 
-  const MenuItem = ({ emoji, label, badge, badgeColor, onPress, rightContent, textColor }: {
-    emoji: string; label: string; badge?: string; badgeColor?: string;
-    onPress?: () => void; rightContent?: React.ReactNode; textColor?: string;
+  const SettingsRow = ({ icon, iconBg, iconColor, label, onPress, rightContent, textColor, isLast }: {
+    icon: keyof typeof Feather.glyphMap; iconBg: string; iconColor: string;
+    label: string; onPress?: () => void; rightContent?: React.ReactNode;
+    textColor?: string; isLast?: boolean;
   }) => (
-    <TouchableOpacity style={st.menuItem} onPress={onPress} activeOpacity={onPress ? 0.6 : 1}>
-      <View style={[st.menuIcon, { backgroundColor: colors.cardAlt }]}>
-        <Text style={{ fontSize: 18 }}>{emoji}</Text>
-      </View>
-      <Text style={[st.menuLabel, { color: textColor || colors.text, fontFamily: 'DMSans_500Medium' }]}>{label}</Text>
-      {badge && (
-        <View style={[st.menuBadge, { backgroundColor: badgeColor || colors.orange }]}>
-          <Text style={[{ fontSize: 10, color: '#fff', fontFamily: 'DMSans_700Bold' }]}>{badge}</Text>
+    <>
+      <TouchableOpacity style={st.settingsRow} onPress={onPress} activeOpacity={onPress ? 0.6 : 1}>
+        <View style={[st.rowIcon, { backgroundColor: iconBg }]}>
+          <Feather name={icon} size={16} color={iconColor} />
         </View>
-      )}
-      <View style={{ flex: 1 }} />
-      {rightContent || <Text style={[{ fontSize: 18, color: colors.textDim }]}>›</Text>}
-    </TouchableOpacity>
+        <Text style={[st.rowLabel, { color: textColor || colors.text }]}>{label}</Text>
+        <View style={{ flex: 1 }} />
+        {rightContent}
+        {!rightContent && textColor !== colors.red && (
+          <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+        )}
+      </TouchableOpacity>
+      {!isLast && <View style={[st.rowDivider, { backgroundColor: colors.cardGlassBorder }]} />}
+    </>
   );
 
   if (loading) {
@@ -201,86 +231,103 @@ export default function MoreScreen() {
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false}>
-        {/* Profile Header */}
-        <TouchableOpacity style={st.profileHeader} onPress={() => setProfileModalVisible(true)} activeOpacity={0.8}>
-          <View style={[st.avatar, { backgroundColor: colors.maroon }]}>
-            <Text style={[{ fontSize: 28, color: '#fff', fontFamily: 'Outfit_700Bold' }]}>
-              {(profile?.name || 'U')[0].toUpperCase()}
-            </Text>
-          </View>
-          <Text style={[{ fontSize: 20, color: colors.text, fontFamily: 'Outfit_700Bold', marginTop: 12 }]}>
-            {profile?.name || 'Student'}
-          </Text>
-          <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>
-            {profile?.year || ''}{profile?.year && profile?.dorm ? ' · ' : ''}{profile?.dorm || ''}
-          </Text>
-          <Text style={[{ fontSize: 12, color: colors.textDim, fontFamily: 'DMSans_400Regular', marginTop: 4 }]}>
-            {streakData?.currentStreak ?? 0} day streak 🔥 · {profile?.goal_calories?.toLocaleString() || '2,000'} cal goal
-          </Text>
-          <Text style={[{ fontSize: 12, color: colors.maroon, fontFamily: 'DMSans_500Medium', marginTop: 6 }]}>
-            Edit Profile
-          </Text>
-        </TouchableOpacity>
+        {/* Page Title */}
+        <Text style={[st.pageTitle, { color: colors.text }]}>Settings</Text>
 
-        {/* Badges */}
-        {badges.length > 0 && (
-          <View style={st.badgesSection}>
-            <View style={st.badgesHeader}>
-              <Text style={[{ fontSize: 16, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>Badges</Text>
-              <Text style={[{ fontSize: 12, color: colors.textDim, fontFamily: 'DMSans_400Regular' }]}>
-                {badges.filter((b) => b.earned).length} of {badges.length}
+        {/* Profile Card */}
+        <View style={[st.profileCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+          {/* Top row: avatar + name + edit */}
+          <View style={st.profileTop}>
+            <View style={[st.avatar, { backgroundColor: colors.maroon }]}>
+              <Text style={[{ fontSize: 22, color: '#fff', fontFamily: 'Outfit_700Bold' }]}>
+                {(profile?.name || 'U').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
               </Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.badgesScroll}>
-              {badges.map((b) => (
-                <View key={b.id} style={st.badgeItem}>
-                  <StreakBadge badge={b} size="small" />
-                </View>
-              ))}
-            </ScrollView>
+            <View style={{ flex: 1 }}>
+              <Text style={[{ fontSize: 20, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>
+                {profile?.name || 'Student'}
+              </Text>
+              <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
+                {profile?.year || ''}{profile?.year && profile?.dorm ? ' · ' : ''}{profile?.dorm || ''}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[st.editBtn, { borderColor: colors.cardGlassBorder }]}
+              onPress={() => setProfileModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_500Medium' }]}>Edit</Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        {/* Menu Items */}
-        <View style={[st.menuCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
-          <MenuItem emoji="👤" label="My Profile" onPress={() => setProfileModalVisible(true)} />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem
-            emoji="🎯"
-            label="Nutrition Goals"
-            onPress={() => setGoalsModalVisible(true)}
-            rightContent={
-              <View style={[st.themeChip, { backgroundColor: colors.cardAlt }]}>
-                <Text style={[{ fontSize: 12, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
-                  {currentGoals.goalCalories.toLocaleString()} kcal
+          {/* Stats Row */}
+          <View style={[st.statsRow, { backgroundColor: colors.cardAlt }]}>
+            <View style={st.stat}>
+              <Text style={[st.statValue, { color: colors.orange }]}>{streakData?.currentStreak ?? 0}d</Text>
+              <Text style={[st.statLabel, { color: colors.textDim }]}>STREAK</Text>
+            </View>
+            <View style={[st.statDivider, { backgroundColor: colors.cardGlassBorder }]} />
+            <View style={st.stat}>
+              <Text style={[st.statValue, { color: colors.blue }]}>{totalMeals}</Text>
+              <Text style={[st.statLabel, { color: colors.textDim }]}>LOGGED</Text>
+            </View>
+            <View style={[st.statDivider, { backgroundColor: colors.cardGlassBorder }]} />
+            <View style={st.stat}>
+              <Text style={[st.statValue, { color: scoreGradeColor }]}>{scoreGrade}</Text>
+              <Text style={[st.statLabel, { color: colors.textDim }]}>SCORE</Text>
+            </View>
+          </View>
+
+          {/* Badges */}
+          {badges.length > 0 && (
+            <View style={{ marginTop: 20 }}>
+              <View style={st.badgesHeader}>
+                <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>Badges</Text>
+                <Text style={[{ fontSize: 12, color: colors.textDim, fontFamily: 'DMSans_400Regular' }]}>
+                  {badges.filter((b) => b.earned).length} of {badges.length}
                 </Text>
               </View>
-            }
-          />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem emoji="🍎" label="Nutrition Preferences" onPress={() => setNutritionPrefsModalVisible(true)} />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem
-            emoji="💧"
-            label="Water Goal"
-            onPress={handleWaterGoal}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.badgesScroll}>
+                {badges.map((b) => (
+                  <View key={b.id} style={st.badgeItem}>
+                    <StreakBadge badge={b} size="small" />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+
+        {/* ── NUTRITION ── */}
+        <Text style={[st.groupLabel, { color: colors.textDim }]}>NUTRITION</Text>
+        <View style={[st.settingsGroup, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+          <SettingsRow
+            icon="target" iconBg="rgba(139,30,63,0.15)" iconColor={colors.maroon}
+            label="Nutrition Goals" onPress={() => setGoalsModalVisible(true)}
             rightContent={
-              <TouchableOpacity
-                onPress={handleWaterGoal}
-                style={[st.themeChip, { backgroundColor: colors.cardAlt }]}
-              >
-                <Text style={[{ fontSize: 12, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
-                  {waterGoalOz} oz
-                </Text>
-              </TouchableOpacity>
+              <>
+                <Text style={[st.rowValue, { color: colors.textDim }]}>{currentGoals.goalCalories.toLocaleString()} kcal</Text>
+                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+              </>
             }
           />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem
-            emoji="💪"
-            label="Gym Mode"
-            badge={profile?.high_protein ? 'PRO' : undefined}
-            badgeColor={colors.orange}
+          <SettingsRow
+            icon="droplet" iconBg="rgba(91,127,255,0.15)" iconColor={colors.blue}
+            label="Water Goal" onPress={handleWaterGoal}
+            rightContent={
+              <>
+                <Text style={[st.rowValue, { color: colors.textDim }]}>{waterGoalOz} oz</Text>
+                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+              </>
+            }
+          />
+          <SettingsRow
+            icon="heart" iconBg="rgba(52,199,89,0.15)" iconColor={colors.green}
+            label="Nutrition Preferences" onPress={() => setNutritionPrefsModalVisible(true)}
+          />
+          <SettingsRow
+            icon="activity" iconBg="rgba(232,119,34,0.15)" iconColor={colors.orange}
+            label="Gym Mode" isLast
             rightContent={
               <Switch
                 value={profile?.high_protein || false}
@@ -292,48 +339,71 @@ export default function MoreScreen() {
           />
         </View>
 
-        <View style={[st.menuCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, marginTop: 12 }]}>
-          <MenuItem
-            emoji="🔔"
-            label="Reminders"
-            onPress={handleReminders}
+        {/* ── APP ── */}
+        <Text style={[st.groupLabel, { color: colors.textDim }]}>APP</Text>
+        <View style={[st.settingsGroup, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+          <SettingsRow
+            icon="bell" iconBg="rgba(255,214,10,0.12)" iconColor={colors.yellow}
+            label="Reminders" onPress={handleReminders}
             rightContent={
-              <View style={[st.themeChip, { backgroundColor: colors.cardAlt }]}>
-                <Text style={[{ fontSize: 12, color: remindersOn ? colors.green : colors.textMuted, fontFamily: 'DMSans_600SemiBold' }]}>
-                  {remindersOn ? 'On' : 'Off'}
-                </Text>
-              </View>
+              <>
+                <Text style={[st.rowValue, { color: remindersOn ? colors.green : colors.textDim }]}>{remindersOn ? 'On' : 'Off'}</Text>
+                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+              </>
             }
           />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem
-            emoji="🌙"
-            label="Appearance"
+          <SettingsRow
+            icon="moon" iconBg="rgba(91,127,255,0.12)" iconColor={colors.blue}
+            label="Appearance" onPress={toggleTheme}
             rightContent={
-              <TouchableOpacity onPress={toggleTheme} style={[st.themeChip, { backgroundColor: colors.cardAlt }]}>
-                <Text style={[{ fontSize: 12, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>
-                  {mode === 'dark' ? 'Dark' : 'Light'}
-                </Text>
-              </TouchableOpacity>
+              <>
+                <Text style={[st.rowValue, { color: colors.textDim }]}>{mode === 'dark' ? 'Dark' : 'Light'}</Text>
+                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+              </>
             }
           />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem emoji="📊" label="Weekly Report" badge="NEW" badgeColor={colors.blue} onPress={handleWeeklyReport} />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem emoji="🏛️" label="Dining Halls" onPress={handleDiningHalls} />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem emoji="❓" label="Help & FAQ" onPress={() => setHelpModalVisible(true)} />
+          <SettingsRow
+            icon="bar-chart-2" iconBg="rgba(139,30,63,0.12)" iconColor={colors.maroon}
+            label="Weekly Report" onPress={handleWeeklyReport} isLast
+          />
         </View>
 
-        <View style={[st.menuCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, marginTop: 12 }]}>
-          <MenuItem emoji="📤" label="Share CampusPlate" onPress={handleShare} />
-          <View style={[st.separator, { backgroundColor: colors.border }]} />
-          <MenuItem emoji="🚪" label="Sign Out" textColor={colors.red} onPress={handleSignOut} />
+        {/* ── ABOUT ── */}
+        <Text style={[st.groupLabel, { color: colors.textDim }]}>ABOUT</Text>
+        <View style={[st.settingsGroup, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+          <SettingsRow
+            icon="help-circle" iconBg="rgba(255,255,255,0.06)" iconColor={colors.textMuted}
+            label="Help & FAQ" onPress={() => setHelpModalVisible(true)}
+          />
+          <SettingsRow
+            icon="share-2" iconBg="rgba(255,255,255,0.06)" iconColor={colors.textMuted}
+            label="Share CampusPlate" onPress={handleShare}
+          />
+          <SettingsRow
+            icon="info" iconBg="rgba(255,255,255,0.06)" iconColor={colors.textMuted}
+            label="About" isLast
+            rightContent={
+              <>
+                <Text style={[st.rowValue, { color: colors.textDim }]}>v2.0</Text>
+                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+              </>
+            }
+          />
         </View>
 
-        <Text style={[st.footer, { color: colors.textDim, fontFamily: 'DMSans_400Regular' }]}>
-          CampusPlate v1.0 · Built for Virginia Tech
-        </Text>
+        {/* ── SIGN OUT ── */}
+        <View style={[st.settingsGroup, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, marginTop: 8 }]}>
+          <SettingsRow
+            icon="log-out" iconBg="rgba(255,69,58,0.12)" iconColor={colors.red}
+            label="Sign Out" textColor={colors.red} onPress={handleSignOut} isLast
+          />
+        </View>
+
+        {/* Footer */}
+        <View style={st.footerWrap}>
+          <Text style={[st.footerVersion, { color: colors.textDim }]}>CampusPlate v2.0</Text>
+          <Text style={[st.footerTagline, { color: colors.textDim }]}>Built for Hokies, by Hokies</Text>
+        </View>
       </ScrollView>
 
       <EditGoals
@@ -379,7 +449,7 @@ export default function MoreScreen() {
         onRequestClose={() => setWaterGoalModalVisible(false)}
       >
         <View style={st.modalOverlay}>
-          <View style={[st.modalContent, { backgroundColor: colors.card }]}>
+          <View style={[st.modalContent, { backgroundColor: colors.background }]}>
             <Text style={[{ fontSize: 20, color: colors.text, fontFamily: 'Outfit_700Bold', textAlign: 'center', marginBottom: 4 }]}>
               Water Goal
             </Text>
@@ -416,22 +486,47 @@ export default function MoreScreen() {
 
 const st = StyleSheet.create({
   safe: { flex: 1 },
-  pad: { padding: 20, paddingBottom: 100 },
+  pad: { paddingTop: 20, paddingBottom: 100 },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  profileHeader: { alignItems: 'center', marginBottom: 28 },
-  avatar: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-  menuCard: { borderRadius: 14, overflow: 'hidden' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 14 },
-  menuIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  menuLabel: { fontSize: 15 },
-  menuBadge: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  separator: { height: 1, marginLeft: 64 },
-  themeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  footer: { textAlign: 'center', fontSize: 12, opacity: 0.2, marginTop: 32 },
-  badgesSection: { marginBottom: 20 },
-  badgesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+
+  // Page title
+  pageTitle: { fontSize: 28, fontFamily: 'Outfit_700Bold', paddingHorizontal: 20 },
+
+  // Profile card
+  profileCard: { margin: 16, borderRadius: 18, borderWidth: 1, padding: 24 },
+  profileTop: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
+  avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
+  editBtn: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
+
+  // Stats row
+  statsRow: { flexDirection: 'row', borderRadius: 12, overflow: 'hidden' },
+  stat: { flex: 1, alignItems: 'center', paddingVertical: 12 },
+  statValue: { fontSize: 20, fontFamily: 'DMSans_700Bold' },
+  statLabel: { fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+  statDivider: { width: 1, marginVertical: 8 },
+
+  // Badges
+  badgesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   badgesScroll: { paddingRight: 20 },
-  badgeItem: { marginRight: 12 },
+  badgeItem: { marginRight: 10 },
+
+  // Settings groups
+  groupLabel: { fontSize: 12, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: 20, marginTop: 20, marginBottom: 6 },
+  settingsGroup: { borderRadius: 16, borderWidth: 1, marginHorizontal: 16, paddingHorizontal: 18, paddingVertical: 2, marginBottom: 0 },
+
+  // Settings rows
+  settingsRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
+  rowIcon: { width: 34, height: 34, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  rowLabel: { fontSize: 15, fontFamily: 'DMSans_500Medium' },
+  rowValue: { fontSize: 14, fontFamily: 'DMSans_400Regular', marginRight: 8 },
+  rowDivider: { height: 1, marginLeft: 46 },
+
+  // Footer
+  footerWrap: { alignItems: 'center', marginTop: 24, paddingBottom: 8 },
+  footerVersion: { fontSize: 13, fontFamily: 'DMSans_400Regular' },
+  footerTagline: { fontSize: 11, fontFamily: 'DMSans_400Regular', opacity: 0.5, marginTop: 4 },
+
+  // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { width: '100%', borderRadius: 20, padding: 24 },
   waterGoalInput: { borderRadius: 12, padding: 14, fontSize: 16, borderWidth: 1, marginBottom: 16, textAlign: 'center' },

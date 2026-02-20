@@ -51,9 +51,9 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [x] 11.2 Restyle Dashboard — Glass Cards + Compact Water + Open Now + For You + Meals
 [x] 11.3 Restyle Browse — Glass Cards + Vector Icons + Detail View
 [x] 11.4 Restyle AI Chat — Empty State + Bubbles + Input Bar + Suggestion Cards
-[ ] 11.5 Restyle Settings/More — Profile Card + Stats + Tinted Icon Rows
+[x] 11.5 Restyle Settings/More — Profile Card + Stats + Tinted Icon Rows
 [ ] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 37 / 46 complete
+TOTAL: 38 / 46 complete
 ================================================================================
