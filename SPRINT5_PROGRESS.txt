@@ -86,9 +86,9 @@ Task  Description                                                          Owner
 4.2   Restyle hall detail station grid — clean cards, remove emoji        Cam    DONE    2-column AnimatedCard grid, getStationEmoji returns null for unknown (no fallback 🍽️), Feather grid icon for unknown stations, food emojis kept where matched, search results use sectionHeader variant
 4.3   Restyle food item list — new colors, animated hearts, badges        Cam    DONE    Green dots for dietary items, badges xs borderRadius with maroonMuted(V/H)/goldMuted(VG) bg, calorie 22px maroon DMSans_700Bold (statValue style), heart silver unfavorited/maroon favorited, borderLight dividers, items wrapped in white card with border
 4.4   Restyle nutrition detail — macro bars, Log button                   Cam    DONE    Horizontal macro bars: blue protein, gold carbs, silver fat on borderLight track. Calorie hero 36px maroon Outfit_700Bold. "Log This Item" full-width maroon borderRadius s with PressScaleButton (reanimated press-scale 0.97+spring back+haptic). Micronutrient rows flat silver labels, right-aligned values, borderLight dividers. Dietary flags maroonMuted bg xs radius. Modal handle silver.
-4.5   CHECKPOINT: Device test full Browse flow                            Cam    TODO    Verify log triggers Dashboard
+4.5   CHECKPOINT: Device test full Browse flow                            Cam    DONE    Browse→hall→station→item→nutrition→log full flow verified, logging triggers Dashboard update animation
 
-Phase 4 Status: IN PROGRESS (4/5 tasks DONE — 4.1-4.4 complete, 4.5 checkpoint remaining)
+Phase 4 Status: COMPLETE (all 5 tasks DONE)
 
 
 ================================================================================
@@ -97,11 +97,11 @@ PHASE 5 — AI CHAT SCREEN
 
 Task  Description                                                          Owner  Status  Notes
 ----  -------------------------------------------------------------------  -----  ------  -----
-5.1   Restyle AI Chat — bubble shapes, maroon user msgs, input bar        Cam    TODO    Different corner radii
-5.2   AI typing indicator — three pulsing silver dots                     Cam    TODO
+5.1   Restyle AI Chat — bubble shapes, maroon user msgs, input bar        Cam    DONE    Full Restyle rebuild: zero StyleSheet.create on ai.tsx, AIChat.tsx, AIChatBubble.tsx. AI msgs=white card border borderRadius m except bottom-left xs(4). User msgs=maroon bg white text borderRadius m except bottom-right xs(4). Input bar=inputBg(#F5F5F7) borderRadius s, silver camera icon, maroon send circle. Suggestion cards press-scale animated. Header "CampusPlate AI" pageTitle + "Clear" maroon text. Message entrance slide-in from bottom with fade (150ms Easing.out). Old code commented out, not deleted.
+5.2   AI typing indicator — three pulsing silver dots                     Cam    DONE    New TypingIndicator.tsx component: 3 silver(#A8A9AD) 6px dots, opacity pulse 0.3→1.0→0.3, 150ms stagger between dots (0/150/300ms delay), white card bubble container with border borderRadius m except bottom-left xs(4), 400ms per pulse cycle with Easing.inOut
 5.3   CHECKPOINT: Device test AI Chat                                     Cam    TODO
 
-Phase 5 Status: NOT STARTED
+Phase 5 Status: IN PROGRESS (2/3 tasks DONE — 5.1-5.2 complete, 5.3 checkpoint remaining)
 
 
 ================================================================================
@@ -165,12 +165,12 @@ Phase                        Tasks   Done   Blocked
 1 — Theme Foundation           6       6       0
 2 — Animation Utilities        7       7       0
 3 — Dashboard                 10      10       0
-4 — Browse & Food              5       4       0
-5 — AI Chat                    3       0       0
+4 — Browse & Food              5       5       0
+5 — AI Chat                    3       2       0
 6 — Progress                   7       0       0
 7 — Global Polish              6       0       0
 8 — Final Testing              4       0       0
-TOTAL                         48      26       0
+TOTAL                         48      29       0
 
 
 ================================================================================

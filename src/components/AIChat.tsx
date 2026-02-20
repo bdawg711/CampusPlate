@@ -7,23 +7,20 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  StyleSheet,
-  Text,
+  Pressable,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
-  useAnimatedStyle,
   useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
+  useAnimatedStyle,
   withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
-import { useTheme } from '@/src/context/ThemeContext';
+import { Box, Text } from '@/src/theme/restyleTheme';
 import { getCurrentUserId } from '@/src/utils/auth';
 import {
   sendMessage as sendAIMessage,
@@ -33,6 +30,7 @@ import {
   type MealItem,
 } from '@/src/utils/ai';
 import AIChatBubble from './AIChatBubble';
+import TypingIndicator from './TypingIndicator';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,7 +60,6 @@ const SUGGESTIONS: { icon: keyof typeof Feather.glyphMap; title: string; subtitl
 
 export default function AIChat({ mode = 'tab', visible = true, onClose, onLogItem }: AIChatProps) {
   const isTab = mode === 'tab';
-  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -153,7 +150,6 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
         return;
       }
 
-      // Pass history WITHOUT the current message — sendMessage sends it separately
       const response = await sendAIMessage(userId, msg, historyRef.current);
       historyRef.current = [...historyRef.current, { role: 'user', content: msg }];
 
@@ -172,7 +168,6 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
       const errMessage = (err as Error).message || 'Something went wrong. Please try again.';
       setErrorMsg(errMessage);
       setLastFailedMessage(msg);
-      // Remove the user message we optimistically added since the call failed
       setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
     } finally {
       setLoading(false);
@@ -214,37 +209,53 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
   const showChips = messages.length === 0 && !initialLoading;
 
   const chatContent = (
-    <View style={[styles.container, { backgroundColor: colors.background }, isTab && styles.containerTab]}>
+    <Box
+      flex={1}
+      backgroundColor="background"
+      style={isTab ? {} : undefined}
+    >
       {/* ── Header ── */}
-      <View style={[styles.header, { borderBottomColor: colors.cardGlassBorder }, isTab && { paddingTop: insets.top + 8 }]}>
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        paddingHorizontal="l"
+        borderColor="border"
+        style={{
+          paddingVertical: 16,
+          borderBottomWidth: 1,
+          ...(isTab ? { paddingTop: insets.top + 8 } : {}),
+        }}
+      >
         {isTab ? (
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, { color: colors.text, fontFamily: 'Outfit_700Bold' }]}>
+          <Box flex={1}>
+            <Text variant="pageTitle" style={{ fontSize: 20 }}>
               CampusPlate AI
             </Text>
-          </View>
+          </Box>
         ) : (
           <>
-            <TouchableOpacity onPress={onClose} style={styles.headerSide} activeOpacity={0.6}>
-              <Text style={[styles.headerAction, { color: colors.textMuted, fontFamily: 'DMSans_500Medium' }]}>
+            <TouchableOpacity onPress={onClose} style={{ width: 64 }} activeOpacity={0.6}>
+              <Text variant="muted" style={{ fontSize: 15, fontFamily: 'DMSans_500Medium', color: '#6B6B6F' }}>
                 Close
               </Text>
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.text, fontFamily: 'Outfit_700Bold', flex: 1, textAlign: 'center' }]}>
-              CampusPlate AI
-            </Text>
+            <Box flex={1} alignItems="center">
+              <Text variant="pageTitle" style={{ fontSize: 20 }}>
+                CampusPlate AI
+              </Text>
+            </Box>
           </>
         )}
         <TouchableOpacity
           onPress={handleClear}
-          style={[styles.headerSide, { alignItems: 'flex-end' }]}
+          style={{ width: 64, alignItems: 'flex-end' }}
           activeOpacity={0.6}
         >
-          <Text style={[styles.headerAction, { color: colors.red, fontFamily: 'DMSans_500Medium' }]}>
+          <Text variant="body" style={{ color: '#861F41', fontFamily: 'DMSans_500Medium' }}>
             Clear
           </Text>
         </TouchableOpacity>
-      </View>
+      </Box>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -253,19 +264,20 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
       >
         {/* ── Messages ── */}
         {initialLoading ? (
-          <View style={styles.centerFill}>
-            <ActivityIndicator size="large" color={colors.maroon} />
-          </View>
+          <Box flex={1} justifyContent="center" alignItems="center">
+            <ActivityIndicator size="large" color="#861F41" />
+          </Box>
         ) : (
           <FlatList
             ref={flatListRef}
             style={{ flex: 1 }}
             data={messages}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={[
-              styles.listContent,
-              messages.length === 0 && styles.listEmpty,
-            ]}
+            contentContainerStyle={{
+              paddingTop: 16,
+              paddingBottom: 8,
+              ...(messages.length === 0 ? { flexGrow: 1 } : {}),
+            }}
             renderItem={({ item }) => (
               <AIChatBubble
                 role={item.role}
@@ -276,53 +288,61 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
             )}
             ListHeaderComponent={
               showChips ? (
-                <View style={styles.emptyState}>
-                  <Feather name="zap" size={64} color={colors.textDim} style={{ opacity: 0.15 }} />
-                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                <Box alignItems="center" style={{ paddingTop: 60, paddingBottom: 16 }} paddingHorizontal="l">
+                  <Feather name="zap" size={64} color="#9A9A9E" style={{ opacity: 0.15 }} />
+                  <Text
+                    variant="cardTitle"
+                    style={{ fontSize: 20, fontFamily: 'Outfit_600SemiBold', marginTop: 16 }}
+                  >
                     What can I help with?
                   </Text>
-                  <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+                  <Text
+                    variant="muted"
+                    style={{ textAlign: 'center', maxWidth: 280, marginTop: 8, lineHeight: 20 }}
+                  >
                     I know today's menus, your goals, and what's open right now.
                   </Text>
-                  <View style={styles.suggestionsWrap}>
+                  <Box width="100%" style={{ marginTop: 32, gap: 8 }}>
                     {SUGGESTIONS.map((s) => (
-                      <TouchableOpacity
+                      <SuggestionCard
                         key={s.title}
-                        style={[styles.suggestionCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}
+                        icon={s.icon}
+                        title={s.title}
+                        subtitle={s.subtitle}
                         onPress={() => handleSend(s.title)}
-                        activeOpacity={0.7}
-                      >
-                        <Feather name={s.icon} size={16} color={colors.textMuted} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.suggestionTitle, { color: colors.text }]}>{s.title}</Text>
-                          <Text style={[styles.suggestionSub, { color: colors.textDim }]}>{s.subtitle}</Text>
-                        </View>
-                      </TouchableOpacity>
+                      />
                     ))}
-                  </View>
-                </View>
+                  </Box>
+                </Box>
               ) : null
             }
             ListFooterComponent={
               <>
-                {loading && <TypingIndicator color={colors.textDim} bgColor={colors.cardGlass} />}
+                {loading && <TypingIndicator />}
                 {errorMsg && !loading && (
-                  <View style={styles.errorRow}>
-                    <Text style={[styles.errorText, { color: colors.red, fontFamily: 'DMSans_400Regular' }]}>
+                  <Box alignItems="center" paddingHorizontal="l" paddingVertical="s" style={{ gap: 8 }}>
+                    <Text variant="muted" style={{ color: '#C0392B', textAlign: 'center' }}>
                       {errorMsg}
                     </Text>
                     {lastFailedMessage && (
                       <TouchableOpacity
-                        style={[styles.retryBtn, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}
                         onPress={handleRetry}
                         activeOpacity={0.7}
+                        style={{
+                          paddingHorizontal: 20,
+                          paddingVertical: 8,
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: '#E8E8EA',
+                          backgroundColor: '#FFFFFF',
+                        }}
                       >
-                        <Text style={[styles.retryText, { color: colors.maroon, fontFamily: 'DMSans_600SemiBold' }]}>
+                        <Text variant="body" style={{ color: '#861F41', fontFamily: 'DMSans_600SemiBold' }}>
                           Retry
                         </Text>
                       </TouchableOpacity>
                     )}
-                  </View>
+                  </Box>
                 )}
               </>
             }
@@ -331,36 +351,70 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
           />
         )}
 
-        {/* ── Input row (TextInput is explicit, never inside .map or conditional re-create) ── */}
-        <View style={[styles.inputRow, { backgroundColor: colors.background, paddingBottom: isTab ? Math.max(insets.bottom, 10) + 100 : Math.max(insets.bottom, 10) }]}>
-          <View style={[styles.inputBar, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
-            <Feather name="camera" size={20} color={colors.textDim} style={{ marginRight: 8 }} />
+        {/* ── Input row ── */}
+        <Box
+          paddingHorizontal="s"
+          style={{
+            paddingVertical: 10,
+            backgroundColor: '#FFFFFF',
+            paddingBottom: isTab ? Math.max(insets.bottom, 10) + 100 : Math.max(insets.bottom, 10),
+          }}
+        >
+          <Box
+            flexDirection="row"
+            alignItems="flex-end"
+            borderRadius="s"
+            style={{
+              backgroundColor: '#F5F5F7',
+              paddingHorizontal: 14,
+              paddingVertical: 6,
+              gap: 4,
+            }}
+          >
+            <Feather
+              name="camera"
+              size={20}
+              color="#A8A9AD"
+              style={{ marginRight: 8, marginBottom: 8 }}
+            />
             <TextInput
-              style={[styles.textInput, { color: colors.text, fontFamily: 'DMSans_400Regular' }]}
+              style={{
+                flex: 1,
+                fontSize: 15,
+                maxHeight: 100,
+                paddingTop: 8,
+                paddingBottom: 8,
+                color: '#1A1A1A',
+                fontFamily: 'DMSans_400Regular',
+              }}
               value={input}
               onChangeText={setInput}
               placeholder="Ask about today's menu..."
-              placeholderTextColor={colors.textDim}
+              placeholderTextColor="#9A9A9E"
               multiline
               maxLength={500}
               returnKeyType="default"
               editable={!loading}
             />
-            <TouchableOpacity
-              style={[
-                styles.sendBtn,
-                { backgroundColor: colors.maroon, opacity: input.trim() && !loading ? 1 : 0.4 },
-              ]}
+            <Pressable
               onPress={() => handleSend()}
               disabled={!input.trim() || loading}
-              activeOpacity={0.7}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: '#861F41',
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: input.trim() && !loading ? 1 : 0.4,
+              }}
             >
               <Feather name="arrow-up" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
+            </Pressable>
+          </Box>
+        </Box>
       </KeyboardAvoidingView>
-    </View>
+    </Box>
   );
 
   if (isTab) {
@@ -379,7 +433,124 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
   );
 }
 
-// ── Typing indicator (3 bouncing dots) ──────────────────────────────────────
+// ── Suggestion card with press animation ─────────────────────────────────────
+
+function SuggestionCard({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => {
+          scale.value = withTiming(0.97, {
+            duration: 100,
+            easing: Easing.out(Easing.quad),
+          });
+        }}
+        onPressOut={() => {
+          scale.value = withTiming(1, {
+            duration: 150,
+            easing: Easing.out(Easing.quad),
+          });
+        }}
+      >
+        <Box
+          flexDirection="row"
+          alignItems="center"
+          borderRadius="m"
+          borderWidth={1}
+          borderColor="border"
+          backgroundColor="card"
+          padding="m"
+          style={{ gap: 12 }}
+        >
+          <Feather name={icon} size={16} color="#6B6B6F" />
+          <Box flex={1}>
+            <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold' }}>{title}</Text>
+            <Text variant="dim" style={{ marginTop: 1 }}>{subtitle}</Text>
+          </Box>
+        </Box>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ── OLD CODE (commented out, do not delete) ──────────────────────────────────
+/*
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { Feather } from '@expo/vector-icons';
+import { useTheme } from '@/src/context/ThemeContext';
+import { getCurrentUserId } from '@/src/utils/auth';
+import {
+  sendMessage as sendAIMessage,
+  getChatHistory,
+  clearChatHistory,
+  type ChatMessage,
+  type MealItem,
+} from '@/src/utils/ai';
+import AIChatBubble from './AIChatBubble';
+
+interface DisplayMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  mealItems?: MealItem[] | null;
+}
+
+interface AIChatProps {
+  mode?: 'modal' | 'tab';
+  visible?: boolean;
+  onClose?: () => void;
+  onLogItem?: (item: MealItem) => void;
+}
+
+const SUGGESTIONS: { icon: keyof typeof Feather.glyphMap; title: string; subtitle: string }[] = [
+  { icon: 'trending-up', title: 'Plan my meals today', subtitle: 'Based on your remaining macros' },
+  { icon: 'search', title: "What's high protein?", subtitle: 'Find meals that fit your goals' },
+  { icon: 'clock', title: "What's open now?", subtitle: 'See available dining halls' },
+];
+
+export default function AIChat({ mode = 'tab', visible = true, onClose, onLogItem }: AIChatProps) {
+  // ... old implementation with StyleSheet.create ...
+}
 
 function TypingIndicator({ color, bgColor }: { color: string; bgColor: string }) {
   return (
@@ -419,13 +590,9 @@ function BouncingDot({ color, delay }: { color: string; delay: number }) {
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   containerTab: { paddingBottom: 0 },
-
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -436,15 +603,9 @@ const styles = StyleSheet.create({
   headerSide: { width: 64 },
   headerTitle: { fontSize: 20 },
   headerAction: { fontSize: 15 },
-
-  // Center fill for loading
   centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  // FlatList
   listContent: { paddingTop: 16, paddingBottom: 8 },
   listEmpty: { flexGrow: 1 },
-
-  // Empty state
   emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 16 },
   emptyTitle: { fontSize: 20, fontFamily: 'Outfit_600SemiBold', marginTop: 16 },
   emptySubtitle: { fontSize: 14, fontFamily: 'DMSans_400Regular', textAlign: 'center', maxWidth: 280, marginTop: 8, lineHeight: 20 },
@@ -452,57 +613,16 @@ const styles = StyleSheet.create({
   suggestionCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, padding: 14 },
   suggestionTitle: { fontSize: 15, fontFamily: 'DMSans_600SemiBold' },
   suggestionSub: { fontSize: 13, fontFamily: 'DMSans_400Regular', marginTop: 1 },
-
-  // Error + retry
   errorRow: { alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8, gap: 8 },
   errorText: { fontSize: 13, textAlign: 'center' },
-  retryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
+  retryBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 14, borderWidth: 1 },
   retryText: { fontSize: 14 },
-
-  // Typing indicator
   typingRow: { paddingHorizontal: 12, marginBottom: 10, alignItems: 'flex-start' },
-  typingBubble: {
-    flexDirection: 'row',
-    gap: 5,
-    borderRadius: 18,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
+  typingBubble: { flexDirection: 'row', gap: 5, borderRadius: 18, borderBottomLeftRadius: 4, paddingHorizontal: 16, paddingVertical: 12 },
   dot: { width: 6, height: 6, borderRadius: 3 },
-
-  // Input row
-  inputRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    borderRadius: 24,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    gap: 4,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 15,
-    maxHeight: 100,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 0,
-  },
+  inputRow: { paddingHorizontal: 12, paddingVertical: 10 },
+  inputBar: { flexDirection: 'row', alignItems: 'flex-end', borderRadius: 24, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, gap: 4 },
+  textInput: { flex: 1, fontSize: 15, maxHeight: 100, paddingTop: 8, paddingBottom: 8 },
+  sendBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 0 },
 });
+*/
