@@ -345,7 +345,7 @@ Rate limits in the Edge Function:
 - Max history sent to Claude: last 10 messages (not full history)
 - If rate limited, return friendly message: "You've used all 20 AI messages for today. They reset at midnight!"
 
----
+---z
 
 ## Security Checklist
 

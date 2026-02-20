@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusPlate — Nutrition Details</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0A0A0F;
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .phone {
+    width: 390px;
+    min-height: 100vh;
+    background: #0A0A0F;
+    position: relative;
+    overflow-y: auto;
+  }
+  .header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14;
+    position: sticky;
+    top: 0;
+    background: #0A0A0F;
+    z-index: 10;
+  }
+  .header svg { cursor: pointer; }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  
+  .tabs {
+    display: flex;
+    padding: 0 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .tab {
+    flex: 1;
+    padding: 10px 0;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    color: #fff;
+    font-weight: 600;
+    border-bottom-color: #fff;
+  }
+  
+  .content { padding: 0 16px 120px; }
+  
+  .summary-banner {
+    background: rgba(139,30,63,0.08);
+    border-radius: 14px;
+    border: 1px solid rgba(139,30,63,0.15);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .summary-banner .icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: rgba(139,30,63,0.2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: #8B1E3F;
+    font-size: 16px;
+  }
+  .summary-banner .title { font-size: 14px; font-weight: 600; }
+  .summary-banner .sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  
+  .section {
+    background: rgba(255,255,255,0.04);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 18px 18px 2px;
+    margin-bottom: 12px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .section-header .icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+  }
+  .section-header span {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .nutrient-row { margin-bottom: 20px; }
+  .nutrient-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .nutrient-name { font-size: 15px; font-weight: 500; }
+  .nutrient-values { display: flex; align-items: baseline; gap: 12px; }
+  .nutrient-amount { font-size: 14px; color: rgba(255,255,255,0.5); }
+  .nutrient-pct { font-size: 14px; font-weight: 600; min-width: 42px; text-align: right; }
+  .nutrient-notarget { font-size: 12px; color: rgba(255,255,255,0.25); }
+  
+  .bar-track {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s ease-out;
+  }
+  .bar-dim { background: rgba(255,255,255,0.2); }
+  .bar-yellow { background: #FFD60A; }
+  .bar-green { background: #34C759; }
+  .bar-red { background: #FF453A; }
+  
+  .footer-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 16px 4px;
+    margin-top: 4px;
+  }
+  .footer-note span {
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    line-height: 1.5;
+  }
+  
+  .tab-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 358px;
+    height: 64px;
+    background: rgba(20,20,30,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 100;
+  }
+  .tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    opacity: 0.35;
+    cursor: pointer;
+    position: relative;
+  }
+  .tab-item.active { opacity: 1; }
+  .tab-item .tab-icon { font-size: 18px; }
+  .tab-item.special .tab-icon { font-size: 22px; }
+  .tab-item .tab-label {
+    font-size: 10px;
+    color: #fff;
+    display: none;
+  }
+  .tab-item.active .tab-label { display: block; }
+  .tab-item.special::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    width: 40px; height: 40px;
+    border-radius: 20px;
+    background: radial-gradient(circle, rgba(139,30,63,0.25) 0%, transparent 70%);
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+  <!-- Header -->
+  <div class="header">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    <h1>Nutrition Details</h1>
+  </div>
+
+  <!-- Time Tabs -->
+  <div class="tabs">
+    <button class="tab active">Today</button>
+    <button class="tab">1 Week</button>
+    <button class="tab">1 Month</button>
+    <button class="tab">3 Months</button>
+  </div>
+
+  <div class="content">
+    <!-- Summary -->
+    <div class="summary-banner">
+      <div class="icon">⚡</div>
+      <div>
+        <div class="title">1,847 of 2,100 cal consumed</div>
+        <div class="sub">Tracking 11 micronutrients from 4 meals logged</div>
+      </div>
+    </div>
+
+    <!-- Fat Breakdown -->
+    <div class="section">
+      <div class="section-header">
+        <div class="icon">💧</div>
+        <span>Fat Breakdown</span>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Saturated Fat</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">12 / 20 g</span>
+            <span class="nutrient-pct">60%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-yellow" style="width:60%"></div></div>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Trans Fat</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">0.5 g</span>
+            <span class="nutrient-pct" style="color:#FF453A">⚠</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-red" style="width:100%"></div></div>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Monounsaturated</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">6 g</span>
+            <span class="nutrient-notarget">No Target</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-dim" style="width:30%"></div></div>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Polyunsaturated</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">9.4 g</span>
+            <span class="nutrient-notarget">No Target</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-dim" style="width:45%"></div></div>
+      </div>
+    </div>
+
+    <!-- Minerals -->
+    <div class="section">
+      <div class="section-header">
+        <div class="icon">💊</div>
+        <span>Minerals</span>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Sodium</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">1,800 / 2,300 mg</span>
+            <span class="nutrient-pct">78%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-yellow" style="width:78%"></div></div>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Calcium</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">450 / 1,000 mg</span>
+            <span class="nutrient-pct">45%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-dim" style="width:45%"></div></div>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Iron</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">14 / 18 mg</span>
+            <span class="nutrient-pct">78%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-yellow" style="width:78%"></div></div>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Potassium</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">2,100 / 4,700 mg</span>
+            <span class="nutrient-pct">45%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-dim" style="width:45%"></div></div>
+      </div>
+    </div>
+
+    <!-- Vitamins -->
+    <div class="section">
+      <div class="section-header">
+        <div class="icon">⚡</div>
+        <span>Vitamins</span>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Vitamin D</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">3.4 / 20 mcg</span>
+            <span class="nutrient-pct">17%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-dim" style="width:17%"></div></div>
+      </div>
+    </div>
+
+    <!-- Fiber & Sugars -->
+    <div class="section">
+      <div class="section-header">
+        <div class="icon">🌾</div>
+        <span>Fiber & Sugars</span>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Dietary Fiber</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">18 / 28 g</span>
+            <span class="nutrient-pct">64%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-yellow" style="width:64%"></div></div>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Total Sugars</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">42 g</span>
+            <span class="nutrient-notarget">No Target</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-dim" style="width:55%"></div></div>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Added Sugars</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">32 / 50 g</span>
+            <span class="nutrient-pct">64%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-yellow" style="width:64%"></div></div>
+      </div>
+    </div>
+
+    <!-- Cholesterol -->
+    <div class="section">
+      <div class="section-header">
+        <div class="icon">♥</div>
+        <span>Other</span>
+      </div>
+      <div class="nutrient-row">
+        <div class="nutrient-info">
+          <span class="nutrient-name">Cholesterol</span>
+          <div class="nutrient-values">
+            <span class="nutrient-amount">185 / 300 mg</span>
+            <span class="nutrient-pct">62%</span>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-yellow" style="width:62%"></div></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-note">
+      <span style="flex-shrink:0;opacity:0.5">ⓘ</span>
+      <span>Daily targets based on FDA recommended daily values. Actual needs vary by age, sex, and activity level. Data sourced from VT Dining Services nutrition labels.</span>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <div class="tab-item"><span class="tab-icon">⌂</span><span class="tab-label">Home</span></div>
+    <div class="tab-item"><span class="tab-icon">⚔</span><span class="tab-label">Browse</span></div>
+    <div class="tab-item special"><span class="tab-icon">✦</span><span class="tab-label">AI</span></div>
+    <div class="tab-item active"><span class="tab-icon">↗</span><span class="tab-label">Progress</span></div>
+    <div class="tab-item"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1534 @@
+================================================================================
+CAMPUSPLATE — SPRINT 4 PRD
+UI OVERHAUL · ENGAGEMENT · ANALYTICS
+================================================================================
+
+Assignee: Cameron — all coding
+PRD Author: Bandhip
+Design Ref: 5 v0 prototypes + 2 HTML mockups (micronutrients, settings)
+
+Cameron: Read the GLOBAL RULES first. Read the FULL task before coding.
+One task = one commit. Update Progress_Sprint4.txt after each task.
+git pull before starting each task. git push when done.
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+  GLOBAL RULES .............................. Line 28
+  FEATURE 1: Floating Tab Bar + Nav Restructure .. Line 80
+  FEATURE 2: Theme Tokens Update ............... Line 210
+  FEATURE 3: Streak System & Badges ............ Line 260
+  FEATURE 4: Daily Score / Grade ............... Line 410
+  FEATURE 5: Celebration Animations ............ Line 500
+  FEATURE 6: Progress Tab Overhaul ............. Line 580
+  FEATURE 7: Weight Trend Chart ................ Line 720
+  FEATURE 8: Micronutrient Tracking ............ Line 800
+  FEATURE 9: Share Card ....................... Line 920
+  FEATURE 10: UI/UX Bug Fixes ................. Line 990
+  EXECUTION ORDER ........................... Line 1100
+  DESIGN SYSTEM REFERENCE ................... Line 1150
+
+================================================================================
+GLOBAL RULES — Apply to EVERY task
+================================================================================
+
+DATE FORMATTING (CRITICAL — NEVER VIOLATE):
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  NEVER use toISOString().split('T')[0] — timezone shift bug.
+
+THEME COLORS:
+  NEVER hardcode colors. Always: const { colors } = useTheme();
+  Accent colors (identical both themes):
+    maroon #8B1E3F | maroonLight #A8274D | orange #E87722
+    green #34C759  | blue #5B7FFF       | yellow #FFD60A | red #FF453A
+  Theme-aware (auto-switch): background, card, cardAlt, text, textMuted,
+    textDim, border, inputBg, inputBorder
+  New tokens added in Task 2.1: cardGlass, cardGlassBorder, barTrack,
+    glowMaroon, tabBarBg
+
+FONTS:
+  Headings/hero numbers: Outfit_700Bold or Outfit_800ExtraBold
+  Body: DMSans_400Regular | DMSans_500Medium | DMSans_600SemiBold
+  Buttons: DMSans_700Bold
+  Section headers: 12px uppercase, letterSpacing 1.5, colors.textDim
+
+SPACING:
+  Cards: borderRadius 14, bg colors.card, border 1px colors.border
+  Chips/pills: borderRadius 24
+  Buttons: borderRadius 14
+  Screen horizontal padding: 20
+  Card padding: 16
+  Tab bar clearance: 100px paddingBottom on all tab screen ScrollViews
+
+KEYBOARD RULE:
+  Never create TextInput inside .map(), conditional renders, or re-rendering
+  functions. Keep refs stable.
+
+SUPABASE:
+  .select('*, nutrition(*)') → access item.nutrition.calories
+  Wrap ALL queries in try/catch. Show ActivityIndicator while loading.
+  Handle empty states (emoji + helpful text, never blank/null).
+  Optional chaining (?.) on all response data.
+
+COMMITS:
+  One task = one commit.
+  Format: "feat(sprint4): [task#] short description"
+
+ICONS:
+  TAB BAR + NEW SPRINT 4 COMPONENTS: Use vector icons from @expo/vector-icons
+  (Feather, Ionicons, or MaterialCommunityIcons — all bundled with Expo).
+  DO NOT use emojis for the tab bar or new components. Clean vector icons only.
+  EXISTING SCREENS (Home, Browse, More): Emojis are fine where already used.
+  Don't refactor existing emoji usage unless part of a specific task.
+  No external image URLs anywhere.
+
+ANIMATIONS:
+  react-native-reanimated for all motion.
+  withSpring for bouncy interactions. withTiming for smooth transitions.
+  expo-haptics: Light (taps), Medium (achievements), Success (goal completion).
+  Press effect: scale 0.97 → 1.0 with spring config.
+
+COLLISION AVOIDANCE:
+  Create NEW files whenever possible. Minimize edits to shared files
+  (index.tsx, more.tsx, progress.tsx, _layout.tsx). When you must modify
+  them, do it in ONE focused task — not spread across multiple tasks.
+
+DO NOT TOUCH:
+  supabase/functions/* | src/utils/supabase.ts | scraper repo
+  .env | app.json (unless adding expo plugins) | RPC functions
+  tsconfig.json | Supabase schema (coordinate first)
+
+================================================================================
+FEATURE 1: FLOATING TAB BAR + NAVIGATION RESTRUCTURE
+================================================================================
+
+OVERVIEW:
+  Replace the current 5-tab layout with a floating pill-shaped tab bar
+  and restructured navigation. The AI chat moves from a FAB + modal on
+  Home to its own dedicated tab. History tab removed.
+
+  CURRENT TABS: Home | History | Browse (+) | Progress | More
+  NEW TABS:     Home | Browse | AI (center) | Progress | Settings
+
+  Files affected:
+    CREATE: src/components/FloatingTabBar.tsx
+    CREATE: app/(tabs)/ai.tsx
+    MODIFY: app/(tabs)/_layout.tsx
+    MODIFY: app/(tabs)/index.tsx (remove FAB, add history access)
+    MODIFY: src/components/AIChat.tsx (add mode prop)
+
+--- Task 1.1 — Create src/components/FloatingTabBar.tsx ---
+
+  Custom tab bar component passed to Tab.Navigator via tabBar prop.
+
+  LAYOUT:
+    position: 'absolute'
+    bottom: 24
+    alignSelf: 'center'
+    width: Dimensions.get('window').width - 32
+    height: 64
+    backgroundColor: colors.tabBarBg (added in Task 2.1)
+    borderRadius: 28
+    borderWidth: 1, borderColor: colors.cardGlassBorder
+    Platform shadow (iOS: shadowColor/offset/opacity, Android: elevation)
+    overflow: 'hidden'
+
+  5 TABS evenly spaced (flexDirection: 'row', justifyContent: 'space-around'):
+
+    Each tab item:
+      - TouchableOpacity, flexDirection: 'column', alignItems: 'center'
+      - Active state: opacity 1, label visible below icon (10px DMSans_500Medium)
+      - Inactive state: opacity 0.35, no label
+
+    Tab definitions (use Feather icons from @expo/vector-icons):
+      import { Feather } from '@expo/vector-icons';
+
+      index    → label "Home"     → <Feather name="home" size={22} />
+      browse   → label "Browse"   → <Feather name="search" size={22} />
+      ai       → label "AI"       → <Feather name="zap" size={26} /> (SPECIAL: see below)
+      progress → label "Progress" → <Feather name="trending-up" size={22} />
+      more     → label "Settings" → <Feather name="sliders" size={22} />
+
+      Active color: colors.text
+      Inactive color: colors.textDim (+ opacity 0.35)
+
+    AI TAB SPECIAL TREATMENT:
+      Icon is size={26} (vs 22 for other tabs)
+      Behind icon: View with width 42, height 42, borderRadius 21,
+      backgroundColor: colors.glowMaroon — creates subtle glow
+      The glow View is positioned absolutely centered behind the icon
+
+  PROPS: Receives BottomTabBarProps from @react-navigation/bottom-tabs.
+  Map state.routes to render tabs. Use navigation.navigate(route.name) on press.
+  Haptic feedback (Light) on every tab press.
+
+  DONE WHEN: Floating pill renders with all 5 tabs. Active/inactive states
+  correct. AI tab has glow. Works in both themes.
+
+--- Task 1.2 — Modify src/components/AIChat.tsx — add mode prop ---
+
+  Add optional prop: mode?: 'modal' | 'tab' (default 'tab')
+
+  WHEN mode === 'tab':
+    - Do NOT wrap in <Modal>
+    - Remove the close button from header
+    - Remove presentationStyle / animationType
+    - Return just the chat UI (header + messages + input)
+    - Add paddingBottom: 100 to the main container (tab bar clearance)
+    - Input bar should account for this: position itself above the tab bar
+
+  WHEN mode === 'modal':
+    - Keep current behavior exactly as-is (Modal wrapper, close button, etc.)
+
+  This way the same component works both as a modal (if ever needed)
+  and as a full tab screen.
+
+  DONE WHEN: AIChat renders correctly in both modes. Keyboard avoidance
+  works in tab mode.
+
+--- Task 1.3 — Create app/(tabs)/ai.tsx ---
+
+  Simple screen that renders AIChat in tab mode:
+
+  import AIChat from '../../src/components/AIChat';
+  import { requireUserId } from '../../src/utils/auth';
+
+  Screen component:
+    - useEffect to get userId
+    - Render <AIChat mode="tab" onLogItem={handleLogItem} />
+    - handleLogItem: same logic as index.tsx AI log handler (log meal,
+      show toast, haptic feedback)
+    - Background: colors.background
+
+  DONE WHEN: AI tab shows full chat interface. Can send messages and
+  receive responses. Log meal from AI works.
+
+--- Task 1.4 — Update app/(tabs)/_layout.tsx ---
+
+  REMOVE:
+    - History tab (<Tab.Screen name="history" ... />)
+    - The special + button styling for Browse tab (the 52px circle,
+      maroon bg, -16px marginTop, box shadow). Browse becomes a normal tab.
+    - tabBarStyle that positions the old tab bar
+
+  ADD:
+    - Import FloatingTabBar
+    - Tab.Navigator prop: tabBar={(props) => <FloatingTabBar {...props} />}
+    - New AI tab: <Tab.Screen name="ai" ... />
+    - Set tabBarStyle: { position: 'absolute', height: 0 } to hide default bar
+
+  TAB ORDER:
+    <Tab.Screen name="index" />     (Home)
+    <Tab.Screen name="browse" />    (Browse)
+    <Tab.Screen name="ai" />        (AI)
+    <Tab.Screen name="progress" />  (Progress)
+    <Tab.Screen name="more" />      (Settings)
+
+  All screens: ensure their ScrollView/FlatList has contentContainerStyle
+  with paddingBottom: 100 to clear the floating tab bar.
+
+  DONE WHEN: 5 new tabs work. Floating bar renders. Old + button gone.
+  No History tab. All content scrolls above tab bar.
+
+--- Task 1.5 — Remove FAB + Add History access on Home ---
+
+  In app/(tabs)/index.tsx:
+
+  REMOVE:
+    - The FAB (floating action button) that opens AIChat modal
+    - The AIChat modal rendering and state (visible, setVisible)
+    - Any imports only used by the FAB/modal
+
+  ADD:
+    - In the "Today's Meals" section header, add a text button "History →"
+      right-aligned, colors.textMuted, 13px DMSans_500Medium
+    - On press: open history.tsx content as a modal.
+      Reuse history.tsx by importing it as a component or use
+      router.push('/(tabs)/history') — but since the tab is removed,
+      better to render a simple modal that shows the History screen content.
+      OR: keep history.tsx as a non-tab screen and navigate to it.
+
+  Simplest approach: Keep app/(tabs)/history.tsx file but remove it from
+  the Tab.Screen list. Instead, import and render it inside a Modal on
+  Home when "History →" is tapped.
+
+  DONE WHEN: FAB removed. AI accessible via tab. "History →" opens past meals.
+
+================================================================================
+FEATURE 2: THEME TOKENS UPDATE
+================================================================================
+
+OVERVIEW:
+  Add new design tokens to ThemeContext.tsx for the glass-morphism UI.
+  Both dark and light themes. No visual changes yet — just data.
+
+--- Task 2.1 — Update src/context/ThemeContext.tsx ---
+
+  Add these properties to the ThemeColors interface:
+    cardGlass: string;
+    cardGlassBorder: string;
+    barTrack: string;
+    glowMaroon: string;
+    tabBarBg: string;
+
+  DARK THEME values:
+    cardGlass: 'rgba(255,255,255,0.04)'
+    cardGlassBorder: 'rgba(255,255,255,0.06)'
+    barTrack: 'rgba(255,255,255,0.06)'
+    glowMaroon: 'rgba(139,30,63,0.25)'
+    tabBarBg: 'rgba(20,20,30,0.85)'
+
+  LIGHT THEME values:
+    cardGlass: 'rgba(0,0,0,0.03)'
+    cardGlassBorder: 'rgba(0,0,0,0.06)'
+    barTrack: 'rgba(0,0,0,0.06)'
+    glowMaroon: 'rgba(139,30,63,0.12)'
+    tabBarBg: 'rgba(255,255,255,0.92)'
+
+  DO NOT change any existing color values. Only ADD new properties.
+
+  DONE WHEN: New tokens available. App builds. No existing components break.
+
+================================================================================
+FEATURE 3: STREAK SYSTEM & BADGES
+================================================================================
+
+OVERVIEW:
+  Track consecutive logging days. Award milestone badges. Display on
+  dashboard and settings profile. Replaces the existing 30-query streak
+  calculation in more.tsx.
+
+  Files:
+    CREATE: src/utils/streaks.ts
+    CREATE: src/components/StreakBadge.tsx
+    CREATE: src/components/StreakDisplay.tsx
+    MODIFY: app/(tabs)/index.tsx (add streak card)
+    MODIFY: app/(tabs)/more.tsx (badges + replace old streak code)
+
+--- Task 3.1 — Create src/utils/streaks.ts ---
+
+  TYPES:
+
+  export interface StreakData {
+    currentStreak: number;
+    longestStreak: number;
+    totalDaysLogged: number;
+    lastLogDate: string | null;
+  }
+
+  export interface Badge {
+    id: string;
+    name: string;
+    emoji: string;
+    description: string;
+    type: 'streak' | 'water' | 'logging';
+    requirement: number;
+    earned: boolean;
+    earnedDate?: string;
+  }
+
+  BADGE_DEFINITIONS (export const):
+    streak_3   | Getting Started  | 🔥 | 3-day streak        | streak
+    streak_7   | One Week Strong  | 💪 | 7-day streak        | streak
+    streak_14  | Two Week Warrior | ⚡ | 14-day streak       | streak
+    streak_30  | Monthly Master   | 🏆 | 30-day streak       | streak
+    streak_60  | Unstoppable      | 👑 | 60-day streak       | streak
+    streak_100 | Century Club     | 💯 | 100-day streak      | streak
+    water_7    | Hydration Hero   | 💧 | Water goal 7 days   | water
+    logs_50    | Dedicated Logger | 📝 | 50 meals logged     | logging
+    logs_200   | Nutrition Nerd   | 🧠 | 200 meals logged    | logging
+
+  FUNCTIONS:
+
+  export async function getStreakData(userId: string): Promise<StreakData>
+
+    Query: supabase
+      .from('meal_logs')
+      .select('date')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+
+    Deduplicate dates in JS (new Set()).
+    Current streak: iterate backward from today. If today not logged,
+    start from yesterday. Count consecutive days.
+    Longest streak: iterate all sorted dates, find longest consecutive run.
+    totalDaysLogged: Set size.
+    lastLogDate: first date in sorted list (most recent).
+
+    Wrap in try/catch. Return { currentStreak: 0, ... } on error.
+
+  export function getBadges(
+    streakData: StreakData,
+    waterStreakDays: number,
+    totalMeals: number
+  ): Badge[]
+
+    Map BADGE_DEFINITIONS. For each:
+      streak type → earned if streakData.longestStreak >= requirement
+      water type → earned if waterStreakDays >= requirement
+      logging type → earned if totalMeals >= requirement
+    Return full array with earned: true/false.
+
+  export async function getWaterStreak(userId: string): Promise<number>
+
+    Query water_logs for this user, order by date DESC.
+    Query profiles for water_goal_oz.
+    Iterate dates backward from today. Count consecutive days where
+    glasses >= water_goal_oz. Stop at first miss.
+
+  export async function getTotalMealsLogged(userId: string): Promise<number>
+
+    supabase.from('meal_logs').select('id', { count: 'exact' }).eq('user_id', userId)
+    Return count.
+
+  DONE WHEN: All functions work. Single query for streaks (NOT 30 individual queries).
+
+--- Task 3.2 — Create src/components/StreakBadge.tsx ---
+
+  PROPS:
+    badge: Badge
+    size?: 'small' | 'large' (default 'small')
+
+  SMALL (44px):
+    Earned: 44×44 circle, backgroundColor based on badge.type:
+      streak → colors.orange
+      water → colors.blue
+      logging → colors.maroon
+    Centered emoji (fontSize 20). Below circle: badge.name (10px, colors.textMuted).
+
+    Unearned: 44×44 circle, bg colors.cardAlt, opacity 0.4. Show 🔒 (14px).
+    Below: badge.name (10px, colors.textDim).
+
+  LARGE (64px):
+    Same logic but 64×64 circle, emoji 28px.
+    Below: badge.name (13px, colors.text), badge.description (11px, colors.textMuted).
+
+  Use colors from useTheme(). Both themes must look correct.
+
+  DONE WHEN: Both sizes render. Earned/unearned states correct. Both themes.
+
+--- Task 3.3 — Create src/components/StreakDisplay.tsx ---
+
+  PROPS:
+    currentStreak: number
+    longestStreak: number
+
+  LAYOUT:
+    Horizontal row:
+      Left: currentStreak number (32px Outfit_800ExtraBold, colors.text)
+      Right of number: "day streak" (14px DMSans_400Regular, colors.textMuted)
+    Below row: "Best: {longestStreak} days" (12px, colors.textDim)
+
+    If currentStreak === 0:
+      Show "Log a meal to start your streak!" (14px, colors.textMuted)
+
+    Animation: when currentStreak > 0, subtle pulse on the number using
+    reanimated. useSharedValue for scale. withRepeat(withTiming(1.03, {duration:1000}),
+    -1, true). Apply with useAnimatedStyle.
+
+  DONE WHEN: Component renders. Animation works. Both themes.
+
+--- Task 3.4 — Add streak card to Dashboard index.tsx ---
+
+  In app/(tabs)/index.tsx loadData function:
+    Add getStreakData(userId) to the existing Promise.all or as a separate call.
+    Store in state: const [streakData, setStreakData] = useState<StreakData | null>(null);
+
+  In the JSX, BETWEEN the macro cards row and the WaterTracker:
+    Two side-by-side cards (flexDirection: 'row', gap: 10):
+
+    LEFT CARD — Streak:
+      bg colors.card, borderRadius 14, flex 1, padding 16
+      "CURRENT STREAK" — 11px uppercase, letterSpacing 1.5, colors.textDim
+      streakData.currentStreak — 32px Outfit_800ExtraBold, colors.text
+      "days" — 13px, colors.textMuted
+      Bottom edge: 2px line, backgroundColor colors.maroon (borderBottomWidth
+      approach or a small View)
+
+    RIGHT CARD — Score (placeholder, populated in Task 4.3):
+      Same card style. "TODAY'S SCORE" header.
+      Score and grade will be added in Task 4.3. For now show "—"
+
+  DONE WHEN: Streak shows real data. Two cards side by side. Both themes.
+
+--- Task 3.5 — Add badges to Settings more.tsx ---
+
+  In app/(tabs)/more.tsx:
+
+  REPLACE the old streak calculation (the one that runs 30 individual
+  Supabase queries) with:
+    import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged } from streaks.ts
+    const streakData = await getStreakData(userId);
+    const waterStreak = await getWaterStreak(userId);
+    const totalMeals = await getTotalMealsLogged(userId);
+    const badges = getBadges(streakData, waterStreak, totalMeals);
+
+  Update the profile header to use streakData.currentStreak.
+
+  ADD below the profile header stats area, ABOVE the first settings card:
+
+    "Badges" section:
+      Header row: "Badges" left (16px DMSans_600SemiBold, colors.text)
+        + "{earned} of {total}" right (12px, colors.textDim)
+      Horizontal ScrollView (showsHorizontalScrollIndicator: false):
+        Map badges → <StreakBadge badge={b} size="small" />
+        gap: 12
+
+  DONE WHEN: Badges render on settings. Old 30-query code removed.
+  Profile streak uses new function. Both themes.
+
+================================================================================
+FEATURE 4: DAILY SCORE / GRADE
+================================================================================
+
+--- Task 4.1 — Create src/utils/dailyScore.ts ---
+
+  TYPES:
+
+  export interface ScoreBreakdown {
+    calories: { points: number; max: 40; pct: number };
+    protein:  { points: number; max: 20; pct: number };
+    carbs:    { points: number; max: 10; pct: number };
+    fat:      { points: number; max: 10; pct: number };
+    meals:    { points: number; max: 10; count: number };
+    water:    { points: number; max: 10; pct: number };
+  }
+
+  export interface DailyScore {
+    score: number;
+    grade: string;
+    gradeColor: string;
+    breakdown: ScoreBreakdown;
+  }
+
+  FUNCTION:
+
+  export function calculateDailyScore(
+    consumed: { calories: number; protein: number; carbs: number; fat: number },
+    goals:    { calories: number; protein: number; carbs: number; fat: number },
+    mealsLogged: number,
+    waterOz: number,
+    waterGoalOz: number
+  ): DailyScore
+
+  SCORING (100 points total):
+
+    Calorie accuracy (40 max):
+      pct = consumed.calories / goals.calories
+      deviation = Math.abs(1 - pct)
+      points = Math.max(0, 40 - (deviation * 400))
+      (Every 1% deviation costs 4 points. At ±10% = 0 points.)
+
+    Protein accuracy (20 max):
+      Same formula, scaled to 20. deviation cost = 200 per unit.
+
+    Carbs accuracy (10 max):
+      Same formula, scaled to 10. deviation cost = 100 per unit.
+
+    Fat accuracy (10 max):
+      Same formula, scaled to 10.
+
+    Meals logged (10 max):
+      3+ meals = 10, 2 = 7, 1 = 4, 0 = 0
+
+    Hydration (10 max):
+      waterPct = waterOz / waterGoalOz
+      >= 1.0 → 10, >= 0.75 → 7, >= 0.5 → 4, < 0.5 → 0
+
+  Total = sum all categories. Round to integer.
+
+  GRADES:
+    95-100 → 'A+' → colors.green
+    85-94  → 'A'  → colors.green
+    75-84  → 'B'  → colors.blue
+    65-74  → 'C'  → colors.orange
+    50-64  → 'D'  → colors.yellow
+    0-49   → 'F'  → colors.red
+
+  EDGE CASES:
+    goals.calories === 0 → return score 0, grade 'F'
+    consumed values < 0 → treat as 0
+
+  DONE WHEN: Function returns correct scores for various inputs.
+
+--- Task 4.2 — Create src/components/DailyScoreCard.tsx ---
+
+  PROPS:
+    score: number
+    grade: string
+    gradeColor: string
+    breakdown: ScoreBreakdown
+    compact?: boolean (default false)
+
+  COMPACT VIEW (for dashboard):
+    Card: colors.card bg, borderRadius 14, padding 16, flex 1
+    "TODAY'S SCORE" — 11px uppercase, letterSpacing 1.5, colors.textDim
+    Grade letter — 32px Outfit_800ExtraBold, color = gradeColor
+    Score — "87 / 100" — 13px DMSans_400Regular, colors.textMuted
+    Entrance: scale 0→1 withSpring on mount (useAnimatedStyle)
+
+  FULL VIEW (for progress tab):
+    Card: colors.card bg, borderRadius 14, padding 20
+    Top row: grade letter (48px, gradeColor) + "score / 100" (16px, textMuted)
+    Below: 6 horizontal bars, one per breakdown category:
+      Each bar row:
+        Label left (13px, colors.textMuted): "Calories", "Protein", etc.
+        Bar middle: 6px tall, borderRadius 3, bg colors.barTrack
+          Fill: width = (points/max)*100%, color = category color
+            Calories → maroon, Protein → blue, Carbs → orange,
+            Fat → yellow, Meals → green, Water → blue
+        Score right (13px, colors.text): "36/40"
+    Bottom: lowest scoring category highlighted with tip text
+      e.g. "Tip: Try to hit your water goal — that's 10 easy points!"
+      (13px, colors.textMuted, italic)
+
+  DONE WHEN: Both views render. Animation works on compact. Both themes.
+
+--- Task 4.3 — Integrate daily score into Dashboard + Progress ---
+
+  DASHBOARD (index.tsx):
+    In loadData: calculate score using existing consumed/goals/water data.
+    const score = calculateDailyScore(consumed, goals, mealsLoggedCount, waterOz, waterGoalOz);
+    Store in state.
+
+    Fill in the RIGHT CARD from Task 3.4:
+      <DailyScoreCard compact={true} score={s.score} grade={s.grade}
+        gradeColor={s.gradeColor} breakdown={s.breakdown} />
+
+  PROGRESS (progress.tsx):
+    Calculate today's score in loadData (same approach).
+    Add <DailyScoreCard compact={false} ... /> as the first section
+    (before streak/calorie chart).
+
+  DONE WHEN: Score card shows on both screens with real data. Updates
+  when meals or water are logged. Both themes.
+
+================================================================================
+FEATURE 5: CELEBRATION ANIMATIONS
+================================================================================
+
+--- Task 5.1 — Create src/components/Confetti.tsx ---
+
+  PROPS: visible: boolean, onComplete?: () => void
+
+  When visible becomes true:
+    Generate 30-40 pieces. Each piece is an Animated.View:
+      Random shape: rectangle (8×4) or circle (6×6)
+      Random color from: maroon, orange, green, blue, yellow, red
+      Random startX across screen width
+      Animate: translateY from -20 to screenHeight+20
+      Random duration: 1500-2500ms (withTiming, Easing.out(Easing.quad))
+      Random horizontal drift: translateX oscillation ±30px
+      Random rotation: 0 to 720deg
+
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0
+    zIndex: 9999, pointerEvents: 'none'
+
+    After longest animation completes → call onComplete, set visible false.
+
+  Keep LIGHTWEIGHT. No particle libraries. Just reanimated Views.
+
+  DONE WHEN: Confetti triggers, animates, cleans up. No perf issues.
+
+--- Task 5.2 — Create src/components/GoalHitBanner.tsx ---
+
+  PROPS:
+    visible: boolean
+    message: string
+    color?: string (default colors.green)
+    onDismiss?: () => void
+
+  When visible becomes true:
+    Slide down from top: translateY from -80 to 0 (withSpring, damping 15)
+    Background: color prop, borderRadius 14, margin 16
+    Text: white, 15px DMSans_600SemiBold, centered
+    Padding: 14px 20px
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium) on appear
+
+    Auto-dismiss: setTimeout 3 seconds → slide back up → onDismiss()
+
+  position: 'absolute', top: safeAreaInsets.top + 10, left: 0, right: 0
+  zIndex: 9998
+
+  DONE WHEN: Banner slides in, shows message, auto-dismisses.
+
+--- Task 5.3 — Wire celebrations into Dashboard ---
+
+  In app/(tabs)/index.tsx:
+
+  Add state refs to prevent re-triggering:
+    const calorieGoalCelebrated = useRef(false);
+    const waterGoalCelebrated = useRef(false);
+    const lastCelebratedMilestone = useRef(0);
+
+  Reset refs when date changes (in loadData if date differs from stored date).
+
+  CALORIE GOAL:
+    After logMeal or AI log: if new calorie total >= goalCalories
+    AND calorieGoalCelebrated.current === false:
+      → Show confetti + banner "Daily calorie goal reached! 🎯"
+      → calorieGoalCelebrated.current = true
+      → Haptics.notificationAsync(Success)
+
+  WATER GOAL:
+    After addWater: if new total >= waterGoal
+    AND waterGoalCelebrated.current === false:
+      → Show banner only (no confetti) "Hydration goal hit! 💧"
+      → waterGoalCelebrated.current = true
+
+  STREAK MILESTONES:
+    In loadData: if streakData.currentStreak is one of [7, 14, 30, 60, 100]
+    AND > lastCelebratedMilestone.current:
+      → Show confetti + banner "🔥 {X}-day streak! Amazing!"
+      → lastCelebratedMilestone.current = streakData.currentStreak
+      → Persist to AsyncStorage key 'lastStreakMilestone'
+
+  Render <Confetti> and <GoalHitBanner> at TOP of the return JSX,
+  position absolute, above all other content.
+
+  DONE WHEN: Celebrations fire at correct moments, only once per trigger.
+
+================================================================================
+FEATURE 6: PROGRESS TAB OVERHAUL
+================================================================================
+
+--- Task 6.1 — Create src/utils/progressData.ts ---
+
+  TYPES:
+
+  export interface DayLog {
+    date: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    mealsLogged: number;
+  }
+
+  export interface ProgressData {
+    days: DayLog[];
+    weeklyAverages: {
+      thisWeek: { calories: number; protein: number; carbs: number; fat: number };
+      lastWeek: { calories: number; protein: number; carbs: number; fat: number };
+    };
+    goals: { calories: number; protein: number; carbs: number; fat: number };
+    totalMealsLogged: number;
+  }
+
+  FUNCTION:
+
+  export async function getProgressData(
+    userId: string,
+    days: number = 30
+  ): Promise<ProgressData>
+
+    Single query:
+      supabase.from('meal_logs')
+        .select('date, servings, menu_item_id, nutrition:menu_item_id(calories, protein_g, total_carbs_g, total_fat_g)')
+        .eq('user_id', userId)
+        .gte('date', startDate)  // today minus `days`
+        .order('date', { ascending: true })
+
+    Group by date in JS. For each date: sum (calories * servings),
+    (protein * servings), etc. Count meals per day.
+
+    Calculate thisWeek average (last 7 days) and lastWeek average (days 8-14).
+
+    Fetch goals from profiles table.
+
+    Return ProgressData.
+
+  DONE WHEN: Returns clean aggregated data. Single query.
+
+--- Task 6.2 — Create src/components/CalorieChart.tsx ---
+
+  PROPS:
+    data: DayLog[]
+    goalCalories: number
+    range?: '1W' | '1M' | '3M' | 'All' (default '1M')
+
+  Uses react-native-svg (already installed).
+
+  CHART (container width × 200px height):
+    Compute: xScale, yScale from data range. Auto-scale Y axis.
+    Data path: Svg <Path> with stroke={colors.maroon}, strokeWidth={2}
+    Fill area: <Path> + <Defs><LinearGradient> from rgba(139,30,63,0.15) to transparent
+    Goal line: <Line> dashed, stroke={colors.textDim} opacity 0.3,
+      small "Goal" label at right end (8px, colors.textDim)
+    Data points: <Circle> r={3} fill={colors.maroon} at each data point
+    Days with 0 meals: hollow circle (fill transparent, stroke colors.textDim)
+    X axis labels: every 7 days, 10px colors.textDim
+    Y axis: hidden (clean look, data points have enough context)
+
+  BELOW CHART:
+    Left: "Avg: {avg} cal/day" — 13px, colors.textMuted
+    Right: trend indicator
+      If thisWeek avg > lastWeek: "↑ X%" in colors.green
+      If thisWeek avg < lastWeek: "↓ X%" in colors.red
+      If equal: "→ Same" in colors.textMuted
+
+  DONE WHEN: Chart renders with real data. Goal line visible. Both themes.
+
+--- Task 6.3 — Create src/components/MacroBreakdown.tsx ---
+
+  PROPS:
+    actual: { protein: number; carbs: number; fat: number }
+    target: { protein: number; carbs: number; fat: number }
+
+  STACKED BAR:
+    Full width, 12px tall, borderRadius 6
+    Three sections proportional to calorie contribution:
+      Protein: (actual.protein * 4) → colors.blue
+      Carbs: (actual.carbs * 4) → colors.orange
+      Fat: (actual.fat * 9) → colors.yellow
+    Background: colors.barTrack
+
+  COLUMNS BELOW (three equal columns):
+    Each: small colored dot (8px circle) + macro name (13px, colors.textMuted)
+    Value: "124g / 180g" (15px, DMSans_600SemiBold, colors.text)
+    Small progress ring (28px, 3px stroke): same color, fill pct
+
+  BOTTOM:
+    "Your split: 28% P / 48% C / 24% F" — 12px, colors.textDim
+
+  DONE WHEN: Bar + columns render. Proportions correct. Both themes.
+
+--- Task 6.4 — Rebuild app/(tabs)/progress.tsx ---
+
+  Read CURRENT progress.tsx first. Keep: pull-to-refresh, weight logging,
+  report button functionality. Replace the layout.
+
+  NEW LAYOUT (ScrollView, contentContainerStyle paddingBottom: 120):
+
+  TIME RANGE PILLS (top, below header):
+    Horizontal row: "1W" "1M" "3M" "All"
+    Active: colors.text on colors.cardAlt bg, borderRadius 8
+    Inactive: colors.textDim, no bg
+    Default: "1M". Controls which data period is displayed.
+    Store in state: const [range, setRange] = useState<'1W'|'1M'|'3M'|'All'>('1M');
+
+  SECTION 1 — Daily Score:
+    <DailyScoreCard compact={false} ... />
+
+  SECTION 2 — Streak:
+    <StreakDisplay currentStreak={...} longestStreak={...} />
+    Below: 7-day dot row (KEEP existing logic from current progress.tsx)
+
+  SECTION 3 — Calorie Trend:
+    Card wrapper (colors.card, borderRadius 14, padding 16):
+      "Calorie Trend" — 16px DMSans_600SemiBold
+      <CalorieChart data={progressData.days} goalCalories={goals.calories} range={range} />
+
+  SECTION 4 — Weight Trend (placeholder for Task 7.3):
+    Card wrapper. "Weight Trend" header. Content added in Feature 7.
+    For now: "Log weights to see trends" if no data.
+
+  SECTION 5 — Macro Breakdown:
+    Card wrapper: "Macro Split (7-day avg)" header
+    <MacroBreakdown actual={weeklyAvg} target={goals} />
+
+  SECTION 6 — Badges:
+    "Your Badges" header + "{earned} of {total}" right
+    Horizontal ScrollView of <StreakBadge size="small" />
+
+  SECTION 7 — Micronutrient Link (placeholder for Task 8.3):
+    Card/button: "View All Nutrients →" colors.textMuted, chevron right.
+    On press: will be wired in Feature 8.
+
+  SECTION 8 — Weekly Report:
+    Card: "Weekly Report" + "Your weekly report is ready →"
+    On press: open <WeeklyReport> modal (keep existing)
+
+  SECTION 9 — Weight Logging:
+    ALWAYS VISIBLE (not collapsible). Last weight logged shown prominently.
+    TextInput + Save button. If never logged: "Track your weight to see
+    trends" prompt.
+
+  SECTION 10 — Share (placeholder for Task 9.3):
+    "Share Today's Score" outline button. Wired in Feature 9.
+
+  DONE WHEN: Full progress tab with all sections, real data, both themes.
+
+================================================================================
+FEATURE 7: WEIGHT TREND CHART
+================================================================================
+
+--- Task 7.1 — Create src/utils/weightData.ts ---
+
+  TYPES:
+  export interface WeightEntry { date: string; weight: number; }
+  export interface WeightTrend {
+    average: number;
+    difference: number;      // last - first
+    change3Day: number | null;
+    change7Day: number | null;
+    smoothed: { date: string; weight: number }[];
+  }
+
+  FUNCTIONS:
+
+  export async function getWeightHistory(userId: string, days: number = 30): Promise<WeightEntry[]>
+    supabase.from('weight_logs').select('date, weight')
+      .eq('user_id', userId).gte('date', startDate).order('date')
+
+  export function calculateWeightTrend(entries: WeightEntry[]): WeightTrend
+    average: mean of all weights
+    difference: last entry weight - first entry weight
+    change3Day: last weight minus weight from 3 days ago (null if not enough data)
+    change7Day: same for 7 days
+    smoothed: 3-point moving average
+
+  DONE WHEN: Functions return correct data.
+
+--- Task 7.2 — Create src/components/WeightChart.tsx ---
+
+  PROPS: entries: WeightEntry[], trend: WeightTrend
+
+  STATS HEADER:
+    "{avg} lbs" — 24px Outfit_700Bold, colors.text
+    "{diff} lbs" — 16px, colors.green if negative (losing), colors.red if gaining
+    Date range — 13px, colors.textDim
+
+  SVG CHART (container width × 180px):
+    Raw weight line: <Path> stroke={colors.textDim} opacity 0.25, strokeWidth 1
+      Small circles at each point
+    Trend line: <Path> stroke={colors.blue}, strokeWidth 2
+      Fill below: LinearGradient rgba(91,127,255,0.08) to transparent
+    Auto-scale Y axis with padding
+
+  INSIGHT PILLS:
+    Two pill shapes below chart (colors.cardAlt bg, borderRadius 20, padding 8 16):
+    "3-day: {change3Day} lbs" | "7-day: {change7Day} lbs"
+    Color: green if negative, red if positive, textMuted if null
+
+  DONE WHEN: Dual-line chart renders. Both themes.
+
+--- Task 7.3 — Wire WeightChart into Progress ---
+
+  In progress.tsx Section 4:
+    Fetch weight data in loadData: getWeightHistory + calculateWeightTrend.
+    If entries.length >= 2: show <WeightChart entries={...} trend={...} />
+    If < 2: show prompt "Log your weight to see trends here" with arrow
+    pointing to the weight input section.
+
+  DONE WHEN: Weight chart shows when data exists. Prompt when it doesn't.
+
+================================================================================
+FEATURE 8: MICRONUTRIENT TRACKING
+================================================================================
+
+OVERVIEW:
+  The nutrition table schema from Cameron's report shows: calories, protein_g,
+  total_carbs_g, total_fat_g. BUT the browse detail view (View 4) displays
+  14 nutrition fields. This means either:
+  a) The nutrition table has more columns not listed in the report, OR
+  b) The detail view computes/fakes some values
+
+  BEFORE BUILDING: Run this SQL in Supabase dashboard:
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'nutrition' ORDER BY ordinal_position;
+
+  If columns like sat_fat_g, sodium_mg etc. exist → use real data.
+  If they DON'T exist → build with mock data + TODO, coordinate schema update.
+
+--- Task 8.1 — Create src/utils/micronutrients.ts ---
+
+  CONSTANTS:
+
+  export const FDA_DAILY_VALUES = {
+    saturatedFat: { amount: 20, unit: 'g' },
+    transFat: { amount: 0, unit: 'g' },         // target = 0
+    cholesterol: { amount: 300, unit: 'mg' },
+    sodium: { amount: 2300, unit: 'mg' },
+    fiber: { amount: 28, unit: 'g' },
+    sugars: { amount: 0, unit: 'g' },            // no official target
+    addedSugars: { amount: 50, unit: 'g' },
+    vitaminD: { amount: 20, unit: 'mcg' },
+    calcium: { amount: 1000, unit: 'mg' },
+    iron: { amount: 18, unit: 'mg' },
+    potassium: { amount: 4700, unit: 'mg' },
+  } as const;
+
+  TYPES:
+
+  export interface MicronutrientData {
+    saturatedFat: number; transFat: number; cholesterol: number;
+    sodium: number; fiber: number; sugars: number; addedSugars: number;
+    vitaminD: number; calcium: number; iron: number; potassium: number;
+  }
+
+  FUNCTIONS (implement with real data if columns exist, mock if not):
+
+  export async function getDailyMicronutrients(
+    userId: string, date: string
+  ): Promise<MicronutrientData>
+
+  export async function getPeriodMicronutrients(
+    userId: string, startDate: string, endDate: string
+  ): Promise<MicronutrientData>  // daily averages over the period
+
+  DONE WHEN: Functions return data. Types exported.
+
+--- Task 8.2 — Create src/components/MicronutrientScreen.tsx ---
+
+  Full-screen component. Can be opened as modal from Progress or Browse.
+
+  DESIGN REF: See CampusPlate_Micronutrients.html mockup.
+
+  HEADER: Back button (if modal) + "Nutrition Details" 20px Outfit_700Bold
+
+  TIME RANGE TABS:
+    "Today" | "1 Week" | "1 Month" | "3 Months"
+    Active: colors.text, 2px bottom border colors.text
+    Inactive: colors.textMuted, no border
+
+  SUMMARY BANNER:
+    bg rgba(139,30,63,0.08), border rgba(139,30,63,0.15), borderRadius 14
+    "X of Y cal consumed" + "Tracking 11 micronutrients from Z meals"
+
+  SECTIONS (each in a card — colors.card bg, borderRadius 16, padding 16):
+
+    "FAT BREAKDOWN":
+      Saturated Fat: X / 20 g
+      Trans Fat: X / 0 g (any amount = red)
+
+    "MINERALS":
+      Sodium: X / 2,300 mg
+      Calcium: X / 1,000 mg
+      Iron: X / 18 mg
+      Potassium: X / 4,700 mg
+
+    "VITAMINS":
+      Vitamin D: X / 20 mcg
+
+    "FIBER & SUGARS":
+      Dietary Fiber: X / 28 g
+      Total Sugars: X g (no target — show "No Target")
+      Added Sugars: X / 50 g
+
+    "OTHER":
+      Cholesterol: X / 300 mg
+
+  EACH NUTRIENT ROW:
+    Name left (15px, DMSans_500Medium, colors.text)
+    "current / target unit" (14px, colors.textMuted)
+    Percentage right (14px, DMSans_600SemiBold, colors.text)
+    4px progress bar below:
+      Track: colors.barTrack
+      Fill color by percentage:
+        < 50%: colors.textDim opacity 0.3
+        50-99%: colors.yellow
+        100-150%: colors.green
+        > 150%: colors.red
+      Trans fat: any amount = colors.red
+      No target items: dim bar, "No Target" text
+
+  FOOTER: "Daily targets based on FDA recommended values..." (12px, colors.textDim)
+
+  DONE WHEN: Screen renders with data (real or mock). Both themes.
+
+--- Task 8.3 — Wire MicronutrientScreen into Progress + Browse ---
+
+  PROGRESS TAB (Section 7):
+    "View All Nutrients →" card. On press: open MicronutrientScreen as modal
+    (use React state + <Modal visible={showMicros}> wrapping the screen)
+
+  BROWSE DETAIL (View 4 in browse.tsx):
+    Below the existing nutrition grid, add a row:
+    "View All Nutrients →" link text (14px, colors.maroon)
+    On press: same modal approach
+
+  DONE WHEN: Micronutrient screen accessible from both locations.
+
+================================================================================
+FEATURE 9: SHARE CARD
+================================================================================
+
+--- Task 9.1 — Install dependencies ---
+
+  npx expo install react-native-view-shot expo-sharing
+
+  DONE WHEN: Packages installed. App builds.
+
+--- Task 9.2 — Create src/components/ShareCard.tsx ---
+
+  PROPS:
+    userName: string, date: string, calories: number, goalCalories: number,
+    protein: number, carbs: number, fat: number,
+    grade: string, gradeColor: string, streak: number
+
+  Off-screen View (position absolute, left: -9999) captured as image.
+  ref via React.useRef<View>.
+
+  LAYOUT (360×640 aspect ratio):
+    bg: colors.background, padding 32
+    Top: "CampusPlate" in colors.maroon (14px, DMSans_700Bold)
+    Large grade letter (72px, Outfit_800ExtraBold, gradeColor), centered
+    Score circle or simplified ring representation
+    Calorie text: "X / Y cal" (20px)
+    Macro row: P | C | F with colored values
+    Streak: "🔥 X day streak" if streak > 0
+    Date: formatted date (16px, colors.textMuted)
+    Footer: "Track your nutrition at VT" (12px, colors.textDim)
+
+  DONE WHEN: View renders the styled card layout.
+
+--- Task 9.3 — Wire share button on Progress ---
+
+  In progress.tsx Section 10:
+    "Share Today's Score" button (outline style: transparent bg,
+    borderWidth 1, borderColor colors.maroon, colors.maroon text)
+
+  On press:
+    import { captureRef } from 'react-native-view-shot';
+    import * as Sharing from 'expo-sharing';
+
+    const uri = await captureRef(shareCardRef, { format: 'png', quality: 0.9 });
+    await Sharing.shareAsync(uri);
+    Haptics.impactAsync(Light);
+
+  DONE WHEN: Button captures card image and opens native share sheet.
+
+================================================================================
+FEATURE 10: UI/UX BUG FIXES
+================================================================================
+
+Reference: Known Issues #4, #9, #14, #15, #18, #19, #20, #29, #30
+
+--- Task 10.1 — Fix pulsing + button state (#4) ---
+
+  NOTE: If Feature 1 is complete, the + button no longer exists. SKIP.
+  If not yet done: In _layout.tsx, query meal_logs for today to set
+  hasLoggedToday dynamically instead of hardcoding false.
+
+--- Task 10.2 — Pull-to-refresh on Browse (#29) ---
+
+  In browse.tsx halls view (View 1):
+  Wrap the halls list in a ScrollView with RefreshControl.
+  On refresh: re-call loadHalls (halls, statuses, item counts).
+
+  DONE WHEN: Pull down on browse refreshes hall data.
+
+--- Task 10.3 — Improve empty states (#18, #19, #20) ---
+
+  FOR YOU (index.tsx): If a collection returns empty, show a small card:
+    "Check back after logging a few meals" with 🍽️ (not silent nothing)
+
+  BROWSE SEARCH (browse.tsx): Replace "No items found" with:
+    "No results for '{query}'" + "Try a different search or browse halls below"
+
+  PROGRESS (progress.tsx): If no meal_logs at all, show onboarding prompt:
+    "Start logging meals to see your progress here! Head to Browse to find
+    your first meal." with arrow emoji pointing right.
+
+  DONE WHEN: All three empty states improved. Both themes.
+
+--- Task 10.4 — Nutrition detail goal indicators (#30) ---
+
+  In browse.tsx View 4 nutrition grid:
+  Next to specific values, show a small colored dot (6px circle):
+    Sodium > 600mg → small orange dot
+    Fiber > 5g → small green dot
+    Protein > 20g → small blue dot
+    Added Sugars > 10g → small red dot
+
+  Subtle, not overwhelming. Just a hint of good/bad.
+
+  DONE WHEN: Dots appear on notable values. Both themes.
+
+--- Task 10.5 — Promote Weekly Report + Weight (#14, #15) ---
+
+  REPORT: Already handled in progress.tsx Task 6.4 Section 8.
+
+  WEIGHT: Already handled in progress.tsx Task 6.4 Section 9
+  (always visible, not collapsible).
+
+  SKIP this task if 6.4 is complete and addresses both issues.
+
+--- Task 10.6 — Date strip scroll-to-selected (#9) ---
+
+  If history.tsx is still used (as a modal from Home via Task 1.5):
+  In the date strip FlatList/ScrollView, on mount:
+    scrollToIndex/scrollTo to center today's date.
+    Use scrollToOffset with animated: true.
+    Calculate offset: (todayIndex * itemWidth) - (containerWidth / 2) + (itemWidth / 2)
+
+  DONE WHEN: Date strip auto-scrolls to today when opened.
+
+================================================================================
+FEATURE 11: VISUAL RESTYLE — MATCH V0 PROTOTYPES
+================================================================================
+
+OVERVIEW:
+  Restyle all existing screens to match the v0 prototype aesthetic:
+  Robinhood/Linear-inspired dark glass-morphism. Clean vector iconography.
+  Bold data-forward typography. Generous whitespace. No visual clutter.
+
+  Design references (Bandhip will provide screenshots):
+    - Dashboard v0 prototype (top half + bottom half)
+    - Browse v0 prototype
+    - AI Chat v0 prototype (empty state + active chat)
+    - Progress v0 prototype (top + bottom)
+    - Settings HTML mockup
+    - Micronutrient HTML mockup
+
+  THIS FEATURE SHOULD BE DONE LAST (Phase 5), after all new features
+  and components are integrated. That way the restyle applies to the
+  final state of each screen, not an intermediate version.
+
+--- Task 11.1 — Restyle Dashboard (index.tsx) — Header + Calorie Ring ---
+
+  CURRENT: "Hey [Name] 👋" greeting, date, maroon avatar circle, 170px
+  single SVG calorie ring, center text.
+
+  NEW:
+  HEADER:
+    Remove the 👋 emoji from greeting.
+    "Good evening" — 14px DMSans_400Regular, colors.textMuted
+    User name below — 28px Outfit_700Bold, colors.text
+    Right side: Daily grade pill badge (from Task 4.3 DailyScoreCard).
+      Small pill: grade letter inside, bg tinted with gradeColor at 15% opacity,
+      text = gradeColor, borderRadius 12, padding 4px 10px
+    Remove the maroon avatar circle from the header. Clean typography only.
+
+  CALORIE RING — REPLACE single ring with MULTI-RING (Apple Watch style):
+    4 concentric rings, centered, 180px outer diameter:
+      Outermost (largest): Calories — stroke gradient colors.maroon to #C62368
+        Track: rgba(139,30,63,0.1)
+      Second ring: Protein — stroke colors.blue
+        Track: rgba(91,127,255,0.1)
+      Third ring: Carbs — stroke colors.orange
+        Track: rgba(232,119,34,0.1)
+      Innermost (smallest): Fat — stroke colors.yellow
+        Track: rgba(255,214,10,0.1)
+
+    All rings: 8px strokeWidth, strokeLinecap 'round', gap between rings ~6px
+    Each ring fills proportionally (consumed / goal).
+    SVG implementation: 4 pairs of <Circle> (track + fill) with decreasing
+    radius values. Use strokeDasharray + strokeDashoffset for fill animation.
+
+    Center of rings: calories consumed (36px Outfit_800ExtraBold, colors.text)
+    Below: "of X cal" (13px DMSans_400Regular, colors.textMuted)
+
+  BELOW RINGS — LEGEND ROW (replaces the separate macro cards):
+    Single horizontal row, 4 items evenly spaced:
+      Each: small colored dot (8px) + label + "Xg/Yg"
+      Calories: maroon dot, "1,847 / 2,100"
+      Protein: blue dot, "124 / 150g"
+      Carbs: orange dot, "198 / 260g"
+      Fat: yellow dot, "62 / 70g"
+    Font: 12px DMSans_500Medium, colors.textMuted
+    This replaces the 3 separate macro cards with progress rings.
+    More compact, less visual noise.
+
+  DONE WHEN: Multi-ring renders with animated fills. Legend row shows
+  real data. Both themes. Old single ring + macro cards removed.
+
+--- Task 11.2 — Restyle Dashboard — Cards + Sections ---
+
+  CURRENT: Streak/score cards are plain colors.card. Water tracker is
+  <WaterTracker> component with ring + pill grid. Open Now and For You
+  use small cards with emojis.
+
+  NEW:
+  STREAK + SCORE CARDS (already added in Tasks 3.4/4.3):
+    Update card style to use colors.cardGlass bg + colors.cardGlassBorder.
+    Streak card: "CURRENT STREAK" uppercase header (11px, letterSpacing 1.5,
+    colors.textDim). Large number. "days" label. Thin 2px maroon bottom accent.
+    Score card: same style. Grade + score.
+    Both cards should feel like frosted glass, not solid blocks.
+
+  WATER SECTION:
+    Restyle from the ring-based WaterTracker to a COMPACT INLINE CARD:
+      Single full-width card, colors.cardGlass bg, borderRadius 14, padding 14
+      Left: "Water" label (14px DMSans_500Medium, colors.text)
+      Center: thin horizontal progress bar (4px tall, colors.blue fill,
+        colors.barTrack track, borderRadius 2, flex 1, marginHorizontal 12)
+      Right of bar: "48 / 64 oz" (14px DMSans_500Medium, colors.text)
+      Far right: two small pill buttons "+8 oz" "+16 oz"
+        Pill style: colors.cardGlassBorder border, borderRadius 20,
+        paddingHorizontal 10, paddingVertical 6
+        Text: 12px DMSans_500Medium, colors.textMuted
+
+    Remove the large ring and the −8/Reset buttons. Keep the add logic.
+    Simpler, more compact. Fits the Robinhood density aesthetic.
+
+  OPEN NOW:
+    Keep horizontal scroll. Update card style:
+      140px wide, colors.cardGlass bg, borderRadius 14,
+      border 1px colors.cardGlassBorder, padding 12
+      Hall name: 14px DMSans_600SemiBold, colors.text
+      Status row: small green dot (6px circle, colors.green) + "Open"
+        (12px, colors.green) + "·" + star icon (Feather "star", 10px,
+        colors.yellow) + "4.2" (12px, colors.textMuted)
+      NO emojis for hall icons. Clean text only.
+
+  FOR YOU:
+    Same card restyle as Open Now. Remove emojis from section headers.
+    Headers: "Your Favorites Today" (not "Your Favorites Today ❤️").
+    Use Feather icons inline if needed: <Feather name="heart" size={14} />
+    Card items: food name + "380 cal" + hall name. Favorite heart icon
+    (Feather "heart") in top right, not emoji.
+
+  TODAY'S MEALS:
+    Restyle meal items: remove the maroon dot prefix. Use cleaner layout:
+      Item name (15px DMSans_500Medium, colors.text) left
+      Calories (14px DMSans_400Regular, colors.textMuted) right
+      Delete: Feather "x" icon (16px, colors.textDim) far right
+    Meal group headers: "BREAKFAST" "LUNCH" "DINNER" — keep uppercase style
+    but use 12px DMSans_600SemiBold, colors.textDim, letterSpacing 1.5
+
+  DONE WHEN: Dashboard feels like the v0 prototype — glass cards, compact
+  water bar, no emojis in chrome, clean iconography. Both themes.
+
+--- Task 11.3 — Restyle Browse (browse.tsx) ---
+
+  CURRENT: Search bar + meal filter chips + hall cards with emojis +
+  status badges + rating stars.
+
+  NEW:
+  SEARCH BAR:
+    Full width, bg colors.cardGlass, borderRadius 14, padding 14
+    Left: Feather "search" icon (18px, colors.textDim)
+    Placeholder: "Search halls or food items..." (colors.textDim)
+    Remove the old border styling. Clean glass card look.
+
+  MEAL FILTER CHIPS:
+    Keep but restyle: inactive = colors.cardGlass bg + colors.cardGlassBorder border
+    Active = colors.maroon bg + white text. borderRadius 20.
+    Horizontal row with gap 8.
+
+  HALL CARDS:
+    Remove emojis from hall display. Text-only cards.
+    Card: full width, colors.cardGlass bg, borderRadius 16,
+      border 1px colors.cardGlassBorder, padding 16, marginBottom 10
+    Left content:
+      Hall name: 17px DMSans_600SemiBold, colors.text
+      Row below: Feather "star" icon (12px, colors.yellow) + "4.2" (14px, colors.text)
+        + "·" + "23 items" (14px, colors.textMuted)
+      Status pill:
+        Open: "Open until 9 PM" — colors.green text, rgba(52,199,89,0.1) bg,
+          borderRadius 8, paddingHorizontal 8, paddingVertical 3
+        Closed: "Closed" — colors.red text, rgba(255,69,58,0.1) bg
+    Right: Feather "chevron-right" (18px, colors.textDim opacity 0.5)
+
+  STATION VIEW (View 2):
+    Same card restyle. 2-column grid cards get glass treatment.
+    Rate button: restyle to outline pill (Feather "star" + "Rate This Hall")
+    Reviews: cleaner layout, no emoji stars, use Feather "star" filled/outline.
+
+  ITEM LIST (View 3):
+    Clean rows. Dietary dot stays (green/blue). Remove excess visual noise.
+    Favorite: Feather "heart" (filled red when favorited, outline when not)
+
+  DETAIL VIEW (View 4):
+    Item name: 24px Outfit_700Bold
+    Calorie display: 32px Outfit_800ExtraBold + "calories per serving" (14px)
+    Macro pills: three pill shapes with colored borders (not filled)
+      "32g protein" — colors.blue border, colors.blue text
+      "28g carbs" — colors.orange border
+      "14g fat" — colors.yellow border
+      borderRadius 20, borderWidth 1, paddingHorizontal 12, paddingVertical 6
+    Nutrition grid: cleaner spacing, thinner dividers (colors.cardGlassBorder)
+    Log button: colors.maroon bg, white text, borderRadius 14, height 52
+      Full width, DMSans_700Bold
+
+  DONE WHEN: Browse feels like the v0 prototype. Glass cards, vector icons,
+  no emojis in UI chrome. Both themes.
+
+--- Task 11.4 — Restyle AI Chat (AIChat.tsx) ---
+
+  CURRENT: Modal with user/assistant bubbles. User = maroon. Assistant =
+  card bg. Suggestion chips. Typing indicator. Input row.
+
+  NEW:
+  HEADER (tab mode):
+    "CampusPlate AI" — 20px Outfit_700Bold, colors.text, left-aligned
+    Thin 1px line below: colors.cardGlassBorder
+    No close button in tab mode (already handled in Task 1.2)
+
+  EMPTY STATE (when no messages):
+    Centered vertically:
+      Feather "zap" icon — 64px, colors.textDim opacity 0.15
+      "What can I help with?" — 20px Outfit_600SemiBold, colors.text
+      "I know today's menus, your goals, and what's open right now."
+        — 14px DMSans_400Regular, colors.textMuted, maxWidth 280, textAlign center
+
+    3 suggestion cards below (replaces current chips):
+      Full-width cards, colors.cardGlass bg, borderRadius 14,
+      border 1px colors.cardGlassBorder, padding 14, marginBottom 8
+      Each: Feather icon left (16px, colors.textMuted) + gap 12 +
+        title (15px DMSans_600SemiBold, colors.text) +
+        subtitle (13px DMSans_400Regular, colors.textDim)
+      Card 1: icon "trending-up", "Plan my meals today", "Based on your remaining macros"
+      Card 2: icon "search", "What's high protein?", "Find meals that fit your goals"
+      Card 3: icon "clock", "What's open now?", "See available dining halls"
+
+  USER MESSAGES:
+    Right-aligned. bg colors.maroon. White text.
+    borderRadius 18, borderBottomRightRadius 4 (chat bubble shape).
+    maxWidth '75%'. padding 12px 16px. 15px DMSans_400Regular.
+
+  ASSISTANT MESSAGES:
+    Left-aligned. bg colors.cardGlass. colors.text.
+    borderRadius 18, borderBottomLeftRadius 4.
+    Same padding and font.
+
+  MEAL ITEM CARDS (inside assistant bubbles):
+    colors.cardGlass bg, borderRadius 12, border 1px colors.cardGlassBorder,
+    padding 12, marginTop 8
+    Food name: 15px DMSans_600SemiBold, colors.text
+    Row: hall name (13px, colors.textMuted) + "·" + "380 cal" (13px, colors.text)
+    Micro row: "32p · 28c · 14f" (12px, colors.textDim)
+    NO "Log this" button by default. Only show when user explicitly asks to log.
+
+  INPUT BAR:
+    bg colors.cardGlass, borderRadius 24, border 1px colors.cardGlassBorder
+    Left: Feather "camera" icon (20px, colors.textDim) — for future photo feature
+    Center: TextInput, placeholder "Ask about today's menu..." (colors.textDim)
+    Right: send button — 36px circle, colors.maroon bg,
+      Feather "arrow-up" (18px, white). Opacity 0.4 when input empty, 1.0 when text.
+
+  TYPING INDICATOR:
+    3 small dots (6px circles, colors.textDim) with sequential opacity
+    animation inside an assistant-style bubble.
+
+  DONE WHEN: AI chat matches v0 prototype. Premium feel, not chatbot widget.
+  Both themes.
+
+--- Task 11.5 — Restyle Settings/More (more.tsx) ---
+
+  CURRENT: Profile header with maroon avatar + settings cards with rows.
+
+  NEW:
+  PROFILE CARD:
+    Replace the current header with a card (colors.cardGlass bg, borderRadius 18,
+    padding 24, margin 16):
+
+    Top row: Avatar (56px circle, gradient bg colors.maroon → #C62368,
+      centered initials in white 22px Outfit_700Bold)
+    + column: name (20px Outfit_700Bold), subtitle (14px, colors.textMuted,
+      "Junior · Perry Place")
+    + "Edit" button far right (colors.cardGlassBorder border, borderRadius 10,
+      padding 8 14, 13px DMSans_500Medium, colors.textMuted)
+
+    STATS ROW below (3 equal columns, bg colors.cardAlt, borderRadius 12):
+      Streak: "12d" in 20px DMSans_700Bold colors.orange + "STREAK" 11px uppercase
+      Logged: "47" in colors.blue + "LOGGED"
+      Score: "A" in colors.green + "SCORE"
+      Separated by 1px colors.cardGlassBorder vertical dividers
+
+    BADGES below stats (from Task 3.5 — already added, just ensure styling matches)
+
+  SETTINGS GROUPS:
+    Each group gets a label above: "NUTRITION" "APP" "ABOUT"
+      12px DMSans_600SemiBold, uppercase, letterSpacing 0.06em, colors.textDim,
+      padding 0 20, marginTop 20, marginBottom 6
+
+    Group card: colors.cardGlass bg, borderRadius 16,
+      border 1px colors.cardGlassBorder, margin 0 16, padding 2 18
+
+    Each row:
+      Left: icon container (34px × 34px, borderRadius 9, tinted bg matching
+        the icon's accent color at 12-15% opacity)
+        Use Feather icons instead of emojis:
+          Nutrition Goals → <Feather name="target" /> bg rgba(139,30,63,0.15)
+          Water Goal → <Feather name="droplet" /> bg rgba(91,127,255,0.15)
+          Nutrition Prefs → <Feather name="heart" /> bg rgba(52,199,89,0.15)
+          Gym Mode → <Feather name="activity" /> bg rgba(232,119,34,0.15)
+          Reminders → <Feather name="bell" /> bg rgba(255,214,10,0.12)
+          Appearance → <Feather name="moon" /> bg rgba(91,127,255,0.12)
+          Weekly Report → <Feather name="bar-chart-2" /> bg rgba(139,30,63,0.12)
+          Help → <Feather name="help-circle" /> bg rgba(255,255,255,0.06)
+          Share → <Feather name="share-2" /> bg rgba(255,255,255,0.06)
+          About → <Feather name="info" /> bg rgba(255,255,255,0.06)
+          Sign Out → <Feather name="log-out" /> bg rgba(255,69,58,0.12)
+
+      Label: 15px DMSans_500Medium, colors.text
+      Right side: value chip (colors.textDim) + Feather "chevron-right" (18px)
+      OR toggle switch for Gym Mode (maroon when on)
+      Row divider: 1px colors.cardGlassBorder (except last row)
+
+    Sign Out row: colors.red text. No chevron.
+
+  FOOTER:
+    "CampusPlate v2.0" — 13px, colors.textDim, centered
+    "Built for Hokies, by Hokies" — 11px, colors.textDim opacity 0.5
+
+  DONE WHEN: Settings matches the HTML mockup aesthetic. Glass cards,
+  vector icons, tinted icon backgrounds. Both themes.
+
+--- Task 11.6 — Global Polish Pass ---
+
+  Final pass over ALL screens to ensure consistency:
+
+  CHECK:
+    □ No emojis used as UI chrome (tab bar, settings icons, navigation)
+      Emojis OK in: badge definitions, food-related empty states, decorative content
+    □ All new cards use colors.cardGlass + colors.cardGlassBorder
+    □ All progress bars use colors.barTrack for track
+    □ All Feather icons use colors.text (active) or colors.textDim (inactive)
+    □ Font hierarchy consistent: headings = Outfit, body = DMSans
+    □ Both themes render correctly — test by toggling in Settings
+    □ Tab bar clearance: 100px paddingBottom on all tab ScrollViews
+    □ No hardcoded colors anywhere
+    □ Press animations (scale 0.97) on all interactive cards and buttons
+    □ Haptic feedback on all taps
+
+  FIX any inconsistencies found during this pass.
+
+  DONE WHEN: App feels cohesive. Premium. Every screen matches the design system.
+
+================================================================================
+EXECUTION ORDER
+================================================================================
+
+PHASE 1 — Utilities (no UI changes, all new files):
+  2.1 → 3.1 → 4.1 → 6.1 → 7.1 → 8.1
+
+PHASE 2 — Components (standalone, testable individually):
+  1.1 → 1.2 → 3.2 → 3.3 → 4.2 → 5.1 → 5.2 → 6.2 → 6.3 → 7.2 → 8.2 → 9.2
+
+PHASE 3 — Integration (modifies shared files — one at a time):
+  1.3 → 1.4 → 1.5 → 3.4 → 3.5 → 4.3 → 5.3 → 6.4 → 7.3 → 8.3 → 9.1 → 9.3
+
+PHASE 4 — Polish (bug fixes):
+  10.1 → 10.2 → 10.3 → 10.4 → 10.5 → 10.6
+
+PHASE 5 — Visual Restyle (apply AFTER all features integrated):
+  11.1 → 11.2 → 11.3 → 11.4 → 11.5 → 11.6
+
+TOTAL: 46 tasks
+
+================================================================================
+DESIGN SYSTEM REFERENCE
+================================================================================
+
+CARDS: bg colors.card, borderRadius 14-16, border 1px colors.border, padding 16
+GLASS CARDS: bg colors.cardGlass, border colors.cardGlassBorder (for floating tab bar)
+PROGRESS BARS: track colors.barTrack 4px h, fill accent color, borderRadius 2
+BUTTONS: Primary = maroon bg white text r14 h52 | Outline = transparent maroon border
+PILLS: borderRadius 24, small padding
+PRESS: scale 0.97 spring | HAPTIC: Light/Medium/Success
+
+TEXT HIERARCHY:
+  Page title: 28px Outfit_700Bold colors.text
+  Section header: 12px DMSans_600SemiBold uppercase letterSpacing 0.05em colors.textDim
+  Card title: 16px DMSans_600SemiBold colors.text
+  Body: 14-15px DMSans_500Medium colors.text
+  Muted: 13px DMSans_400Regular colors.textMuted
+  Dim: 11-12px DMSans_400Regular colors.textDim
+
+ICONS:
+  Tab bar + new components: Feather from @expo/vector-icons
+  Existing decorative content: emojis OK where already in place
+  Settings rows: Feather icons in tinted 34px containers
+
+SPACING: Sections 16-20px gap | Cards 10-12px | Screen padding 16-20px
+TAB BAR CLEARANCE: 100px paddingBottom on all tab ScrollViews
+
+================================================================================
+END OF PRD — 11 FEATURES · 46 TASKS · 5 PHASES
+================================================================================

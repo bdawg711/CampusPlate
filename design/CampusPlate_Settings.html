@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusPlate — Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0A0A0F;
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .phone {
+    width: 390px;
+    min-height: 100vh;
+    background: #0A0A0F;
+    position: relative;
+    overflow-y: auto;
+    padding-bottom: 120px;
+  }
+
+  .page-title {
+    padding: 20px 20px 0;
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  /* Profile Card */
+  .profile-card {
+    margin: 20px 16px 0;
+    background: rgba(255,255,255,0.04);
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 24px 20px;
+  }
+  .profile-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .avatar {
+    width: 56px; height: 56px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #8B1E3F, #C62368);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .profile-info { flex: 1; }
+  .profile-name { font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+  .profile-sub { font-size: 14px; color: rgba(255,255,255,0.5); }
+  .edit-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 8px 14px;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .edit-btn:hover { border-color: rgba(255,255,255,0.15); color: #fff; }
+
+  /* Stats Row */
+  .stats-row {
+    display: flex;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .stat {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+  }
+  .stat:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.04); }
+  .stat-value { font-size: 20px; font-weight: 700; }
+  .stat-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* Badges */
+  .badges-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .badges-header .title { font-size: 14px; font-weight: 600; }
+  .badges-header .count { font-size: 12px; color: rgba(255,255,255,0.25); }
+  .badges-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .badges-scroll::-webkit-scrollbar { display: none; }
+  .badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .badge-circle {
+    width: 44px; height: 44px;
+    border-radius: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    transition: all 0.2s;
+  }
+  .badge-circle.earned { }
+  .badge-circle.locked {
+    background: rgba(255,255,255,0.06) !important;
+    opacity: 0.4;
+    font-size: 14px;
+  }
+  .badge-label { font-size: 10px; color: rgba(255,255,255,0.5); }
+  .badge.locked .badge-label { color: rgba(255,255,255,0.25); }
+
+  /* Settings Groups */
+  .group-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0 4px;
+    margin: 20px 16px 6px;
+  }
+  .settings-group {
+    background: rgba(255,255,255,0.04);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 2px 18px;
+    margin: 0 16px 12px;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 0;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .settings-row:not(.last) {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .settings-row:hover { opacity: 0.8; }
+  .row-icon {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 12px;
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+  .row-label {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .row-label.danger { color: #FF453A; }
+  .row-value {
+    font-size: 14px;
+    color: rgba(255,255,255,0.25);
+    margin-right: 8px;
+  }
+  .row-chevron {
+    color: rgba(255,255,255,0.15);
+    font-size: 18px;
+  }
+
+  /* Toggle */
+  .toggle {
+    width: 48px; height: 28px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.1);
+    padding: 3px;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+  }
+  .toggle.on { background: #8B1E3F; }
+  .toggle-knob {
+    width: 22px; height: 22px;
+    border-radius: 11px;
+    background: #fff;
+    transition: transform 0.2s;
+  }
+  .toggle.on .toggle-knob { transform: translateX(20px); }
+
+  /* Footer */
+  .app-footer {
+    text-align: center;
+    padding: 20px 0;
+    margin: 0 16px;
+  }
+  .app-footer .version { font-size: 13px; color: rgba(255,255,255,0.25); }
+  .app-footer .tagline { font-size: 11px; color: rgba(255,255,255,0.12); margin-top: 4px; }
+
+  /* Tab Bar */
+  .tab-bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 358px;
+    height: 64px;
+    background: rgba(20,20,30,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 100;
+  }
+  .tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    opacity: 0.35;
+    cursor: pointer;
+    position: relative;
+  }
+  .tab-item.active { opacity: 1; }
+  .tab-item .tab-icon { font-size: 18px; }
+  .tab-item.special .tab-icon { font-size: 22px; }
+  .tab-item .tab-label { font-size: 10px; display: none; }
+  .tab-item.active .tab-label { display: block; }
+  .tab-item.special::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    width: 40px; height: 40px;
+    border-radius: 20px;
+    background: radial-gradient(circle, rgba(139,30,63,0.25) 0%, transparent 70%);
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+  <h1 class="page-title">Settings</h1>
+
+  <!-- Profile Card -->
+  <div class="profile-card">
+    <div class="profile-top">
+      <div class="avatar">BH</div>
+      <div class="profile-info">
+        <div class="profile-name">Bandhip H.</div>
+        <div class="profile-sub">Junior · Perry Place</div>
+      </div>
+      <button class="edit-btn">Edit</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-value" style="color:#E87722">12d</div>
+        <div class="stat-label">Streak</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" style="color:#5B7FFF">47</div>
+        <div class="stat-label">Logged</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" style="color:#34C759">A</div>
+        <div class="stat-label">Score</div>
+      </div>
+    </div>
+
+    <!-- Badges -->
+    <div class="badges-header">
+      <span class="title">Badges</span>
+      <span class="count">4 of 9</span>
+    </div>
+    <div class="badges-scroll">
+      <div class="badge">
+        <div class="badge-circle earned" style="background:#FF6B35">🔥</div>
+        <span class="badge-label">Streak</span>
+      </div>
+      <div class="badge">
+        <div class="badge-circle earned" style="background:#5B7FFF">💧</div>
+        <span class="badge-label">Hydrated</span>
+      </div>
+      <div class="badge">
+        <div class="badge-circle earned" style="background:#E87722">📖</div>
+        <span class="badge-label">Logger</span>
+      </div>
+      <div class="badge">
+        <div class="badge-circle earned" style="background:#FF453A">⚡</div>
+        <span class="badge-label">Protein</span>
+      </div>
+      <div class="badge locked">
+        <div class="badge-circle locked">🔒</div>
+        <span class="badge-label">Balance</span>
+      </div>
+      <div class="badge locked">
+        <div class="badge-circle locked">🔒</div>
+        <span class="badge-label">On Target</span>
+      </div>
+      <div class="badge locked">
+        <div class="badge-circle locked">🔒</div>
+        <span class="badge-label">Century</span>
+      </div>
+      <div class="badge locked">
+        <div class="badge-circle locked">🔒</div>
+        <span class="badge-label">Consistent</span>
+      </div>
+      <div class="badge locked">
+        <div class="badge-circle locked">🔒</div>
+        <span class="badge-label">Gym Rat</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nutrition Settings -->
+  <div class="group-label">Nutrition</div>
+  <div class="settings-group">
+    <div class="settings-row">
+      <div class="row-icon" style="background:rgba(139,30,63,0.15)">🎯</div>
+      <span class="row-label">Nutrition Goals</span>
+      <span class="row-value">2,100 kcal</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="settings-row">
+      <div class="row-icon" style="background:rgba(91,127,255,0.15)">💧</div>
+      <span class="row-label">Water Goal</span>
+      <span class="row-value">64 oz</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="settings-row">
+      <div class="row-icon" style="background:rgba(52,199,89,0.15)">🥗</div>
+      <span class="row-label">Nutrition Preferences</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="settings-row last">
+      <div class="row-icon" style="background:rgba(232,119,34,0.15)">🏋️</div>
+      <span class="row-label">Gym Mode</span>
+      <div class="toggle" id="gymToggle" onclick="this.classList.toggle('on')">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Settings -->
+  <div class="group-label">App</div>
+  <div class="settings-group">
+    <div class="settings-row">
+      <div class="row-icon" style="background:rgba(255,214,10,0.12)">🔔</div>
+      <span class="row-label">Reminders</span>
+      <span class="row-value">On</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="settings-row">
+      <div class="row-icon" style="background:rgba(91,127,255,0.12)">🌙</div>
+      <span class="row-label">Appearance</span>
+      <span class="row-value">Dark</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="settings-row last">
+      <div class="row-icon" style="background:rgba(139,30,63,0.12)">📊</div>
+      <span class="row-label">Weekly Report</span>
+      <span class="row-chevron">›</span>
+    </div>
+  </div>
+
+  <!-- About -->
+  <div class="group-label">About</div>
+  <div class="settings-group">
+    <div class="settings-row">
+      <div class="row-icon" style="background:rgba(255,255,255,0.06)">❓</div>
+      <span class="row-label">Help & FAQ</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="settings-row">
+      <div class="row-icon" style="background:rgba(255,255,255,0.06)">📤</div>
+      <span class="row-label">Share CampusPlate</span>
+      <span class="row-chevron">›</span>
+    </div>
+    <div class="settings-row last">
+      <div class="row-icon" style="background:rgba(255,255,255,0.06)">ℹ️</div>
+      <span class="row-label">About</span>
+      <span class="row-value">v2.0</span>
+      <span class="row-chevron">›</span>
+    </div>
+  </div>
+
+  <!-- Sign Out -->
+  <div class="settings-group" style="margin-top:8px;margin-left:16px;margin-right:16px">
+    <div class="settings-row last">
+      <div class="row-icon" style="background:rgba(255,69,58,0.12)">⎋</div>
+      <span class="row-label danger">Sign Out</span>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="app-footer">
+    <div class="version">CampusPlate v2.0</div>
+    <div class="tagline">Built for Hokies, by Hokies</div>
+  </div>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <div class="tab-item"><span class="tab-icon">⌂</span><span class="tab-label">Home</span></div>
+  <div class="tab-item"><span class="tab-icon">⚔</span><span class="tab-label">Browse</span></div>
+  <div class="tab-item special"><span class="tab-icon">✦</span><span class="tab-label">AI</span></div>
+  <div class="tab-item"><span class="tab-icon">↗</span><span class="tab-label">Progress</span></div>
+  <div class="tab-item active"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></div>
+</div>
+</body>
+</html>
