@@ -5,7 +5,6 @@ import Animated, {
   useAnimatedProps,
   withTiming,
   withDelay,
-  withSequence,
   withSpring,
   Easing,
 } from 'react-native-reanimated';
@@ -42,8 +41,7 @@ interface SpiralRingsProps {
 
 const STROKE_WIDTH = 10;
 const RING_GAP = 8;
-const MAX_FILL = 0.95; // Cap visual fill at 95% — leaves gap to show spiral
-const REWIND_AMOUNT = 0.03; // ~5 deg rewind on update
+const MAX_FILL = 0.95; // Cap visual fill at 95% for 96-99% range
 
 // Ring durations (outer → inner, each 50ms shorter)
 const DURATIONS = [900, 850, 800, 750];
@@ -66,6 +64,14 @@ const NORMAL_STROKES = [
   '#4A7FC5', // pro — flat steel blue
   'url(#goldMetallic)', // carb — always gold gradient
   'url(#silverMetallic)', // fat — silver gradient
+];
+
+// Over-target stroke IDs — brighter versions of each ring's own color
+const OVER_TARGET_STROKES = [
+  'url(#maroonBright)', // cal — bright maroon
+  'url(#blueBright)',   // pro — bright steel blue
+  'url(#goldBright)',   // carb — bright gold
+  'url(#silverBright)', // fat — bright silver
 ];
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -112,7 +118,13 @@ export default function SpiralRings({
   // Compute raw percentages
   const macros = [calories, protein, carbs, fat];
   const rawPcts = macros.map((m) => (m.goal > 0 ? m.current / m.goal : 0));
-  const targets = rawPcts.map((p) => Math.min(p, 1) * MAX_FILL);
+  // At 100%+: fully closed ring (1.0). At 96-99%: cap at 95% to keep spiral gap.
+  // Below 96%: proportional fill.
+  const targets = rawPcts.map((p) => {
+    if (p >= 1.0) return 1.0;           // goal hit — fully closed ring
+    if (p >= 0.96) return MAX_FILL;     // nearly there — cap to show gap
+    return p;                            // proportional fill
+  });
   const overTargets = rawPcts.map((p) => p > 1);
 
   // ── Animate on data change ──────────────────────────────────────────────
@@ -141,15 +153,9 @@ export default function SpiralRings({
       });
       isFirstLoad.current = false;
     } else {
-      // Rewind-surge update
+      // Smooth spring update (no rewind — just animate to new value)
       targets.forEach((t, i) => {
-        const currentVal = progress[i].value;
-        progress[i].value = withSequence(
-          withTiming(Math.max(currentVal - REWIND_AMOUNT, 0), {
-            duration: 150,
-          }),
-          withSpring(t, { damping: 12, stiffness: 100 }),
-        );
+        progress[i].value = withSpring(t, { damping: 14, stiffness: 90 });
       });
     }
 
@@ -189,9 +195,9 @@ export default function SpiralRings({
 
   const animatedPropsArr = [calAnimProps, proAnimProps, carbAnimProps, fatAnimProps];
 
-  // Stroke: over-target → gold metallic, else normal
+  // Stroke: over-target → bright version of own color, else normal
   const strokes = overTargets.map((over, i) =>
-    over ? 'url(#goldMetallic)' : NORMAL_STROKES[i],
+    over ? OVER_TARGET_STROKES[i] : NORMAL_STROKES[i],
   );
 
   return (
@@ -211,6 +217,36 @@ export default function SpiralRings({
             <Stop offset="50%" stopColor="#D8D8DC" />
             <Stop offset="70%" stopColor="#A8A9AD" />
             <Stop offset="100%" stopColor="#6B6B6F" />
+          </SvgLinearGradient>
+
+          {/* Over-target bright gradients — each ring keeps its identity but glows */}
+          <SvgLinearGradient id="maroonBright" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#A0274F" />
+            <Stop offset="30%" stopColor="#C44475" />
+            <Stop offset="50%" stopColor="#E8A0B8" />
+            <Stop offset="70%" stopColor="#C44475" />
+            <Stop offset="100%" stopColor="#A0274F" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="blueBright" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#5A8FD5" />
+            <Stop offset="30%" stopColor="#7AAFEF" />
+            <Stop offset="50%" stopColor="#B8D4F8" />
+            <Stop offset="70%" stopColor="#7AAFEF" />
+            <Stop offset="100%" stopColor="#5A8FD5" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="goldBright" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#A07D1A" />
+            <Stop offset="30%" stopColor="#D4B86A" />
+            <Stop offset="50%" stopColor="#F0E0B0" />
+            <Stop offset="70%" stopColor="#D4B86A" />
+            <Stop offset="100%" stopColor="#A07D1A" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="silverBright" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#8A8A8F" />
+            <Stop offset="30%" stopColor="#C8C8CD" />
+            <Stop offset="50%" stopColor="#ECECF0" />
+            <Stop offset="70%" stopColor="#C8C8CD" />
+            <Stop offset="100%" stopColor="#8A8A8F" />
           </SvgLinearGradient>
         </Defs>
 

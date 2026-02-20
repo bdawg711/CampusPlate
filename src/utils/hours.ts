@@ -1,5 +1,12 @@
 import { supabase } from './supabase';
 
+// Default VT dining hall hours — used when dining_hall_hours table has no data
+const DEFAULT_MEAL_HOURS = [
+  { meal: 'Breakfast', open_time: '07:00:00', close_time: '10:00:00' },
+  { meal: 'Lunch',     open_time: '11:00:00', close_time: '14:00:00' },
+  { meal: 'Dinner',    open_time: '17:00:00', close_time: '21:00:00' },
+];
+
 export interface HallHourRow {
   id: number;
   dining_hall_id: number;
@@ -79,8 +86,17 @@ export async function isHallOpen(hallId: number, now: Date): Promise<HallStatus>
 
     if (error) throw new Error(`Failed to fetch hall hours: ${error.message}`);
 
-    const todayHours = (data ?? []).filter((r) => r.date === today);
-    const tomorrowHours = (data ?? []).filter((r) => r.date === tomorrow);
+    const rows = data ?? [];
+    console.log(`[hours] isHallOpen(${hallId}) returned ${rows.length} rows`);
+
+    // Fallback to default hours if no data
+    if (rows.length === 0) {
+      console.log(`[hours] No hours for hall ${hallId} — using default VT hours`);
+      return computeStatus(nowMinutes, DEFAULT_MEAL_HOURS, DEFAULT_MEAL_HOURS);
+    }
+
+    const todayHours = rows.filter((r) => r.date === today);
+    const tomorrowHours = rows.filter((r) => r.date === tomorrow);
 
     return computeStatus(nowMinutes, todayHours, tomorrowHours);
   } catch (err) {
@@ -107,9 +123,31 @@ export async function getAllHallStatuses(now: Date): Promise<Record<number, Hall
 
     if (error) throw new Error(`Failed to fetch hall hours: ${error.message}`);
 
+    const rows = data ?? [];
+    console.log(`[hours] dining_hall_hours query returned ${rows.length} rows for ${today}/${tomorrow}`);
+
+    // If table is empty, use default time-based fallback for all halls
+    if (rows.length === 0) {
+      console.log('[hours] No hours data — using default VT dining hours fallback');
+      try {
+        const { data: hallsData } = await supabase
+          .from('dining_halls')
+          .select('id');
+        const hallIds = (hallsData ?? []).map((h: { id: number }) => h.id);
+        const result: Record<number, HallStatus> = {};
+        for (const id of hallIds) {
+          result[id] = computeStatus(nowMinutes, DEFAULT_MEAL_HOURS, DEFAULT_MEAL_HOURS);
+        }
+        return result;
+      } catch (fallbackErr) {
+        console.log('[hours] Fallback dining_halls query also failed:', fallbackErr);
+        return {};
+      }
+    }
+
     // Group rows by hall
     const byHall: Record<number, { today: typeof data; tomorrow: typeof data }> = {};
-    for (const row of data ?? []) {
+    for (const row of rows) {
       if (!byHall[row.dining_hall_id]) {
         byHall[row.dining_hall_id] = { today: [], tomorrow: [] };
       }
