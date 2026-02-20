@@ -39,12 +39,12 @@ PHASE 3 — Integration (modifies shared files)
 [x] 9.3  Wire share button on Progress tab
 
 PHASE 4 — Polish (UI/UX bug fixes)
-[ ] 10.1 Fix pulsing + button state (skip if Feature 1 done)
-[ ] 10.2 Pull-to-refresh on Browse
-[ ] 10.3 Improve empty states (For You, Search, Progress)
-[ ] 10.4 Nutrition detail goal indicators
-[ ] 10.5 Promote Weekly Report + Weight logging (skip if 6.4 done)
-[ ] 10.6 Date strip scroll-to-selected animation
+[x] 10.1 Fix pulsing + button state (SKIPPED — Feature 1 done, old + button removed)
+[x] 10.2 Pull-to-refresh on Browse
+[x] 10.3 Improve empty states (For You, Search, Progress)
+[x] 10.4 Nutrition detail goal indicators
+[x] 10.5 Promote Weekly Report + Weight logging (SKIPPED — 6.4 already handles both)
+[x] 10.6 Date strip scroll-to-selected animation
 
 PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [ ] 11.1 Restyle Dashboard — Header + Multi-Ring Calorie Display + Legend
@@ -55,5 +55,5 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [ ] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 29 / 46 complete
+TOTAL: 33 / 46 complete
 ================================================================================
