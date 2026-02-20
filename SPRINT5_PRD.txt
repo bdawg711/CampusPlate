@@ -1,0 +1,774 @@
+CAMPUSPLATE SPRINT 5 — PREMIUM VISUAL OVERHAUL PRD
+====================================================
+
+VISION
+------
+Transform CampusPlate from a functional student nutrition app into a premium, luxury-feeling
+product. The visual identity should evoke Virginia Tech prestige — think varsity letter jacket
+meets modern fintech. Clean white space, Hokie maroon confidence, metallic silver precision,
+metallic gold achievement. Every interaction should feel intentional, every animation earned.
+
+Design philosophy: Professional sharpness over friendly softness. Architectural over bubbly.
+Data-confident over data-decorated.
+
+Metallic philosophy: Gold and silver are NOT flat colors. They are metallic gradients that
+simulate how light catches brushed metal. BUT they are used with restraint — only on
+achievement elements, ring accents, badges, grades, and milestone numbers. The majority of
+the UI stays clean white + flat maroon + subtle borders. The metal appears on things you
+EARN or things that represent DATA HIGHLIGHTS. That restraint is what makes it luxury, not gaudy.
+
+
+================================================================================
+COLOR SYSTEM — "HOKIE PRESTIGE"
+================================================================================
+
+PRIMARY PALETTE
+---------------
+Token              Hex/Value                    Usage
+white              #FFFFFF                      Primary background, card backgrounds
+offWhite           #FAFAFA                      Secondary background, subtle layering
+maroon             #861F41                      Primary brand — buttons, active states, key accents
+maroonDark         #6B1835                      Pressed states, deeper emphasis
+maroonLight        #A8325A                      Hover states, secondary maroon accents
+maroonMuted        rgba(134,31,65,0.08)         Maroon tint backgrounds (icon circles, badges)
+
+METALLIC GOLD (NOT a flat color — always rendered as gradient where used)
+-------------------------------------------------------------------------
+Token              Hex/Value                    Usage
+gold               #C5A55A                      Fallback flat color (for text, dots, small elements)
+goldDark           #8B6914                      Gradient dark stop
+goldMid            #C5A55A                      Gradient mid stop
+goldHighlight      #E8D5A3                      Gradient bright highlight stop
+goldLight          #D4BA7A                      Light accent when gradient not applicable
+goldMuted          rgba(197,165,90,0.12)        Gold tint backgrounds
+
+Gold metallic gradient stops (for LinearGradient):
+  colors: ['#8B6914', '#C5A55A', '#E8D5A3', '#C5A55A', '#8B6914']
+  locations: [0, 0.3, 0.5, 0.7, 1.0]
+  start: {x: 0, y: 0}  end: {x: 1, y: 1}
+
+METALLIC SILVER (NOT a flat color — always rendered as gradient where used)
+--------------------------------------------------------------------------
+Token              Hex/Value                    Usage
+silver             #A8A9AD                      Fallback flat color (for text, small elements)
+silverDark         #6B6B6F                      Gradient dark stop
+silverMid          #A8A9AD                      Gradient mid stop
+silverHighlight    #D8D8DC                      Gradient bright highlight stop
+silverLight        #C8C9CC                      Lighter silver, borders, track bars
+silverMuted        rgba(168,169,173,0.10)       Silver tint backgrounds
+
+Silver metallic gradient stops (for LinearGradient):
+  colors: ['#6B6B6F', '#A8A9AD', '#D8D8DC', '#A8A9AD', '#6B6B6F']
+  locations: [0, 0.3, 0.5, 0.7, 1.0]
+  start: {x: 0, y: 0}  end: {x: 1, y: 1}
+
+FUNCTIONAL COLORS
+-----------------
+Token              Hex                          Usage
+text               #1A1A1A                      Primary text (near-black, not pure black)
+textMuted          #6B6B6F                      Secondary text, subtitles
+textDim            #9A9A9E                      Tertiary text, timestamps, placeholders
+border             #E8E8EA                      Card borders, dividers
+borderLight        #F0F0F2                      Subtle separators inside cards
+inputBg            #F5F5F7                      Input field backgrounds
+success            #2D8A4E                      Positive indicators (muted green, not neon)
+warning            #D4A024                      Warning states
+error              #C0392B                      Error states, sign out, F grade
+
+RING COLORS
+-----------
+calorieRing        #861F41                      Maroon (flat — brand identity)
+proteinRing        #4A7FC5                      Steel blue (flat)
+carbsRing          METALLIC GOLD GRADIENT       Uses gold gradient stops via SVG linearGradient
+fatRing            METALLIC SILVER GRADIENT      Uses silver gradient stops via SVG linearGradient
+
+WHERE TO USE METALLIC GRADIENTS vs FLAT COLORS
+-----------------------------------------------
+USE METALLIC GRADIENT:
+  - Carbs ring stroke (SVG linearGradient)
+  - Fat ring stroke (SVG linearGradient)
+  - Unlocked badge backgrounds (expo-linear-gradient)
+  - "A" grade letter on score card (MaskedView + LinearGradient = gradient text)
+  - Streak number on milestone values (7, 14, 30, 60, 100) (MaskedView)
+  - Goal hit celebration flash on rings (brief gold shimmer sweep)
+  - Badge unlock shimmer animation (one-time sweep)
+  - Share card accent border or icon
+
+USE FLAT gold (#C5A55A) or silver (#A8A9AD):
+  - Small dots (macro legend colored dots)
+  - Text labels and values (calorie numbers, stat labels)
+  - Icon tint colors in settings rows
+  - Border accents (1-2px lines)
+  - Inactive/locked badge overlay
+  - Star ratings
+  - Everything else — flat by default, metallic only for earned/highlight elements
+
+REMOVED
+-------
+- No dark mode. Remove ThemeContext toggle, remove all dark theme objects, remove
+  Appearance setting from Settings screen. Single theme only.
+- No cardGlass/cardGlassBorder. Replace with clean white cards + subtle border.
+- No cream/beige backgrounds. Pure white + offWhite only.
+
+
+================================================================================
+METALLIC SHIMMER ANIMATION SPEC
+================================================================================
+
+The "shimmer" is a signature micro-animation used on achievement elements. It simulates
+light catching a metallic surface.
+
+How it works:
+- A translucent white-to-transparent LinearGradient overlay (angled ~20deg)
+- Gradient: [transparent, rgba(255,255,255,0.4), transparent]
+- The gradient translates from left-to-right across the element over ~800ms
+- Uses react-native-reanimated translateX animation
+- Easing: Easing.inOut(Easing.quad) for smooth acceleration/deceleration
+
+When to trigger shimmer:
+- Badge unlock: plays ONCE when badge transitions from locked to unlocked
+- Grade achievement: plays ONCE when daily score first loads as "A"
+- Streak milestone: plays ONCE when streak number hits 7, 14, 30, 60, 100
+- Goal hit: plays ONCE when a ring reaches 100% during logging animation
+- NEVER loops continuously — shimmer is an event, not a decoration
+
+Component: MetallicShimmer.tsx (see Phase 2 tasks)
+- Accepts: width, height, borderRadius (to clip the shimmer to the parent shape)
+- Renders as an absolute-positioned overlay
+- Exposes a trigger() method via ref or a "play" boolean prop
+
+
+================================================================================
+METALLIC GRADIENT TEXT SPEC
+================================================================================
+
+For the "A" grade letter and milestone streak numbers, we need gradient-filled text.
+React Native doesn't support CSS background-clip: text, so we use MaskedView.
+
+Implementation pattern:
+  import MaskedView from '@react-native-masked-view/masked-view';
+  import { LinearGradient } from 'expo-linear-gradient';
+
+  <MaskedView maskElement={<Text style={gradeStyle}>A</Text>}>
+    <LinearGradient
+      colors={['#8B6914', '#C5A55A', '#E8D5A3', '#C5A55A', '#8B6914']}
+      locations={[0, 0.3, 0.5, 0.7, 1.0]}
+      start={{x: 0, y: 0}}
+      end={{x: 1, y: 1}}
+    >
+      {/* Invisible text to size the gradient */}
+      <Text style={[gradeStyle, {opacity: 0}]}>A</Text>
+    </LinearGradient>
+  </MaskedView>
+
+Where to use gradient text:
+- Daily score "A" grade (only A — B through F stay flat colors)
+- Streak number at milestones (7, 14, 30, 60, 100) — use gold gradient
+- "Goal Complete!" celebration banner text — use gold gradient
+- Nowhere else. Most text stays flat. Gradient text is a reward.
+
+Dependency: @react-native-masked-view/masked-view
+Install: npm install @react-native-masked-view/masked-view
+
+
+================================================================================
+TYPOGRAPHY
+================================================================================
+
+All existing font families stay (Outfit for titles, DM Sans for body).
+
+Variant          Font                    Size   Weight  Color      Extra
+pageTitle        Outfit_700Bold          28px   700     text       —
+sectionHeader    DMSans_600SemiBold      11px   600     silver     uppercase, letterSpacing: 1.5
+cardTitle        DMSans_600SemiBold      16px   600     text       —
+body             DMSans_500Medium        15px   500     text       —
+bodySmall        DMSans_400Regular       14px   400     text       —
+muted            DMSans_400Regular       13px   400     textMuted  —
+dim              DMSans_400Regular       11px   400     textDim    —
+statValue        DMSans_700Bold          22px   700     text       —
+statLabel        DMSans_500Medium        11px   500     silver     uppercase, letterSpacing: 1
+ringCenter       Outfit_700Bold          36px   700     text       Calorie ring center number
+grade            Outfit_700Bold          32px   700     (dynamic)  A=gold gradient, B=success, C=warning, D=maroonLight, F=error
+
+
+================================================================================
+GEOMETRY & SPACING — SHARPER TOKENS
+================================================================================
+
+BORDER RADII (reduced from Sprint 4)
+-------------------------------------
+Token    Value    Usage
+none     0        Flat edges where needed
+xs       4        Small chips, dietary badges (V, VG)
+s        6        Buttons, input fields, inner elements
+m        8        Standard cards, containers
+l        10       Feature cards, profile card
+xl       12       Modal sheets
+pill     20       Pills, tags (used sparingly)
+full     9999     Avatars, circular elements only
+
+SPACING (unchanged, proven scale)
+----------------------------------
+Token    Value
+xxs      2
+xs       4
+s        8
+m        16
+l        24
+xl       32
+xxl      40
+
+CARD STYLE
+----------
+All cards should use:
+- backgroundColor: 'white'
+- borderWidth: 1, borderColor: 'border' (thin, subtle)
+- borderRadius: 'm' (8px)
+- No shadows (shadows look cheap on white-on-white; the border provides separation)
+- Consistent padding: 'm' (16px) internal
+
+Exception: Profile card on Settings and Daily Score card on Dashboard use borderRadius 'l' (10px).
+
+
+================================================================================
+DEPENDENCIES TO INSTALL
+================================================================================
+
+npm install react-native-reanimated
+npm install expo-haptics
+npm install @react-native-masked-view/masked-view
+
+Note: react-native-reanimated requires adding 'react-native-reanimated/plugin' to
+babel.config.js plugins array. MUST be the LAST plugin in the array.
+
+expo-linear-gradient should already be available via Expo SDK. Verify with:
+  npx expo install expo-linear-gradient
+
+@shopify/restyle is already installed (v2.4.5).
+
+
+================================================================================
+PHASE 1 — THEME FOUNDATION & SETTINGS MIGRATION (Tasks 1.1–1.6)
+================================================================================
+
+TASK 1.1: Rewrite restyleTheme.ts with new color system
+File: src/theme/restyleTheme.ts
+- Replace ALL color tokens with the Hokie Prestige palette defined above
+- Include all metallic gradient stop colors as individual tokens (goldDark, goldHighlight,
+  silverDark, silverHighlight, etc.) so they can be referenced in components
+- Remove darkTheme export entirely — only export "theme" (the single light theme)
+- Update borderRadii to the sharper values defined above
+- Update textVariants with new specs (especially sectionHeader with silver color + letterSpacing)
+- Add new statLabel, ringCenter, and grade text variants
+- Update cardVariants:
+    defaults: white bg, border color 'border', borderWidth 1, borderRadius 'm'
+    feature: white bg, border color 'border', borderWidth 1, borderRadius 'l'
+    Remove 'glass' and 'solid' variants
+- Keep Box, Text, Card primitive exports
+
+TASK 1.2: Simplify RestyleProvider.tsx
+File: src/theme/RestyleProvider.tsx
+- Remove ThemeContext dependency — no longer reads dark/light mode
+- Simply wraps children in Restyle ThemeProvider with the single theme
+- Export as default
+
+TASK 1.3: Strip dark mode from ThemeContext
+File: src/context/ThemeContext.tsx
+- Remove mode, toggleTheme, isDark from context
+- Remove darkColors object
+- Keep the context provider structure if other things still import it, but simplify to
+  a single color set matching the new palette
+- OR if nothing else depends on ThemeContext after Restyle migration, mark for deletion
+
+TASK 1.4: Update _layout.tsx
+File: app/_layout.tsx
+- Simplify RestyleProvider usage (no mode switching)
+- If ThemeContext is still needed for non-Restyle screens during migration, keep it
+- Add 'react-native-reanimated/plugin' to babel.config.js as LAST plugin
+
+TASK 1.5: Update SettingsRestyle.tsx with new palette
+File: src/components/SettingsRestyle.tsx
+- Apply new color tokens (white backgrounds, maroon accents, silver/gold metals)
+- Update borderRadii to sharper values
+- Remove Appearance/dark mode toggle row from APP settings group
+- Update icon tint circles to use maroonMuted, goldMuted, silverMuted backgrounds
+- Section headers use flat silver color with uppercase + letterSpacing
+- Stats row: streak number in flat gold, logged in text color, score grade dynamic color
+  (A = gold gradient text via MaskedView, B = success, C = warning, D/F = error)
+- Profile avatar: maroon background, white text
+- Edit button: flat silver border, text color
+- Sign out: error color text + icon tint
+- Footer text: flat silver color
+- Verify all functionality still works (modals, data fetching, navigation, sign out)
+
+TASK 1.6: CHECKPOINT — Device test Settings screen
+- Run: npx expo start --tunnel -c
+- Confirm Settings renders with new palette
+- Confirm no dark mode toggle, no cream colors, clean white + maroon + silver/gold
+- Confirm all modals and interactions still work
+- MUST PASS before starting Phase 2
+
+
+================================================================================
+PHASE 2 — REANIMATED SETUP & CORE ANIMATION UTILITIES (Tasks 2.1–2.7)
+================================================================================
+
+TASK 2.1: Install and configure dependencies
+- npm install react-native-reanimated expo-haptics @react-native-masked-view/masked-view
+- npx expo install expo-linear-gradient (verify available)
+- Add 'react-native-reanimated/plugin' to babel.config.js plugins array (MUST be last plugin)
+- Clear cache and verify app still starts: npx expo start --tunnel -c
+
+TASK 2.2: Create AnimatedCard component
+File: src/components/AnimatedCard.tsx
+- Wrapper around Restyle Card that adds press-scale animation
+- Uses Animated.createAnimatedComponent() on a Pressable
+- On press in: scale to 0.97 over 100ms with Easing.out(Easing.quad)
+- On press out: spring back to 1.0 with damping: 15, stiffness: 150
+- Accept all Card props + onPress
+- Optional haptic prop (default false) — triggers light haptic on press
+- Zero StyleSheet.create — use Restyle props for all visual styling
+
+TASK 2.3: Create AnimatedNumber component
+File: src/components/AnimatedNumber.tsx
+- Displays a number that counts up from 0 (or previous value) to target value
+- Props: value: number, duration?: number (default 600ms), prefix?: string,
+  suffix?: string, textVariant, color
+- Uses useSharedValue + withTiming + Easing.out(Easing.cubic)
+- When value prop changes, re-animates from current displayed value to new value (not from 0)
+- Handle both integers (calories) and decimals (weight)
+
+TASK 2.4: Create StaggeredList utility
+File: src/components/StaggeredList.tsx
+- Wraps children and animates them in with staggered fade-in + slide-up
+- Props: staggerDelay (default 50ms), initialDelay (default 0), translateY (default 15)
+- Each child: opacity 0->1 and translateY 15->0 with Easing.out(Easing.cubic) over 400ms
+- Stagger offset: child[0] at initialDelay, child[1] at initialDelay + staggerDelay, etc.
+- Triggers on mount
+
+TASK 2.5: Create haptic utility
+File: src/utils/haptics.ts
+- Wraps expo-haptics with try/catch (Expo Go compatibility)
+- Export: triggerHaptic(style: 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error')
+- Maps to Haptics.impactAsync or Haptics.notificationAsync appropriately
+- Silent fail if haptics unavailable
+
+TASK 2.6: Create MetallicShimmer component
+File: src/components/MetallicShimmer.tsx
+- Renders an absolute-positioned translucent gradient overlay that sweeps left-to-right
+- Gradient: [transparent, rgba(255,255,255,0.4), transparent] at ~20deg angle
+- Animation: translateX from -width to +width over 800ms
+- Easing: Easing.inOut(Easing.quad)
+- Props: width, height, borderRadius (clips to parent shape), play: boolean
+- When play transitions from false to true, runs the sweep ONCE then stops
+- Never loops continuously
+- Uses react-native-reanimated for 60fps UI thread animation
+
+TASK 2.7: Create GradientText component
+File: src/components/GradientText.tsx
+- Renders text filled with a metallic gradient using MaskedView
+- Props: text: string, gradientType: 'gold' | 'silver', style (text style), fontSize, fontFamily
+- Uses MaskedView with the text as mask, LinearGradient behind it
+- Gold gradient: ['#8B6914', '#C5A55A', '#E8D5A3', '#C5A55A', '#8B6914']
+- Silver gradient: ['#6B6B6F', '#A8A9AD', '#D8D8DC', '#A8A9AD', '#6B6B6F']
+- Falls back to flat gold/silver color if MaskedView has issues on specific device
+
+
+================================================================================
+PHASE 3 — DASHBOARD REBUILD: THE SIGNATURE SCREEN (Tasks 3.1–3.10)
+================================================================================
+
+This is the most important screen. First thing users see. It needs to be stunning.
+
+TASK 3.1: Create SpiralRings component
+File: src/components/SpiralRings.tsx
+
+This is the signature visual element of the entire app. Four concentric SVG rings
+representing calories, protein, carbs, and fat — each with a different rotational
+start angle creating a spiral/portal effect.
+
+Architecture:
+- 4 SVG circles using strokeDasharray and strokeDashoffset
+- Ring order (outer to inner): Calories (maroon), Protein (steel blue), Carbs (gold metallic), Fat (silver metallic)
+- Each ring has a track (10% opacity of its base color) and a fill arc
+
+METALLIC RING STROKES:
+- Calories ring: flat maroon (#861F41) — brand identity, no gradient
+- Protein ring: flat steel blue (#4A7FC5) — clean data color
+- Carbs ring: SVG linearGradient using gold metallic stops
+    <defs>
+      <linearGradient id="goldMetallic" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#8B6914" />
+        <stop offset="30%" stopColor="#C5A55A" />
+        <stop offset="50%" stopColor="#E8D5A3" />
+        <stop offset="70%" stopColor="#C5A55A" />
+        <stop offset="100%" stopColor="#8B6914" />
+      </linearGradient>
+    </defs>
+    stroke="url(#goldMetallic)"
+- Fat ring: SVG linearGradient using silver metallic stops
+    Same pattern with silver gradient stops
+
+Rotational offsets (start angles):
+- Calories: 0deg (12 o'clock)
+- Protein: -30deg (offset counterclockwise)
+- Carbs: -60deg
+- Fat: -90deg
+- Applied via transform: rotate(Xdeg) on each SVG circle group
+
+Fill-on-load animation:
+- Uses useSharedValue for each ring progress (0 -> actual percentage)
+- Time stagger: Calories starts immediately, Protein +120ms, Carbs +240ms, Fat +360ms
+- Duration: outer 900ms, each inner 50ms shorter (900, 850, 800, 750)
+- Easing: Easing.out(Easing.cubic)
+- Cap visual fill at 95% of circle (leaves gap to show spiral even at 100%)
+
+Over-target state:
+- If a macro exceeds 100%, the ring fills to 95% AND shifts to gold metallic gradient
+  (regardless of which ring it is — going over target = gold achievement)
+- Add MetallicShimmer overlay on the over-target ring (plays once)
+
+Update animation (when user logs a meal):
+- Rings animate from current value to new value
+- Brief "rewind" effect: ring moves back 5deg then surges forward
+- Uses withSequence(withTiming(currentVal - 5, {duration: 150}), withSpring(newVal, {damping: 12, stiffness: 100}))
+- Trigger haptic 'success' on any ring passing a 25% threshold
+
+Center content:
+- Calorie count as AnimatedNumber with ringCenter text variant
+- "of X,XXX cal" subtitle in muted variant
+- Both centered within the ring container
+
+Props:
+- calories: { current: number, goal: number }
+- protein: { current: number, goal: number }
+- carbs: { current: number, goal: number }
+- fat: { current: number, goal: number }
+- size?: number (default 280)
+- animated?: boolean (default true)
+
+TASK 3.2: Create MacroLegend component
+File: src/components/MacroLegend.tsx
+- Horizontal row of 4 macro indicators below the rings
+- Each: colored dot (matching ring color — maroon, blue, flat gold, flat silver for dots)
+  + AnimatedNumber showing current/goal
+- Use bodySmall text variant
+- Evenly spaced with flexDirection row, justifyContent space-between
+
+TASK 3.3: Create DashboardStatsRow component
+File: src/components/DashboardStatsRow.tsx
+- Two AnimatedCards side by side: Current Streak and Today's Score
+- Streak card: AnimatedNumber for day count (gold gradient text at milestones 7/14/30/60/100
+  via GradientText, flat text otherwise), statLabel "CURRENT STREAK", thin maroon bottom
+  border accent (2px, left 30% of card width)
+- Score card: Grade letter (A = gold GradientText, B = success, C = warning, D/F = error),
+  AnimatedNumber "X / 100", statLabel "TODAY'S SCORE"
+- Both cards: white bg, border, borderRadius m
+
+TASK 3.4: Create WaterTracker component (refined)
+File: src/components/WaterTracker.tsx
+- Single-line compact tracker
+- "Water" label left, silver progress bar middle, "X / 80 oz" text, "+8 oz" "+16 oz" pill buttons right
+- Progress bar: silverLight track, maroon fill, height 4px, borderRadius xs
+- Pill buttons: flat silver border, bodySmall text, borderRadius s, press-scale animation
+- On tap: animate progress bar fill + count-up number + haptic light
+- Entire row inside a single Card
+
+TASK 3.5: Create ForYouSection component
+File: src/components/ForYouSection.tsx
+- "For You" section title in cardTitle
+- Sub-sections: "Your Favorites Today", "Fits Your Macros", "Try Something New"
+- Each: title row with "See All ->" (maroon), horizontal scroll of food AnimatedCards
+- Food cards: borderRadius m, food name body bold, calories muted, hall dim
+- Subtle maroon left-border accent (2px) on each card
+- Heart/favorite icon top-right
+
+TASK 3.6: Create MealLogSection component
+File: src/components/MealLogSection.tsx
+- "Today's Meals" header with "History ->" link (maroon)
+- Three groups: BREAKFAST, LUNCH, DINNER with sectionHeader + calorie count
+- Logged items: food name, macros, cal count
+- Empty state: Feather icon (coffee/sun/moon) in silver + "No [meal] logged yet" in muted
+- NO emoji for empty states — vector icons only
+- 1px borderLight dividers between groups
+
+TASK 3.7: Assemble Dashboard screen
+File: app/(tabs)/index.tsx
+- Full Restyle rebuild — zero StyleSheet.create
+- Layout order:
+  1. Greeting + name + avatar row
+  2. SpiralRings (hero element, centered)
+  3. MacroLegend
+  4. DashboardStatsRow (streak + score)
+  5. WaterTracker
+  6. ForYouSection
+  7. MealLogSection
+- StaggeredList wraps MacroLegend downward (SpiralRings has own animation)
+- ScrollView with showsVerticalScrollIndicator false
+- Background: offWhite, content cards on white
+
+TASK 3.8: Meal logging success animation
+- When meal logged (returning from Browse):
+  - SpiralRings rewind-and-surge update
+  - AnimatedNumbers count up to new values
+  - Haptic success feedback
+  - If goal hit: celebration confetti + MetallicShimmer on relevant ring + gold flash
+
+TASK 3.9: Pull-to-refresh
+- RefreshControl on ScrollView, maroon tint color
+- On refresh: re-fetch data, re-trigger ring fill animations
+
+TASK 3.10: CHECKPOINT — Device test full Dashboard
+- Ring animations smooth at 60fps?
+- Metallic gradients visible on carbs and fat rings?
+- Numbers count up? Cards press-scale? Stagger entrance works?
+- Meal logging triggers update animation?
+- All data fetching works?
+- MUST PASS before Phase 4
+
+
+================================================================================
+PHASE 4 — BROWSE & FOOD SCREENS (Tasks 4.1–4.5)
+================================================================================
+
+TASK 4.1: Restyle Browse screen
+File: app/(tabs)/browse.tsx
+- Full Restyle rebuild
+- "Log a Meal" page title
+- Search bar: inputBg background, borderRadius s, flat silver search icon
+- Meal period filters: CHANGE from pill shapes to rectangular tabs. Three items row:
+  "Breakfast" "Lunch" "Dinner". Active: maroon bg, white text, borderRadius s.
+  Inactive: transparent, textMuted, bottom border only. KEY SHARPNESS CHANGE.
+- Hall list: AnimatedCard for each, press-scale on tap
+- Hall card: hall name cardTitle, star icon (flat gold fill) + rating, item count muted,
+  chevron-right in flat silver
+- 8px spacing between cards (not divider lines)
+
+TASK 4.2: Restyle dining hall detail (station grid)
+- 2-column grid of station AnimatedCards
+- Station name body bold, item count dim
+- Remove fork-and-knife emoji placeholders — use subtle flat silver Feather icon as fallback
+  or omit icons for cleaner look
+- Keep relevant food emojis where they exist (coffee, salad, etc.)
+
+TASK 4.3: Restyle food item list
+- Keep current good layout, apply new tokens
+- Green availability dots, dietary badges (V, VG) borderRadius xs, maroonMuted/goldMuted bg
+- Calorie number: statValue variant, maroon color
+- Heart icon: flat silver unfavorited, maroon fill favorited, press-scale
+- Subtle borderLight bottom border between items
+
+TASK 4.4: Restyle nutrition detail modal/screen
+- Food name, dining hall source, full macro breakdown with horizontal bars
+- Bars: maroon calories, steel blue protein, gold carbs, silver fat
+- "Log This Item" button: full-width, maroon bg, white text, borderRadius s, press-scale + haptic
+- Micronutrient section: flat silver labels, values right-aligned
+
+TASK 4.5: CHECKPOINT — Device test full Browse flow
+- Browse -> hall -> station -> item -> nutrition detail -> log
+- Verify logging triggers Dashboard update animation
+- MUST PASS before Phase 5
+
+
+================================================================================
+PHASE 5 — AI CHAT SCREEN (Tasks 5.1–5.3)
+================================================================================
+
+TASK 5.1: Restyle AI Chat screen
+Files: app/(tabs)/ai.tsx and src/components/AIChat.tsx
+- Full Restyle rebuild
+- Header: "CampusPlate AI" pageTitle, "Clear" maroon text
+- AI messages: white card, border, borderRadius m on all corners EXCEPT bottom-left xs
+- User messages: maroon bg, white text, borderRadius m except bottom-right xs
+- Input bar: inputBg bg, borderRadius s, flat silver camera icon, maroon send circle
+- Message entrance: slide-in from bottom with fade (150ms, Easing.out)
+
+TASK 5.2: AI typing indicator
+- Three flat silver dots pulsing in sequence when waiting for response
+- Each dot: 6px circle, opacity 0.3 -> 1.0 -> 0.3
+- 150ms stagger between dots
+- Small white card bubble container
+
+TASK 5.3: CHECKPOINT — Device test AI Chat
+- Send/receive works, typing indicator appears, message animations smooth
+- MUST PASS before Phase 6
+
+
+================================================================================
+PHASE 6 — PROGRESS SCREEN (Tasks 6.1–6.7)
+================================================================================
+
+TASK 6.1: Restyle Progress container
+File: app/(tabs)/progress.tsx
+- Full Restyle rebuild
+- "Progress" page title
+- Time range tabs: "1W" "1M" "3M" "All" — same rectangular style as Browse meal filters
+- Wrap all sections in StaggeredList (50ms stagger)
+- Background offWhite, cards white
+
+TASK 6.2: Restyle Daily Score card
+- Feature card (borderRadius l)
+- Grade letter: A = gold GradientText with MetallicShimmer on first load, B-F flat colors
+- AnimatedNumber for score value
+- Breakdown bars: label, horizontal bar (silverLight track, maroon fill), "X/Y" score
+- Tip text at bottom in muted/dim
+
+TASK 6.3: Restyle Streak card
+- AnimatedNumber for current streak (gold GradientText at milestones)
+- "day streak" label, "Best: X days" muted
+- 7-day dot row:
+  - Logged day: maroon fill, white checkmark
+  - Today not logged: flat gold ring outline
+  - Past not logged: flat silver fill
+  - Future: borderLight ring outline
+- Day labels in dim
+
+TASK 6.4: Restyle Calorie Trend chart
+- Card with "Calorie Trend" cardTitle
+- Line chart: maroon actual line, flat silver dashed goal line
+- Data points: small maroon circles
+- Axes in dim text
+- "Avg: X,XXX cal/day" muted bottom-left, trend arrow bottom-right
+
+TASK 6.5: Restyle Weight Trend chart
+- Dual lines: maroon actual, flat silver 7-day average
+- Change pills with color based on goal direction
+- Empty state: flat silver Feather trending-up icon + muted text
+
+TASK 6.6: Restyle remaining sections
+- Macro Split: ring colors for protein/carbs/fat bars and donuts
+- Badges: locked at 40% opacity + flat silver lock overlay. Unlocked at full opacity
+  with gold metallic gradient background + MetallicShimmer plays ONCE on unlock.
+  Badge names in dim. This is where metallic texture shines the most.
+- Micronutrients: "View All Nutrients ->" chevron row. Expanded: nutrient list with
+  silverLight track bars, maroon fill, percentage, FDA daily value
+- Weekly Report: card with title + muted subtitle + chevron
+- Log Weight: inputBg field borderRadius s, maroon "Save" button, last logged muted
+- Share Card: maroon outline button, "Share Today's Score" + share icon, borderRadius s
+
+TASK 6.7: CHECKPOINT — Device test full Progress screen
+- Stagger animation smooth?
+- Gold gradient text renders on A grade?
+- Badge metallic gradients + shimmer work?
+- All data loads correctly?
+- MUST PASS before Phase 7
+
+
+================================================================================
+PHASE 7 — GLOBAL POLISH & MICRO-INTERACTIONS (Tasks 7.1–7.6)
+================================================================================
+
+TASK 7.1: FloatingTabBar restyle
+File: src/components/FloatingTabBar.tsx
+- White background, subtle top border or very subtle shadow (shadowOpacity 0.04)
+- Active icon: maroon, label maroon
+- Inactive icon: flat silver, label flat silver
+- Center AI tab: maroon circle bg, white lightning bolt, slightly elevated
+- Press-scale animation on all tabs
+- Haptic light on tab switch
+
+TASK 7.2: Celebration system color update
+- Confetti colors: maroon, flat gold, flat silver, white (remove green/blue/orange)
+- Goal hit banners: gold metallic gradient background with maroon text
+- Streak milestone banners: maroon bg with gold GradientText
+
+TASK 7.3: All modals restyle
+- Nutrition Goals, Water Goal, Preferences, Weekly Report, etc.
+- White bg, borderRadius xl (12px), maroon accent buttons, flat silver secondary
+- Modal handles: flat silver, 4px height, 36px width, borderRadius full
+
+TASK 7.4: Empty states audit
+- Every empty state: Feather icon in flat silver (32px) + muted text + optional maroon CTA
+- Remove ALL remaining emoji from UI chrome
+- Food items keep food emoji where scraped data has them
+
+TASK 7.5: Loading/skeleton states
+- Skeleton screens for Dashboard and Progress while data loads
+- Skeletons: silverMuted background rectangles
+- Shimmer animation: lighter gradient sweeps across (same pattern as MetallicShimmer
+  but using silverMuted colors, and this one DOES loop continuously since it's a loading state)
+- Match layout shapes of actual content
+
+TASK 7.6: Final global polish pass
+- Zero StyleSheet.create on any screen file
+- All colors match palette — no stray grays, cream, or off-brand colors
+- Consistent spacing — no magic numbers
+- All text uses textVariants
+- All borderRadii consistently sharp
+- Screenshot every screen for before/after comparison
+
+
+================================================================================
+PHASE 8 — FINAL TESTING & CLEANUP (Tasks 8.1–8.4)
+================================================================================
+
+TASK 8.1: Full flow testing
+- Complete user flow: open -> dashboard -> browse -> select food -> log meal ->
+  dashboard update animation -> progress -> settings -> sign out
+- Test on both iOS and Android if possible
+- Test with real data and empty state data
+
+TASK 8.2: Performance check
+- Animations at 60fps (no jank)
+- Metallic gradients rendering correctly on SVG rings
+- MaskedView gradient text not causing layout issues
+- MetallicShimmer not firing repeatedly
+- Check for unnecessary re-renders
+
+TASK 8.3: Code cleanup
+- Remove commented-out old Sprint 4 code
+- Remove unused imports
+- Remove ThemeContext if fully replaced by Restyle
+- Remove ALL dark mode code everywhere
+- Clean up temporary migration files
+
+TASK 8.4: Git commit strategy
+- One commit per task
+- git pull before, git push after
+- Message format: "Sprint5/1.1: Rewrite restyleTheme with Hokie Prestige palette"
+
+
+================================================================================
+TECHNICAL RULES (CARRY FORWARD — UNCHANGED)
+================================================================================
+
+DATE FORMATTING (NEVER use toISOString):
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+SUPABASE PATTERNS:
+  - Always try/catch
+  - Always filter by user_id
+  - nutrition joins return arrays: item.nutrition[0].calories
+  - weight_logs.weight_lbs NOT .weight
+  - water_logs.glasses NOT .total_oz
+
+MENU DATE: Use getEffectiveMenuDate() from src/utils/dateHelpers.ts
+
+AI CHAT: Edge Function unchanged — no backend changes this sprint.
+
+FILE OWNERSHIP:
+  - Cameron: ALL file modifications
+  - Bandhip: NEW utility/component files only, never shared files
+  - Coordinate before each phase
+
+RUNNING THE APP:
+  cd C:\Users\cfarr\CampusPlate
+  npx expo start --tunnel -c    (clear cache after any new install)
+
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+1. Every screen uses Restyle primitives — zero StyleSheet.create on screen files
+2. Color palette strictly white/maroon/metallic silver/metallic gold — no cream, no dark mode
+3. Metallic gold gradient visible on carbs ring, unlocked badges, A grade, milestone streaks
+4. Metallic silver gradient visible on fat ring
+5. MetallicShimmer plays on achievement moments (badge unlock, A grade, goal hit)
+6. SpiralRings animation smooth, distinctive, triggers on load + meal log
+7. All AnimatedNumbers count up on screen entrance
+8. All cards have press-scale feedback
+9. Progress screen has staggered entrance
+10. Typography hierarchy clear and consistent
+11. The app looks like it was designed by a professional studio, not a hackathon team

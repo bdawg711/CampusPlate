@@ -24,6 +24,7 @@ import { getSession, onAuthChange } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { loadMealReminders, scheduleMealReminders } from '@/src/utils/notifications';
 import { ThemeProvider, useTheme } from '@/src/context/ThemeContext';
+import { RestyleProvider } from '@/src/theme/RestyleProvider';
 import AuthScreen from './auth';
 import OnboardingScreen from './onboarding';
 
@@ -36,7 +37,7 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootContent() {
-  const { mode, colors } = useTheme();
+  const { colors } = useTheme();
   const [loaded, error] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -160,7 +161,7 @@ function RootContent() {
   if (!session) {
     return (
       <>
-        <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style="dark" />
         <AuthScreen />
       </>
     );
@@ -169,7 +170,7 @@ function RootContent() {
   if (!onboardingComplete) {
     return (
       <>
-        <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style="dark" />
         <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />
       </>
     );
@@ -177,7 +178,7 @@ function RootContent() {
 
   return (
     <>
-      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
       </Stack>
@@ -188,7 +189,9 @@ function RootContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <RootContent />
+      <RestyleProvider>
+        <RootContent />
+      </RestyleProvider>
     </ThemeProvider>
   );
 }

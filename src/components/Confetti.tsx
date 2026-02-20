@@ -7,8 +7,6 @@ import Animated, {
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
-import { accent } from '../context/ThemeContext';
-
 interface Props {
   visible: boolean;
   onComplete?: () => void;
@@ -18,7 +16,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const PIECE_COUNT = 35;
 
-const COLORS = [accent.maroon, accent.orange, accent.green, accent.blue, accent.yellow, accent.red];
+const COLORS = ['#861F41', '#E87722', '#2D8A4E', '#4A7FC5', '#D4A024', '#C0392B'];
 
 interface PieceConfig {
   startX: number;

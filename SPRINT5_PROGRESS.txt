@@ -1,0 +1,220 @@
+SPRINT 5 PROGRESS TRACKER — PREMIUM VISUAL OVERHAUL
+=====================================================
+
+Sprint Start: ___________
+Target Completion: ___________
+PRD Reference: SPRINT5_PRD.txt
+
+HOW TO USE THIS FILE
+--------------------
+- Update status after completing each task
+- Statuses: TODO -> IN PROGRESS -> TESTING -> DONE -> BLOCKED
+- Add notes for anything unexpected
+- One commit per task, reference task ID in commit message
+
+
+================================================================================
+PHASE 1 — THEME FOUNDATION & SETTINGS MIGRATION
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+1.1   Rewrite restyleTheme.ts — Hokie Prestige palette, sharp radii,      Cam    DONE    Full palette: maroon/gold/silver metallics, sharper radii, statLabel/ringCenter/grade variants, feature card variant, removed dark/glass/solid
+      new variants, metallic color tokens, remove dark theme
+1.2   Simplify RestyleProvider.tsx — remove dark/light switching           Cam    DONE    Removed ThemeContext dep, single theme directly from restyleTheme
+1.3   Strip dark mode from ThemeContext.tsx — remove toggle, isDark        Cam    DONE    Removed darkColors, AsyncStorage, mode toggle. Single light palette. Kept API shape (mode/colors/toggleTheme) for 34 consumers. Fixed Confetti.tsx accent import.
+1.4   Update _layout.tsx — simplify provider, reanimated babel plugin     Cam    DONE    Removed mode destructure, StatusBar always "dark", added reanimated/plugin to babel.config.js
+1.5   Update SettingsRestyle.tsx — new palette, sharp radii, remove       Cam    DONE    New palette applied: white cards, maroon/gold/silver accents, removed Appearance toggle, silver section headers, gold streak, silver edit border, error sign-out, silver footer. All tints use maroonTint/goldTint/silverTint/successTint/warningTint/errorTint. Sharper radii (6/8/10). Zero TS errors.
+      Appearance toggle, metal accents, gold GradientText on A grade
+1.6   CHECKPOINT: Device test Settings screen                             Cam    TODO    MUST PASS before Phase 2
+
+Phase 1 Status: IN PROGRESS (1.1–1.5 DONE, 1.6 checkpoint pending)
+
+
+================================================================================
+PHASE 2 — REANIMATED SETUP & CORE ANIMATION UTILITIES
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+2.1   Install reanimated + haptics + masked-view + verify linear-gradient  Cam    TODO    Plugin LAST in babel array
+      Configure babel, clear cache, verify build
+2.2   Create AnimatedCard.tsx — press-scale 0.97x, spring-back, haptic    Cam    TODO
+2.3   Create AnimatedNumber.tsx — count-up, configurable duration/easing  Cam    TODO    Handle integers + decimals
+2.4   Create StaggeredList.tsx — fade-in + slide-up with stagger delay    Cam    TODO
+2.5   Create src/utils/haptics.ts — expo-haptics wrapper, try/catch       Cam    TODO
+2.6   Create MetallicShimmer.tsx — gradient sweep overlay, plays once     Cam    TODO    NEVER loops continuously
+2.7   Create GradientText.tsx — MaskedView + LinearGradient for           Cam    TODO    Fallback to flat color
+      gold/silver metallic text
+
+Phase 2 Status: NOT STARTED
+
+
+================================================================================
+PHASE 3 — DASHBOARD REBUILD (THE SIGNATURE SCREEN)
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+3.1   Create SpiralRings.tsx — 4 concentric SVG rings, rotational         Cam    TODO    Most complex component
+      offsets, staggered fill, metallic gradients on carbs+fat rings,
+      rewind-surge on update, over-target gold shift + shimmer
+3.2   Create MacroLegend.tsx — colored dots + AnimatedNumber row          Cam    TODO
+3.3   Create DashboardStatsRow.tsx — streak + score AnimatedCards,        Cam    TODO    GradientText on milestones
+      gold gradient on milestone streaks, dynamic grade colors
+3.4   Create WaterTracker.tsx — compact inline, animated bar, pills       Cam    TODO
+3.5   Create ForYouSection.tsx — horizontal scroll cards, maroon accent   Cam    TODO
+3.6   Create MealLogSection.tsx — meal groups, Feather icons, no emoji    Cam    TODO    Replace emoji with vectors
+3.7   Assemble Dashboard index.tsx — full Restyle, StaggeredList,         Cam    TODO    Zero StyleSheet.create
+      SpiralRings hero
+3.8   Meal logging success animation — ring update + haptic +             Cam    TODO    Wire after Browse flow
+      celebration + MetallicShimmer on goal hit rings
+3.9   Pull-to-refresh — maroon spinner, re-trigger animations             Cam    TODO
+3.10  CHECKPOINT: Device test full Dashboard                              Cam    TODO    60fps rings? Metallic visible?
+
+Phase 3 Status: NOT STARTED
+
+
+================================================================================
+PHASE 4 — BROWSE & FOOD SCREENS
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+4.1   Restyle browse.tsx — rectangular meal filters (NOT pills),          Cam    TODO    Key sharpness change
+      AnimatedCard hall rows, new palette
+4.2   Restyle hall detail station grid — clean cards, remove emoji        Cam    TODO
+4.3   Restyle food item list — new colors, animated hearts, badges        Cam    TODO    Keep existing good layout
+4.4   Restyle nutrition detail — macro bars, Log button                   Cam    TODO
+4.5   CHECKPOINT: Device test full Browse flow                            Cam    TODO    Verify log triggers Dashboard
+
+Phase 4 Status: NOT STARTED
+
+
+================================================================================
+PHASE 5 — AI CHAT SCREEN
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+5.1   Restyle AI Chat — bubble shapes, maroon user msgs, input bar        Cam    TODO    Different corner radii
+5.2   AI typing indicator — three pulsing silver dots                     Cam    TODO
+5.3   CHECKPOINT: Device test AI Chat                                     Cam    TODO
+
+Phase 5 Status: NOT STARTED
+
+
+================================================================================
+PHASE 6 — PROGRESS SCREEN
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+6.1   Restyle Progress container — rectangular time tabs, StaggeredList   Cam    TODO
+6.2   Restyle Daily Score card — A grade gold GradientText + shimmer      Cam    TODO
+6.3   Restyle Streak card — AnimatedNumber, 7-day dots, gold milestones   Cam    TODO
+6.4   Restyle Calorie Trend chart — maroon line, silver goal dashed       Cam    TODO
+6.5   Restyle Weight Trend chart — dual lines, change pills              Cam    TODO
+6.6   Restyle remaining: Macro Split, Badges (metallic gradient bg +     Cam    TODO    6 sub-sections
+      shimmer on unlock), Micronutrients, Report, Weight Log, Share
+6.7   CHECKPOINT: Device test full Progress                               Cam    TODO    Badge shimmer works?
+
+Phase 6 Status: NOT STARTED
+
+
+================================================================================
+PHASE 7 — GLOBAL POLISH & MICRO-INTERACTIONS
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+7.1   FloatingTabBar — white bg, maroon active, silver inactive,          Cam    TODO
+      center AI button, press-scale, haptic
+7.2   Celebration system — maroon/gold/silver confetti, gold banners      Cam    TODO
+7.3   All modals — white sheets, maroon buttons, silver handles           Cam    TODO    Cover every modal
+7.4   Empty states audit — Feather silver icons, remove ALL UI emoji      Cam    TODO
+7.5   Loading skeletons — silverMuted shimmer (this one DOES loop)        Cam    TODO
+7.6   Final global polish — zero stray colors, zero StyleSheet on         Cam    TODO    Full screenshot compare
+      screens, consistent spacing, all textVariants used
+
+Phase 7 Status: NOT STARTED
+
+
+================================================================================
+PHASE 8 — FINAL TESTING & CLEANUP
+================================================================================
+
+Task  Description                                                          Owner  Status  Notes
+----  -------------------------------------------------------------------  -----  ------  -----
+8.1   Full flow test — open -> browse -> log -> dashboard anim ->         Cam    TODO    iOS + Android
+      progress -> settings -> sign out
+8.2   Performance check — 60fps, no jank, metallic gradients render,     Cam    TODO
+      MaskedView stable, shimmer not re-firing
+8.3   Code cleanup — remove old code, imports, ThemeContext, dark mode    Cam    TODO
+8.4   Git cleanup — meaningful commits per task, all pushed               Cam    TODO
+
+Phase 8 Status: NOT STARTED
+
+
+================================================================================
+SUMMARY TABLE
+================================================================================
+
+Phase                        Tasks   Done   Blocked
+---------------------------  -----   ----   -------
+1 — Theme Foundation           6       5       0
+2 — Animation Utilities        7       0       0
+3 — Dashboard                 10       0       0
+4 — Browse & Food              5       0       0
+5 — AI Chat                    3       0       0
+6 — Progress                   7       0       0
+7 — Global Polish              6       0       0
+8 — Final Testing              4       0       0
+TOTAL                         48       5       0
+
+
+================================================================================
+BLOCKERS & ISSUES LOG
+================================================================================
+
+Date       Task    Issue                          Resolution              Resolved?
+--------   -----   ----------------------------   --------------------    ---------
+                                                                         
+
+
+================================================================================
+DEVICE TEST SCREENSHOTS
+================================================================================
+
+Track before/after for each screen:
+
+Screen          Before (current)            After (Sprint 5)     Status
+-----------     ----------------------      ----------------     ------
+Dashboard       IMG_5183, IMG_5184                               
+Browse          IMG_5185                                         
+AI Chat         IMG_5186                                         
+Progress        IMG_5187, IMG_5188, IMG_5189                     
+Settings        IMG_5190, IMG_5191                               
+Hall Detail     IMG_5192                                         
+Food List       IMG_5193, IMG_5194                               
+
+
+================================================================================
+METALLIC ELEMENTS CHECKLIST
+================================================================================
+
+Track that all metallic/shimmer features render correctly:
+
+Element                          Type              Triggers                    Working?
+-------------------------------  ----------------  -------------------------   --------
+Carbs ring stroke                SVG gradient      Always visible              
+Fat ring stroke                  SVG gradient      Always visible              
+Over-target ring                 Gold gradient     When macro > 100%           
+A grade letter                   GradientText      When score >= 90            
+Milestone streak number          GradientText      At 7, 14, 30, 60, 100      
+Unlocked badge background        LinearGradient    When badge earned           
+Badge unlock shimmer             MetallicShimmer   Once on unlock transition   
+A grade shimmer                  MetallicShimmer   Once on first load as A     
+Goal hit ring shimmer            MetallicShimmer   Once when ring hits 100%    
+Celebration banner text          GradientText      On goal/streak milestone    
+Loading skeleton shimmer         Looping sweep     While data loading          

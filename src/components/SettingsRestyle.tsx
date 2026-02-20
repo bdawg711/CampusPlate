@@ -1,11 +1,3 @@
-import SettingsRestyle from '../../src/components/SettingsRestyle';
-
-export default function MoreScreen() {
-  return <SettingsRestyle />;
-}
-
-/* ── OLD IMPLEMENTATION (commented out for Restyle comparison) ──────────
-
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,17 +5,15 @@ import {
   Modal,
   ScrollView,
   Share,
-  StyleSheet,
   Switch,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
-import { useTheme } from '@/src/context/ThemeContext';
+import { useTheme as useRestyleTheme } from '@shopify/restyle';
+import { Box, Text, Card, Theme } from '@/src/theme/restyleTheme';
 import { requireUserId, signOut } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { setWaterGoal } from '@/src/utils/water';
@@ -38,8 +28,11 @@ import { Goals, getGoals, saveCustomGoals, recalculateGoals } from '@/src/utils/
 import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged, StreakData, Badge } from '@/src/utils/streaks';
 import StreakBadge from '@/src/components/StreakBadge';
 
-export default function MoreScreen() {
-  const { mode, colors, toggleTheme } = useTheme();
+type ColorName = keyof Theme['colors'];
+
+export default function SettingsRestyle() {
+  const theme = useRestyleTheme<Theme>();
+
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [streakData, setStreakData] = useState<StreakData | null>(null);
@@ -47,7 +40,7 @@ export default function MoreScreen() {
   const [waterGoalOz, setWaterGoalOz] = useState<number>(64);
   const [totalMeals, setTotalMeals] = useState(0);
   const [scoreGrade, setScoreGrade] = useState('—');
-  const [scoreGradeColor, setScoreGradeColor] = useState('#34C759');
+  const [scoreGradeColor, setScoreGradeColor] = useState('#2D8A4E');
 
   // Modal visibility
   const [goalsModalVisible, setGoalsModalVisible] = useState(false);
@@ -85,7 +78,6 @@ export default function MoreScreen() {
       const goals = await getGoals(userId);
       setCurrentGoals(goals);
 
-      // Fetch streak, water streak, and total meals in parallel
       const d = new Date();
       const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const [streakResult, waterStreak, totalMealsCount, logsRes, waterRes] = await Promise.all([
@@ -103,7 +95,6 @@ export default function MoreScreen() {
       setTotalMeals(totalMealsCount);
       setBadges(getBadges(streakResult, waterStreak, totalMealsCount));
 
-      // Compute daily score for stats row
       const consumed = { calories: 0, protein: 0, carbs: 0, fat: 0 };
       let mealsToday = 0;
       for (const log of logsRes.data ?? []) {
@@ -207,203 +198,231 @@ export default function MoreScreen() {
     } catch {}
   };
 
+  // ── SettingsRow sub-component ──
   const SettingsRow = ({ icon, iconBg, iconColor, label, onPress, rightContent, textColor, isLast }: {
-    icon: keyof typeof Feather.glyphMap; iconBg: string; iconColor: string;
-    label: string; onPress?: () => void; rightContent?: React.ReactNode;
-    textColor?: string; isLast?: boolean;
+    icon: keyof typeof Feather.glyphMap;
+    iconBg: ColorName;
+    iconColor: ColorName;
+    label: string;
+    onPress?: () => void;
+    rightContent?: React.ReactNode;
+    textColor?: ColorName;
+    isLast?: boolean;
   }) => (
     <>
-      <TouchableOpacity style={st.settingsRow} onPress={onPress} activeOpacity={onPress ? 0.6 : 1}>
-        <View style={[st.rowIcon, { backgroundColor: iconBg }]}>
-          <Feather name={icon} size={16} color={iconColor} />
-        </View>
-        <Text style={[st.rowLabel, { color: textColor || colors.text }]}>{label}</Text>
-        <View style={{ flex: 1 }} />
-        {rightContent}
-        {!rightContent && textColor !== colors.red && (
-          <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
-        )}
+      <TouchableOpacity onPress={onPress} activeOpacity={onPress ? 0.6 : 1}>
+        <Box flexDirection="row" alignItems="center" style={{ paddingVertical: 14 }}>
+          <Box
+            width={34}
+            height={34}
+            backgroundColor={iconBg}
+            justifyContent="center"
+            alignItems="center"
+            style={{ borderRadius: 8, marginRight: 12 }}
+          >
+            <Feather name={icon} size={16} color={theme.colors[iconColor]} />
+          </Box>
+          <Text variant="body" color={textColor || 'text'}>{label}</Text>
+          <Box flex={1} />
+          {rightContent}
+          {!rightContent && textColor !== 'error' && (
+            <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
+          )}
+        </Box>
       </TouchableOpacity>
-      {!isLast && <View style={[st.rowDivider, { backgroundColor: colors.cardGlassBorder }]} />}
+      {!isLast && <Box height={1} backgroundColor="borderLight" style={{ marginLeft: 46 }} />}
     </>
   );
 
+  // ── Loading state ──
   if (loading) {
     return (
-      <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
-        <View style={st.loadingWrap}><ActivityIndicator size="large" color={colors.maroon} /></View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <Box flex={1} justifyContent="center" alignItems="center">
+          <ActivityIndicator size="large" color={theme.colors.maroon} />
+        </Box>
       </SafeAreaView>
     );
   }
 
+  // ── Main render ──
   return (
-    <SafeAreaView style={[st.safe, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={st.pad} showsVerticalScrollIndicator={false}>
-        <Text style={[st.pageTitle, { color: colors.text }]}>Settings</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
 
-        <View style={[st.profileCard, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
-          <View style={st.profileTop}>
-            <View style={[st.avatar, { backgroundColor: colors.maroon }]}>
-              <Text style={[{ fontSize: 22, color: '#fff', fontFamily: 'Outfit_700Bold' }]}>
+        {/* Page title */}
+        <Text variant="pageTitle" style={{ paddingHorizontal: 20 }}>Settings</Text>
+
+        {/* ── Profile card ── */}
+        <Card variant="feature" margin="m" padding="l">
+          {/* Top row: avatar + name + edit */}
+          <Box flexDirection="row" alignItems="center" style={{ gap: 16, marginBottom: 20 }}>
+            <Box
+              width={56}
+              height={56}
+              borderRadius="full"
+              backgroundColor="maroon"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Text
+                style={{ fontSize: 22, color: '#fff', fontFamily: 'Outfit_700Bold' }}
+              >
                 {(profile?.name || 'U').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
               </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[{ fontSize: 20, color: colors.text, fontFamily: 'Outfit_700Bold' }]}>
+            </Box>
+            <Box flex={1}>
+              <Text style={{ fontSize: 20, fontFamily: 'Outfit_700Bold' }} color="text">
                 {profile?.name || 'Student'}
               </Text>
-              <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }]}>
+              <Text variant="bodySmall" color="textMuted" style={{ marginTop: 2 }}>
                 {profile?.year || ''}{profile?.year && profile?.dorm ? ' · ' : ''}{profile?.dorm || ''}
               </Text>
-            </View>
-            <TouchableOpacity
-              style={[st.editBtn, { borderColor: colors.cardGlassBorder }]}
-              onPress={() => setProfileModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_500Medium' }]}>Edit</Text>
+            </Box>
+            <TouchableOpacity onPress={() => setProfileModalVisible(true)} activeOpacity={0.7}>
+              <Box borderWidth={1} borderColor="silver" style={{ borderRadius: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                <Text variant="body" color="textMuted" style={{ fontSize: 13 }}>Edit</Text>
+              </Box>
             </TouchableOpacity>
-          </View>
+          </Box>
 
-          <View style={[st.statsRow, { backgroundColor: colors.cardAlt }]}>
-            <View style={st.stat}>
-              <Text style={[st.statValue, { color: colors.orange }]}>{streakData?.currentStreak ?? 0}d</Text>
-              <Text style={[st.statLabel, { color: colors.textDim }]}>STREAK</Text>
-            </View>
-            <View style={[st.statDivider, { backgroundColor: colors.cardGlassBorder }]} />
-            <View style={st.stat}>
-              <Text style={[st.statValue, { color: colors.blue }]}>{totalMeals}</Text>
-              <Text style={[st.statLabel, { color: colors.textDim }]}>LOGGED</Text>
-            </View>
-            <View style={[st.statDivider, { backgroundColor: colors.cardGlassBorder }]} />
-            <View style={st.stat}>
-              <Text style={[st.statValue, { color: scoreGradeColor }]}>{scoreGrade}</Text>
-              <Text style={[st.statLabel, { color: colors.textDim }]}>SCORE</Text>
-            </View>
-          </View>
+          {/* Stats row */}
+          <Box flexDirection="row" backgroundColor="backgroundAlt" overflow="hidden" style={{ borderRadius: 8 }}>
+            <Box flex={1} alignItems="center" style={{ paddingVertical: 12 }}>
+              <Text variant="statValue" style={{ color: theme.colors.gold }}>{streakData?.currentStreak ?? 0}d</Text>
+              <Text variant="statLabel" style={{ marginTop: 2 }}>STREAK</Text>
+            </Box>
+            <Box width={1} marginVertical="s" backgroundColor="borderLight" />
+            <Box flex={1} alignItems="center" style={{ paddingVertical: 12 }}>
+              <Text variant="statValue" color="text">{totalMeals}</Text>
+              <Text variant="statLabel" style={{ marginTop: 2 }}>LOGGED</Text>
+            </Box>
+            <Box width={1} marginVertical="s" backgroundColor="borderLight" />
+            <Box flex={1} alignItems="center" style={{ paddingVertical: 12 }}>
+              <Text variant="statValue" style={{ color: scoreGradeColor }}>{scoreGrade}</Text>
+              <Text variant="statLabel" style={{ marginTop: 2 }}>SCORE</Text>
+            </Box>
+          </Box>
 
+          {/* Badges */}
           {badges.length > 0 && (
-            <View style={{ marginTop: 20 }}>
-              <View style={st.badgesHeader}>
-                <Text style={[{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_600SemiBold' }]}>Badges</Text>
-                <Text style={[{ fontSize: 12, color: colors.textDim, fontFamily: 'DMSans_400Regular' }]}>
+            <Box style={{ marginTop: 20 }}>
+              <Box flexDirection="row" justifyContent="space-between" alignItems="center" style={{ marginBottom: 14 }}>
+                <Text variant="cardTitle" style={{ fontSize: 14 }}>Badges</Text>
+                <Text variant="dim" style={{ fontSize: 12 }}>
                   {badges.filter((b) => b.earned).length} of {badges.length}
                 </Text>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.badgesScroll}>
+              </Box>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
                 {badges.map((b) => (
-                  <View key={b.id} style={st.badgeItem}>
+                  <Box key={b.id} style={{ marginRight: 10 }}>
                     <StreakBadge badge={b} size="small" />
-                  </View>
+                  </Box>
                 ))}
               </ScrollView>
-            </View>
+            </Box>
           )}
-        </View>
+        </Card>
 
-        <Text style={[st.groupLabel, { color: colors.textDim }]}>NUTRITION</Text>
-        <View style={[st.settingsGroup, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+        {/* ── NUTRITION section ── */}
+        <Text variant="sectionHeader" style={{ paddingHorizontal: 20, marginTop: 20, marginBottom: 6 }}>NUTRITION</Text>
+        <Card borderRadius="l" marginHorizontal="m" style={{ paddingHorizontal: 18, paddingVertical: 2 }}>
           <SettingsRow
-            icon="target" iconBg="rgba(139,30,63,0.15)" iconColor={colors.maroon}
+            icon="target" iconBg="maroonTint" iconColor="maroon"
             label="Nutrition Goals" onPress={() => setGoalsModalVisible(true)}
             rightContent={
               <>
-                <Text style={[st.rowValue, { color: colors.textDim }]}>{currentGoals.goalCalories.toLocaleString()} kcal</Text>
-                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+                <Text variant="bodySmall" color="textDim" marginRight="s">{currentGoals.goalCalories.toLocaleString()} kcal</Text>
+                <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
               </>
             }
           />
           <SettingsRow
-            icon="droplet" iconBg="rgba(91,127,255,0.15)" iconColor={colors.blue}
+            icon="droplet" iconBg="silverTint" iconColor="silver"
             label="Water Goal" onPress={handleWaterGoal}
             rightContent={
               <>
-                <Text style={[st.rowValue, { color: colors.textDim }]}>{waterGoalOz} oz</Text>
-                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+                <Text variant="bodySmall" color="textDim" marginRight="s">{waterGoalOz} oz</Text>
+                <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
               </>
             }
           />
           <SettingsRow
-            icon="heart" iconBg="rgba(52,199,89,0.15)" iconColor={colors.green}
+            icon="heart" iconBg="successTint" iconColor="success"
             label="Nutrition Preferences" onPress={() => setNutritionPrefsModalVisible(true)}
           />
           <SettingsRow
-            icon="activity" iconBg="rgba(232,119,34,0.15)" iconColor={colors.orange}
+            icon="activity" iconBg="goldTint" iconColor="gold"
             label="Gym Mode" isLast
             rightContent={
               <Switch
                 value={profile?.high_protein || false}
                 onValueChange={toggleHighProtein}
-                trackColor={{ false: colors.textDim, true: colors.maroon }}
+                trackColor={{ false: theme.colors.silverLight, true: theme.colors.maroon }}
                 thumbColor="#fff"
               />
             }
           />
-        </View>
+        </Card>
 
-        <Text style={[st.groupLabel, { color: colors.textDim }]}>APP</Text>
-        <View style={[st.settingsGroup, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+        {/* ── APP section ── */}
+        <Text variant="sectionHeader" style={{ paddingHorizontal: 20, marginTop: 20, marginBottom: 6 }}>APP</Text>
+        <Card borderRadius="l" marginHorizontal="m" style={{ paddingHorizontal: 18, paddingVertical: 2 }}>
           <SettingsRow
-            icon="bell" iconBg="rgba(255,214,10,0.12)" iconColor={colors.yellow}
+            icon="bell" iconBg="warningTint" iconColor="warning"
             label="Reminders" onPress={handleReminders}
             rightContent={
               <>
-                <Text style={[st.rowValue, { color: remindersOn ? colors.green : colors.textDim }]}>{remindersOn ? 'On' : 'Off'}</Text>
-                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+                <Text variant="bodySmall" style={{ color: remindersOn ? theme.colors.success : theme.colors.textDim, marginRight: 8 }}>{remindersOn ? 'On' : 'Off'}</Text>
+                <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
               </>
             }
           />
           <SettingsRow
-            icon="moon" iconBg="rgba(91,127,255,0.12)" iconColor={colors.blue}
-            label="Appearance" onPress={toggleTheme}
-            rightContent={
-              <>
-                <Text style={[st.rowValue, { color: colors.textDim }]}>{mode === 'dark' ? 'Dark' : 'Light'}</Text>
-                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
-              </>
-            }
-          />
-          <SettingsRow
-            icon="bar-chart-2" iconBg="rgba(139,30,63,0.12)" iconColor={colors.maroon}
+            icon="bar-chart-2" iconBg="maroonTint" iconColor="maroon"
             label="Weekly Report" onPress={handleWeeklyReport} isLast
           />
-        </View>
+        </Card>
 
-        <Text style={[st.groupLabel, { color: colors.textDim }]}>ABOUT</Text>
-        <View style={[st.settingsGroup, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder }]}>
+        {/* ── ABOUT section ── */}
+        <Text variant="sectionHeader" style={{ paddingHorizontal: 20, marginTop: 20, marginBottom: 6 }}>ABOUT</Text>
+        <Card borderRadius="l" marginHorizontal="m" style={{ paddingHorizontal: 18, paddingVertical: 2 }}>
           <SettingsRow
-            icon="help-circle" iconBg="rgba(255,255,255,0.06)" iconColor={colors.textMuted}
+            icon="help-circle" iconBg="silverTint" iconColor="silver"
             label="Help & FAQ" onPress={() => setHelpModalVisible(true)}
           />
           <SettingsRow
-            icon="share-2" iconBg="rgba(255,255,255,0.06)" iconColor={colors.textMuted}
+            icon="share-2" iconBg="silverTint" iconColor="silver"
             label="Share CampusPlate" onPress={handleShare}
           />
           <SettingsRow
-            icon="info" iconBg="rgba(255,255,255,0.06)" iconColor={colors.textMuted}
+            icon="info" iconBg="silverTint" iconColor="silver"
             label="About" isLast
             rightContent={
               <>
-                <Text style={[st.rowValue, { color: colors.textDim }]}>v2.0</Text>
-                <Feather name="chevron-right" size={18} color={colors.textDim} style={{ opacity: 0.5 }} />
+                <Text variant="bodySmall" color="textDim" marginRight="s">v2.0</Text>
+                <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
               </>
             }
           />
-        </View>
+        </Card>
 
-        <View style={[st.settingsGroup, { backgroundColor: colors.cardGlass, borderColor: colors.cardGlassBorder, marginTop: 8 }]}>
+        {/* ── Sign out ── */}
+        <Card borderRadius="l" marginHorizontal="m" style={{ paddingHorizontal: 18, paddingVertical: 2, marginTop: 8 }}>
           <SettingsRow
-            icon="log-out" iconBg="rgba(255,69,58,0.12)" iconColor={colors.red}
-            label="Sign Out" textColor={colors.red} onPress={handleSignOut} isLast
+            icon="log-out" iconBg="errorTint" iconColor="error"
+            label="Sign Out" textColor="error" onPress={handleSignOut} isLast
           />
-        </View>
+        </Card>
 
-        <View style={st.footerWrap}>
-          <Text style={[st.footerVersion, { color: colors.textDim }]}>CampusPlate v2.0</Text>
-          <Text style={[st.footerTagline, { color: colors.textDim }]}>Built for Hokies, by Hokies</Text>
-        </View>
+        {/* ── Footer ── */}
+        <Box alignItems="center" style={{ marginTop: 24, paddingBottom: 8 }}>
+          <Text variant="muted" color="silver" style={{ fontSize: 13 }}>CampusPlate v2.0</Text>
+          <Text variant="dim" color="silver" style={{ opacity: 0.5, marginTop: 4 }}>Built for Hokies, by Hokies</Text>
+        </Box>
       </ScrollView>
 
+      {/* ── Modals ── */}
       <EditGoals
         visible={goalsModalVisible}
         currentGoals={currentGoals}
@@ -445,73 +464,54 @@ export default function MoreScreen() {
         animationType="fade"
         onRequestClose={() => setWaterGoalModalVisible(false)}
       >
-        <View style={st.modalOverlay}>
-          <View style={[st.modalContent, { backgroundColor: colors.background }]}>
-            <Text style={[{ fontSize: 20, color: colors.text, fontFamily: 'Outfit_700Bold', textAlign: 'center', marginBottom: 4 }]}>
+        <Box flex={1} justifyContent="center" alignItems="center" padding="l" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <Box backgroundColor="background" width="100%" style={{ borderRadius: 12, padding: 24 }}>
+            <Text
+              style={{ fontSize: 20, fontFamily: 'Outfit_700Bold', textAlign: 'center', marginBottom: 4 }}
+              color="text"
+            >
               Water Goal
             </Text>
-            <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'center', marginBottom: 20 }]}>
+            <Text variant="muted" style={{ textAlign: 'center', marginBottom: 20 }}>
               Set your daily water goal in ounces
             </Text>
             <TextInput
-              style={[st.waterGoalInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text, fontFamily: 'DMSans_400Regular' }]}
+              style={{
+                backgroundColor: theme.colors.inputBg,
+                borderColor: theme.colors.inputBorder,
+                color: theme.colors.text,
+                fontFamily: 'DMSans_400Regular',
+                borderRadius: 6,
+                padding: 14,
+                fontSize: 16,
+                borderWidth: 1,
+                marginBottom: 16,
+                textAlign: 'center',
+              }}
               placeholder="Ounces"
-              placeholderTextColor={colors.textDim}
+              placeholderTextColor={theme.colors.textDim}
               value={waterGoalInput}
               onChangeText={setWaterGoalInput}
               keyboardType="numeric"
               autoFocus
             />
             <TouchableOpacity
-              style={[st.waterGoalSaveBtn, { backgroundColor: colors.maroon }]}
               onPress={saveWaterGoal}
+              activeOpacity={0.8}
             >
-              <Text style={[{ color: '#fff', fontSize: 16, fontFamily: 'DMSans_700Bold' }]}>Save</Text>
+              <Box backgroundColor="maroon" alignItems="center" style={{ padding: 16, borderRadius: 6 }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'DMSans_700Bold' }}>Save</Text>
+              </Box>
             </TouchableOpacity>
             <TouchableOpacity
-              style={{ marginTop: 12, alignItems: 'center' }}
               onPress={() => setWaterGoalModalVisible(false)}
+              style={{ marginTop: 12, alignItems: 'center' }}
             >
-              <Text style={[{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_600SemiBold' }]}>Cancel</Text>
+              <Text style={{ fontSize: 14, fontFamily: 'DMSans_600SemiBold' }} color="textMuted">Cancel</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </Box>
+        </Box>
       </Modal>
     </SafeAreaView>
   );
 }
-
-const st = StyleSheet.create({
-  safe: { flex: 1 },
-  pad: { paddingTop: 20, paddingBottom: 100 },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  pageTitle: { fontSize: 28, fontFamily: 'Outfit_700Bold', paddingHorizontal: 20 },
-  profileCard: { margin: 16, borderRadius: 18, borderWidth: 1, padding: 24 },
-  profileTop: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
-  avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
-  editBtn: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
-  statsRow: { flexDirection: 'row', borderRadius: 12, overflow: 'hidden' },
-  stat: { flex: 1, alignItems: 'center', paddingVertical: 12 },
-  statValue: { fontSize: 20, fontFamily: 'DMSans_700Bold' },
-  statLabel: { fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
-  statDivider: { width: 1, marginVertical: 8 },
-  badgesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  badgesScroll: { paddingRight: 20 },
-  badgeItem: { marginRight: 10 },
-  groupLabel: { fontSize: 12, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: 20, marginTop: 20, marginBottom: 6 },
-  settingsGroup: { borderRadius: 16, borderWidth: 1, marginHorizontal: 16, paddingHorizontal: 18, paddingVertical: 2, marginBottom: 0 },
-  settingsRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
-  rowIcon: { width: 34, height: 34, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  rowLabel: { fontSize: 15, fontFamily: 'DMSans_500Medium' },
-  rowValue: { fontSize: 14, fontFamily: 'DMSans_400Regular', marginRight: 8 },
-  rowDivider: { height: 1, marginLeft: 46 },
-  footerWrap: { alignItems: 'center', marginTop: 24, paddingBottom: 8 },
-  footerVersion: { fontSize: 13, fontFamily: 'DMSans_400Regular' },
-  footerTagline: { fontSize: 11, fontFamily: 'DMSans_400Regular', opacity: 0.5, marginTop: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { width: '100%', borderRadius: 20, padding: 24 },
-  waterGoalInput: { borderRadius: 12, padding: 14, fontSize: 16, borderWidth: 1, marginBottom: 16, textAlign: 'center' },
-  waterGoalSaveBtn: { padding: 16, borderRadius: 14, alignItems: 'center' },
-});
-
-── END OLD IMPLEMENTATION ────────────────────── */

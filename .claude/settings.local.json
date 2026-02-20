@@ -28,7 +28,9 @@
       "Bash(124 ratings\"\\) or \"No ratings yet\". Calls getHallAverages\\(\\) once on\nscreen focus.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(Tap to Remove\" \\(green\\) to toggle. Optimistic UI with revert on\nfailure. Loads planned item IDs on screen focus for the selected date.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(npx expo start)",
-      "WebFetch(domain:)"
+      "WebFetch(domain:)",
+      "Bash(cat:*)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }
