@@ -13,6 +13,11 @@ const darkColors = {
   border: 'rgba(255,255,255,0.05)',
   inputBg: '#1A1A2E',
   inputBorder: 'rgba(255,255,255,0.08)',
+  cardGlass: 'rgba(255,255,255,0.04)',
+  cardGlassBorder: 'rgba(255,255,255,0.06)',
+  barTrack: 'rgba(255,255,255,0.06)',
+  glowMaroon: 'rgba(139,30,63,0.25)',
+  tabBarBg: 'rgba(20,20,30,0.85)',
 };
 
 const lightColors = {
@@ -25,6 +30,11 @@ const lightColors = {
   border: 'rgba(0,0,0,0.05)',
   inputBg: '#FFFFFF',
   inputBorder: 'rgba(0,0,0,0.1)',
+  cardGlass: 'rgba(0,0,0,0.03)',
+  cardGlassBorder: 'rgba(0,0,0,0.06)',
+  barTrack: 'rgba(0,0,0,0.06)',
+  glowMaroon: 'rgba(139,30,63,0.12)',
+  tabBarBg: 'rgba(255,255,255,0.92)',
 };
 
 export const accent = {

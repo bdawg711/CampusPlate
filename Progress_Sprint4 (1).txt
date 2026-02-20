@@ -3,7 +3,7 @@ CAMPUSPLATE — SPRINT 4 PROGRESS
 ================================================================================
 
 PHASE 1 — Utilities (new files, no UI changes)
-[ ] 2.1  Update ThemeContext.tsx with new design tokens
+[x] 2.1  Update ThemeContext.tsx with new design tokens
 [ ] 3.1  Create src/utils/streaks.ts
 [ ] 4.1  Create src/utils/dailyScore.ts
 [ ] 6.1  Create src/utils/progressData.ts
@@ -11,7 +11,7 @@ PHASE 1 — Utilities (new files, no UI changes)
 [ ] 8.1  Create src/utils/micronutrients.ts
 
 PHASE 2 — Components (standalone, testable)
-[ ] 1.1  Create src/components/FloatingTabBar.tsx
+[x] 1.1  Create src/components/FloatingTabBar.tsx
 [ ] 1.2  Modify src/components/AIChat.tsx — add mode prop
 [ ] 3.2  Create src/components/StreakBadge.tsx
 [ ] 3.3  Create src/components/StreakDisplay.tsx
@@ -55,5 +55,5 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [ ] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 0 / 46 complete
+TOTAL: 2 / 46 complete
 ================================================================================
