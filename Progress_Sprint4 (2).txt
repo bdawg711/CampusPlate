@@ -7,7 +7,7 @@ PHASE 1 — Utilities (new files, no UI changes)
 [x] 3.1  Create src/utils/streaks.ts
 [x] 4.1  Create src/utils/dailyScore.ts
 [x] 6.1  Create src/utils/progressData.ts
-[ ] 7.1  Create src/utils/weightData.ts
+[x] 7.1  Create src/utils/weightData.ts
 [ ] 8.1  Create src/utils/micronutrients.ts
 
 PHASE 2 — Components (standalone, testable)
@@ -55,5 +55,5 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [ ] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 4 / 46 complete
+TOTAL: 5 / 46 complete
 ================================================================================
