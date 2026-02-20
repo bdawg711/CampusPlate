@@ -30,7 +30,7 @@ PHASE 3 — Integration (modifies shared files)
 [x] 1.5  Update app/(tabs)/index.tsx — remove FAB, add history access
 [x] 3.4  Add streak card to Dashboard (index.tsx)
 [x] 3.5  Add badges to Settings (more.tsx)
-[ ] 4.3  Integrate daily score into Dashboard + Progress
+[x] 4.3  Integrate daily score into Dashboard + Progress
 [ ] 5.3  Wire celebrations into Dashboard
 [ ] 6.4  Rebuild app/(tabs)/progress.tsx
 [ ] 7.3  Wire WeightChart into Progress tab
@@ -55,5 +55,5 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [ ] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 22 / 46 complete
+TOTAL: 23 / 46 complete
 ================================================================================
