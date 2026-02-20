@@ -26,7 +26,7 @@ PHASE 2 — Components (standalone, testable)
 
 PHASE 3 — Integration (modifies shared files)
 [x] 1.3  Create app/(tabs)/ai.tsx
-[ ] 1.4  Update app/(tabs)/_layout.tsx — new tab structure
+[x] 1.4  Update app/(tabs)/_layout.tsx — new tab structure
 [ ] 1.5  Update app/(tabs)/index.tsx — remove FAB, add history access
 [ ] 3.4  Add streak card to Dashboard (index.tsx)
 [ ] 3.5  Add badges to Settings (more.tsx)
@@ -55,5 +55,5 @@ PHASE 5 — Visual Restyle (apply AFTER all features integrated)
 [ ] 11.6 Global Polish Pass — Consistency Check Across All Screens
 
 ================================================================================
-TOTAL: 18 / 46 complete
+TOTAL: 19 / 46 complete
 ================================================================================
