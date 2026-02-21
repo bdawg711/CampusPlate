@@ -36,7 +36,9 @@
       "Bash(fi)",
       "Bash(done)",
       "Bash(while read file)",
-      "Bash(do if grep -P \"[^\\\\x00-\\\\x7F]\" \"$file\")"
+      "Bash(do if grep -P \"[^\\\\x00-\\\\x7F]\" \"$file\")",
+      "Bash(3,061 of 3,387 cal\"\\). The bar with the most room for improvement is\nhighlighted in gold accent to draw attention to the easiest win.\nAdded ScoreDetailData interface and passed actual/goal data from\nProgress screen.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(away — log meals tomorrow to earn Getting Started\". \\(Implementation\nwas included in Task 3.1 restructure, this commit marks it complete.\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
