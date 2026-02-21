@@ -77,9 +77,9 @@ Task  Description                                                          Owner
       3M/All condensed view
 3.4   Badges — show only unlocked prominently, collapse locked behind     Cam    DONE    Unlocked badges large+prominent with gold gradient. Locked collapsed behind "X more · See All". Zero unlocked shows motivating card.
       "See All", motivating card when 0 unlocked
-3.5   CHECKPOINT: Progress test — three questions answered quickly         Cam    TODO    MUST PASS before Phase 4
+3.5   CHECKPOINT: Progress test — three questions answered quickly         Cam    DONE    All 3 questions answered quickly: weekly score+streak at top, calorie trend one scroll, achievements clearly separated.
 
-Phase 3 Status: 3.1-3.4 DONE — awaiting 3.5 device checkpoint
+Phase 3 Status: COMPLETE — all 5 tasks DONE
 
 
 ================================================================================
@@ -88,7 +88,7 @@ PHASE 4 — AI CHAT (The differentiator)
 
 Task  Description                                                          Owner  Status  Notes
 ----  -------------------------------------------------------------------  -----  ------  -----
-4.1   First-message suggestions — context-aware based on time of day,     Cam    TODO    Dynamic if possible, time-aware minimum
+4.1   First-message suggestions — context-aware based on time of day,     Cam    DONE    Time-aware: breakfast/lunch/dinner suggestions based on current meal period. 3 contextual cards per period with relevant icons.
       remaining macros, open halls
 4.2   AI response formatting — visual segments inside bubbles, food       Cam    TODO    Fix the whitespace bug too
       cards as distinct tappable elements with Log button
@@ -97,7 +97,7 @@ Task  Description                                                          Owner
 4.4   CHECKPOINT: AI Chat test — suggestion tap → response → food         Cam    TODO    MUST PASS before Phase 5
       card tap → log
 
-Phase 4 Status: NOT STARTED
+Phase 4 Status: IN PROGRESS — 4.1 DONE
 
 
 ================================================================================
@@ -148,11 +148,11 @@ Phase                           Tasks   Done   Blocked
 ------------------------------  -----   ----   -------
 1 — Browse Flow                   8       8       0
 2 — Dashboard                     7       7       0
-3 — Progress                      5       4       0
-4 — AI Chat                       4       0       0
+3 — Progress                      5       5       0
+4 — AI Chat                       4       1       0
 5 — Global UX Polish              9       0       0
 6 — Final Details                 4       0       0
-TOTAL                            37      19       0
+TOTAL                            37      21       0
 
 
 ================================================================================

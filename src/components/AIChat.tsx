@@ -48,13 +48,50 @@ interface AIChatProps {
   onLogItem?: (item: MealItem) => void;
 }
 
-// ── Suggestion cards ────────────────────────────────────────────────────────
+// ── Time-aware helpers ───────────────────────────────────────────────────────
 
-const SUGGESTIONS: { icon: keyof typeof Feather.glyphMap; title: string; subtitle: string }[] = [
-  { icon: 'trending-up', title: 'Plan my meals today', subtitle: 'Based on your remaining macros' },
-  { icon: 'search', title: "What's high protein?", subtitle: 'Find meals that fit your goals' },
-  { icon: 'clock', title: "What's open now?", subtitle: 'See available dining halls' },
-];
+type MealPeriod = 'breakfast' | 'lunch' | 'dinner';
+
+function getCurrentMealPeriod(): MealPeriod {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const timeVal = hours * 60 + minutes;
+  if (timeVal < 10 * 60 + 30) return 'breakfast';
+  if (timeVal < 16 * 60) return 'lunch';
+  return 'dinner';
+}
+
+function getTimeSuggestions(): { icon: keyof typeof Feather.glyphMap; title: string; subtitle: string }[] {
+  const period = getCurrentMealPeriod();
+  if (period === 'breakfast') {
+    return [
+      { icon: 'sunrise', title: "What's good for breakfast right now?", subtitle: 'See what dining halls are serving' },
+      { icon: 'target', title: 'High-protein breakfast options', subtitle: 'Start your day strong' },
+      { icon: 'zap', title: 'Quick breakfast under 500 calories', subtitle: 'For when you\'re running late' },
+    ];
+  }
+  if (period === 'lunch') {
+    return [
+      { icon: 'search', title: "What's high-protein at D2 right now?", subtitle: 'Find meals that fit your goals' },
+      { icon: 'target', title: 'Plan my lunch under 800 calories', subtitle: 'Based on your remaining budget' },
+      { icon: 'trending-up', title: 'What should I eat to hit my protein goal?', subtitle: 'Close your macro gaps' },
+    ];
+  }
+  // dinner
+  return [
+    { icon: 'moon', title: "What's good for dinner right now?", subtitle: 'See what dining halls are serving' },
+    { icon: 'target', title: 'Plan my dinner under 800 calories', subtitle: 'Based on your remaining budget' },
+    { icon: 'trending-up', title: 'What should I eat to hit my protein goal?', subtitle: 'Close your macro gaps today' },
+  ];
+}
+
+function getPlaceholder(): string {
+  const period = getCurrentMealPeriod();
+  if (period === 'breakfast') return 'Ask about breakfast...';
+  if (period === 'lunch') return 'Ask about lunch...';
+  return 'Ask about dinner...';
+}
 
 // ── Component ───────────────────────────────────────────────────────────────
 
@@ -303,7 +340,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
                     I know today's menus, your goals, and what's open right now.
                   </Text>
                   <Box width="100%" style={{ marginTop: 32, gap: 8 }}>
-                    {SUGGESTIONS.map((s) => (
+                    {getTimeSuggestions().map((s) => (
                       <SuggestionCard
                         key={s.title}
                         icon={s.icon}
@@ -389,7 +426,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
               }}
               value={input}
               onChangeText={setInput}
-              placeholder="Ask about today's menu..."
+              placeholder={getPlaceholder()}
               placeholderTextColor="#9A9A9E"
               multiline
               maxLength={500}
