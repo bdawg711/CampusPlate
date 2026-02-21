@@ -24,8 +24,8 @@ const TAB_CONFIG: {
   size: number;
 }[] = [
   { name: 'index', label: 'Home', icon: 'home', size: 22 },
-  { name: 'browse', label: 'Browse', icon: 'search', size: 22 },
-  { name: 'ai', label: 'AI', icon: 'zap', size: 24 },
+  { name: 'browse', label: 'Menu', icon: 'search', size: 22 },
+  { name: 'ai', label: 'Ask AI', icon: 'zap', size: 24 },
   { name: 'progress', label: 'Progress', icon: 'trending-up', size: 22 },
   { name: 'more', label: 'Settings', icon: 'sliders', size: 22 },
 ];
