@@ -477,14 +477,14 @@ export default function HomeScreen() {
         onDismiss={() => setBannerVisible(false)}
       />
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#861F41" />
         }
       >
-        {/* 1. Greeting + Avatar row */}
-        <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="m">
+        {/* 1. Greeting + Avatar row — compact, single line feel */}
+        <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="s">
           <Box>
             <Text variant="muted">{getGreeting()}</Text>
             <Text variant="pageTitle">{profile?.name || 'there'}</Text>
@@ -504,7 +504,7 @@ export default function HomeScreen() {
         </Box>
 
         {/* 2. SpiralRings hero (has its own animation — NOT in StaggeredList) */}
-        <Box alignItems="center" marginBottom="m">
+        <Box alignItems="center" marginBottom="s">
           <SpiralRings
             key={ringsKey}
             calories={{ current: totalCal, goal: goalCal }}
@@ -516,8 +516,8 @@ export default function HomeScreen() {
 
         {/* StaggeredList wraps MacroLegend downward */}
         <StaggeredList staggerDelay={50} initialDelay={200}>
-          {/* 3. MacroLegend */}
-          <Box marginBottom="m">
+          {/* 3. MacroLegend — 28px space below creates visual chapter break */}
+          <Box style={{ marginBottom: 28 }}>
             <MacroLegend
               calories={{ current: totalCal, goal: goalCal }}
               protein={{ current: totalPro, goal: goalPro }}

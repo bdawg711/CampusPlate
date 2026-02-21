@@ -34,9 +34,9 @@ Task  Description                                                          Owner
       stay in Browse, animate rings on Dashboard return
 1.7   Search improvements — food items across all halls, recent            Cam    DONE    Global food search across all halls (name+cal+hall). Recent searches in AsyncStorage (last 5). Filter-as-you-type with 300ms debounce.
       searches, popular items on empty focus, filter-as-you-type
-1.8   CHECKPOINT: Browse flow device test — full flow end to end           Cam    TODO    MUST PASS before Phase 2
+1.8   CHECKPOINT: Browse flow device test — full flow end to end           Cam    DONE    All 8 steps verified: auto-meal, open/closed, compact stations, scannable items, sticky log btn, post-log toast, multi-log, ring animation on return.
 
-Phase 1 Status: 1.1-1.7 DONE — awaiting 1.8 device checkpoint
+Phase 1 Status: COMPLETE — all 8 tasks DONE
 
 
 ================================================================================
@@ -45,7 +45,7 @@ PHASE 2 — DASHBOARD (The daily check-in screen)
 
 Task  Description                                                          Owner  Status  Notes
 ----  -------------------------------------------------------------------  -----  ------  -----
-2.1   Above-the-fold hierarchy — only greeting + rings + legend visible    Cam    TODO    Push everything else below fold
+2.1   Above-the-fold hierarchy — only greeting + rings + legend visible    Cam    DONE    Reduced top padding to 12px, tightened greeting/rings margins to "s", 28px gap below MacroLegend for chapter break
       without scrolling
 2.2   Section spacing and dividers — 28-32px gaps + borderLight dividers   Cam    TODO    Creates visual "chapters"
       between major sections
@@ -146,13 +146,13 @@ SUMMARY TABLE
 
 Phase                           Tasks   Done   Blocked
 ------------------------------  -----   ----   -------
-1 — Browse Flow                   8       7       0
+1 — Browse Flow                   8       8       0
 2 — Dashboard                     7       0       0
 3 — Progress                      5       0       0
 4 — AI Chat                       4       0       0
 5 — Global UX Polish              9       0       0
 6 — Final Details                 4       0       0
-TOTAL                            37       7       0
+TOTAL                            37       8       0
 
 
 ================================================================================
