@@ -2,18 +2,19 @@ import { supabase } from './supabase';
 
 // Default VT dining hall hours — used when dining_hall_hours table has no data
 const DEFAULT_MEAL_HOURS = [
-  { meal: 'Breakfast', open_time: '07:00:00', close_time: '10:00:00' },
-  { meal: 'Lunch',     open_time: '11:00:00', close_time: '14:00:00' },
-  { meal: 'Dinner',    open_time: '17:00:00', close_time: '21:00:00' },
+  { meal_label: 'Breakfast', open_time: '07:00:00', close_time: '10:00:00' },
+  { meal_label: 'Lunch',     open_time: '11:00:00', close_time: '14:00:00' },
+  { meal_label: 'Dinner',    open_time: '17:00:00', close_time: '21:00:00' },
 ];
 
 export interface HallHourRow {
   id: number;
   dining_hall_id: number;
   date: string; // 'YYYY-MM-DD'
-  meal: string;
+  meal_label: string;
   open_time: string; // 'HH:MM:SS'
   close_time: string;
+  created_at: string;
 }
 
 export interface HallStatus {
@@ -54,7 +55,7 @@ export async function getHallHours(hallId: number): Promise<HallHourRow[]> {
   try {
     const { data, error } = await supabase
       .from('dining_hall_hours')
-      .select('id, dining_hall_id, date, meal, open_time, close_time')
+      .select('id, dining_hall_id, date, meal_label, open_time, close_time, created_at')
       .eq('dining_hall_id', hallId)
       .order('date')
       .order('open_time');
@@ -79,7 +80,7 @@ export async function isHallOpen(hallId: number, now: Date): Promise<HallStatus>
     // Fetch today's and tomorrow's hours in one query
     const { data, error } = await supabase
       .from('dining_hall_hours')
-      .select('meal, open_time, close_time, date')
+      .select('meal_label, open_time, close_time, date')
       .eq('dining_hall_id', hallId)
       .in('date', [today, tomorrow])
       .order('open_time');
@@ -117,7 +118,7 @@ export async function getAllHallStatuses(now: Date): Promise<Record<number, Hall
     // Single query for all halls, today + tomorrow
     const { data, error } = await supabase
       .from('dining_hall_hours')
-      .select('dining_hall_id, meal, open_time, close_time, date')
+      .select('dining_hall_id, meal_label, open_time, close_time, date')
       .in('date', [today, tomorrow])
       .order('open_time');
 
@@ -195,8 +196,8 @@ export async function getAllHallStatuses(now: Date): Promise<Record<number, Hall
  */
 function computeStatus(
   nowMinutes: number,
-  todayHours: { meal: string; open_time: string; close_time: string }[],
-  tomorrowHours: { meal: string; open_time: string; close_time: string }[]
+  todayHours: { meal_label: string; open_time: string; close_time: string }[],
+  tomorrowHours: { meal_label: string; open_time: string; close_time: string }[]
 ): HallStatus {
   // Check if currently open (open_time <= now < close_time)
   for (const row of todayHours) {
@@ -206,7 +207,7 @@ function computeStatus(
       return {
         isOpen: true,
         closingSoon: (close - nowMinutes) <= 30,
-        currentMeal: row.meal,
+        currentMeal: row.meal_label,
         closingTime: formatTime12h(row.close_time),
       };
     }
@@ -220,7 +221,7 @@ function computeStatus(
       return {
         isOpen: false,
         nextOpen: formatTime12h(row.open_time),
-        nextMeal: row.meal,
+        nextMeal: row.meal_label,
       };
     }
   }
@@ -231,7 +232,7 @@ function computeStatus(
     return {
       isOpen: false,
       nextOpen: formatTime12h(first.open_time),
-      nextMeal: first.meal,
+      nextMeal: first.meal_label,
     };
   }
 
