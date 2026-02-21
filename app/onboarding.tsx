@@ -135,12 +135,12 @@ export default function OnboardingScreen({ onComplete }: Props) {
           .from('dining_halls')
           .select('id, name');
         if (error) {
-          console.error('[Onboarding] Failed to fetch dining halls:', error.message);
+          if (__DEV__) console.error('[Onboarding] Failed to fetch dining halls:', error.message);
           return;
         }
         setDiningHalls(data ?? []);
       } catch (e: any) {
-        console.error('[Onboarding] Error fetching dining halls:', e.message);
+        if (__DEV__) console.error('[Onboarding] Error fetching dining halls:', e.message);
       } finally {
         setHallsLoading(false);
       }
@@ -242,8 +242,6 @@ export default function OnboardingScreen({ onComplete }: Props) {
       const macros = calcMacros(goalCals);
       const dietaryNeeds = dietary.includes('No restrictions') ? [] : dietary;
 
-      console.log('[Onboarding] Selected home hall ID:', homeHall);
-
       const { data: upsertData, error: upsertError } = await supabase.from('profiles').upsert({
         id: userId,
         name: name.trim() || 'Student',
@@ -266,12 +264,12 @@ export default function OnboardingScreen({ onComplete }: Props) {
         onboarding_complete: true,
       }).select();
       if (upsertError) {
-        console.error('[AuthFlow] Onboarding upsert failed:', upsertError.message);
+        if (__DEV__) console.error('[AuthFlow] Onboarding upsert failed:', upsertError.message);
         return;
       }
       onComplete();
     } catch (e: any) {
-      console.error('Onboarding save error:', e.message);
+      if (__DEV__) console.error('Onboarding save error:', e.message);
     } finally {
       setSaving(false);
     }

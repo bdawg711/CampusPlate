@@ -65,16 +65,16 @@ function RootContent() {
   useEffect(() => {
     getSession()
       .then((s) => {
-        console.log('[AuthFlow] Initial session check:', s ? 'found session' : 'no session');
+        if (__DEV__) console.log('[AuthFlow] Initial session check:', s ? 'found session' : 'no session');
         setSession(s ?? null);
       })
       .catch(() => {
-        console.log('[AuthFlow] Session check failed, showing auth');
+        if (__DEV__) console.log('[AuthFlow] Session check failed, showing auth');
         setSession(null);
       });
 
     const subscription = onAuthChange((s) => {
-      console.log('[AuthFlow] Auth state changed:', s ? 'signed in' : 'signed out');
+      if (__DEV__) console.log('[AuthFlow] Auth state changed:', s ? 'signed in' : 'signed out');
       setSession(s ?? null);
       if (!s) setOnboardingComplete(undefined);
     });
@@ -94,14 +94,14 @@ function RootContent() {
           .eq('id', session.user.id)
           .single();
         if (profileError) {
-          console.log('[AuthFlow] No profile found, showing onboarding. Error:', profileError.message);
+          if (__DEV__) console.log('[AuthFlow] No profile found, showing onboarding. Error:', profileError.message);
           setOnboardingComplete(false);
           return;
         }
-        console.log('[AuthFlow] Profile found: onboarding_complete =', data?.onboarding_complete);
+        if (__DEV__) console.log('[AuthFlow] Profile found: onboarding_complete =', data?.onboarding_complete);
         setOnboardingComplete(data?.onboarding_complete === true);
       } catch (e: any) {
-        console.log('[AuthFlow] Profile check exception:', e.message);
+        if (__DEV__) console.log('[AuthFlow] Profile check exception:', e.message);
         setOnboardingComplete(false);
       }
     })();
@@ -142,10 +142,10 @@ function RootContent() {
         const hasEnabled = reminders.some((r) => r.enabled);
         if (hasEnabled) {
           await scheduleMealReminders(reminders);
-          console.log('[Reminders] Restored meal reminders on launch');
+          if (__DEV__) console.log('[Reminders] Restored meal reminders on launch');
         }
       } catch (e: any) {
-        console.log('[Reminders] Failed to restore reminders:', e?.message);
+        if (__DEV__) console.log('[Reminders] Failed to restore reminders:', e?.message);
       }
     })();
   }, [session, onboardingComplete]);

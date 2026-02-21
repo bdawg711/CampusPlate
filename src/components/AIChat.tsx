@@ -134,7 +134,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
           meal_items: r.meal_items,
         }));
       } catch (err) {
-        console.error('Failed to load chat history:', (err as Error).message);
+        if (__DEV__) console.error('Failed to load chat history:', (err as Error).message);
       } finally {
         if (!cancelled) setInitialLoading(false);
       }

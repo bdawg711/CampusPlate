@@ -2,7 +2,7 @@
   "expo": {
     "name": "CampusPlate",
     "slug": "CampusPlate",
-    "version": "1.0.0",
+    "version": "2.5.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "campusplate",
@@ -19,7 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#861F41"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false

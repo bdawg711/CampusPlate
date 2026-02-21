@@ -81,7 +81,7 @@ export default function HistoryScreen() {
       if (profileRes.data) setProfile(profileRes.data);
       setLogs(logsRes.data || []);
     } catch (e) {
-      console.error('History load error:', e);
+      if (__DEV__) console.error('History load error:', e);
     } finally {
       setLoading(false);
     }

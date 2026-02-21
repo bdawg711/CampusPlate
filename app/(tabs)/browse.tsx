@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -240,7 +240,7 @@ export default function BrowseScreen() {
       setUsingFallback(fallback);
       setEffectiveDate(menuDate);
     } catch (e) {
-      console.error('Load halls error:', e);
+      if (__DEV__) console.error('Load halls error:', e);
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -304,10 +304,9 @@ export default function BrowseScreen() {
   const loadHallStatuses = useCallback(async () => {
     try {
       const statuses = await getAllHallStatuses(new Date());
-      console.log('[browse] Hall statuses loaded:', JSON.stringify(statuses, null, 2));
       setHallStatuses(statuses);
     } catch (err) {
-      console.error('[browse] loadHallStatuses error:', err);
+      if (__DEV__) console.error('[browse] loadHallStatuses error:', err);
     }
   }, []);
 
@@ -362,7 +361,7 @@ export default function BrowseScreen() {
       setGlobalSearchResults(results);
       if (results.length > 0) saveRecentSearch(query.trim());
     } catch (e) {
-      console.error('Global search error:', e);
+      if (__DEV__) console.error('Global search error:', e);
       setGlobalSearchResults([]);
     } finally {
       setGlobalSearchLoading(false);
@@ -470,7 +469,7 @@ export default function BrowseScreen() {
       }
       setFilterItems(items);
     } catch (err) {
-      console.error('Load filtered items error:', err);
+      if (__DEV__) console.error('Load filtered items error:', err);
       setFilterItems([]);
     } finally {
       setFilterLoading(false);
@@ -484,7 +483,7 @@ export default function BrowseScreen() {
     loadHalls();
     loadFavorites();
     loadRatings();
-    loadHallStatuses();
+    // Hall statuses don't change when clearing a filter — skip redundant fetch
   };
 
   const openHall = async (hall: any) => {
@@ -507,7 +506,7 @@ export default function BrowseScreen() {
         .order('name');
       setAllHallItems(data || []);
     } catch (e) {
-      console.error('Load hall items error:', e);
+      if (__DEV__) console.error('Load hall items error:', e);
     } finally {
       setHallItemsLoading(false);
     }
@@ -560,7 +559,7 @@ export default function BrowseScreen() {
         meal,
         servings,
       });
-      if (error) { console.error('Log meal failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
+      if (error) { if (__DEV__) console.error('Log meal failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
       setLogSuccess(true);
       triggerHaptic('success');
       const n = getNutr(selectedItem);
@@ -572,7 +571,7 @@ export default function BrowseScreen() {
         });
       }, 1500);
     } catch (e) {
-      console.error('Log error:', e);
+      if (__DEV__) console.error('Log error:', e);
     } finally {
       setLogging(false);
     }
@@ -624,7 +623,7 @@ export default function BrowseScreen() {
 
   // ─── Derived data ─────────────────────────────────────────────────────────
 
-  const derivedStations: { name: string; count: number }[] = (() => {
+  const derivedStations = useMemo(() => {
     const map: Record<string, number> = {};
     allHallItems.forEach((item) => {
       const s = item.station || 'Other';
@@ -633,18 +632,27 @@ export default function BrowseScreen() {
     return Object.entries(map)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
-  })();
+  }, [allHallItems]);
 
-  const stationItems = allHallItems.filter((item) => item.station === selectedStation);
-  const filteredStationItems = itemSearch
-    ? stationItems.filter((item) => item.name.toLowerCase().includes(itemSearch.toLowerCase()))
-    : stationItems;
+  const stationItems = useMemo(
+    () => allHallItems.filter((item) => item.station === selectedStation),
+    [allHallItems, selectedStation]
+  );
+  const filteredStationItems = useMemo(
+    () => itemSearch
+      ? stationItems.filter((item) => item.name.toLowerCase().includes(itemSearch.toLowerCase()))
+      : stationItems,
+    [stationItems, itemSearch]
+  );
 
-  const filteredAllItems = itemSearch
-    ? allHallItems.filter((item) => item.name.toLowerCase().includes(itemSearch.toLowerCase()))
-    : [];
+  const filteredAllItems = useMemo(
+    () => itemSearch
+      ? allHallItems.filter((item) => item.name.toLowerCase().includes(itemSearch.toLowerCase()))
+      : [],
+    [allHallItems, itemSearch]
+  );
 
-  const filteredByStation: { station: string; items: any[] }[] = (() => {
+  const filteredByStation = useMemo(() => {
     const map: Record<string, any[]> = {};
     filteredAllItems.forEach((item) => {
       const s = item.station || 'Other';
@@ -654,19 +662,18 @@ export default function BrowseScreen() {
     return Object.entries(map)
       .map(([station, items]) => ({ station, items }))
       .sort((a, b) => a.station.localeCompare(b.station));
-  })();
+  }, [filteredAllItems]);
 
-  const filteredHalls = (() => {
+  const filteredHalls = useMemo(() => {
     const list = hallSearch
       ? halls.filter((h) => h.name.toLowerCase().includes(hallSearch.toLowerCase()))
       : halls;
-    console.log('[browse] Hall IDs:', list.map(h => h.id), 'Status keys:', Object.keys(hallStatuses));
     return [...list].sort((a, b) => {
       const aOpen = hallStatuses[a.id]?.isOpen ? 1 : 0;
       const bOpen = hallStatuses[b.id]?.isOpen ? 1 : 0;
       return bOpen - aOpen;
     });
-  })();
+  }, [halls, hallSearch, hallStatuses]);
 
   const handleToggleFavorite = async (item: any) => {
     if (!item.rec_num) return;

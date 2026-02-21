@@ -23,7 +23,7 @@ export default function AIScreen() {
         servings: 1,
       });
       if (error) {
-        console.error('AI log meal failed:', error.message);
+        if (__DEV__) console.error('AI log meal failed:', error.message);
         Alert.alert('Error', 'Failed to log meal. Please try again.');
         return;
       }
@@ -31,7 +31,7 @@ export default function AIScreen() {
       Alert.alert('Logged!', `${item.name} (${item.calories} cal) added to your log.`);
       setRefreshKey((k) => k + 1);
     } catch (e: any) {
-      console.error('AI log error:', e?.message);
+      if (__DEV__) console.error('AI log error:', e?.message);
       Alert.alert('Error', 'Something went wrong. Please try again.');
     }
   }, []);

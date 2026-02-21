@@ -119,7 +119,7 @@ export default function SettingsRestyle() {
       setScoreGrade(dailyScore.grade);
       setScoreGradeColor(dailyScore.gradeColor);
     } catch (e) {
-      console.error('More load error:', e);
+      if (__DEV__) console.error('More load error:', e);
     } finally {
       setLoading(false);
     }
@@ -132,10 +132,10 @@ export default function SettingsRestyle() {
       const userId = await requireUserId();
       const newVal = !profile?.high_protein;
       const { error } = await supabase.from('profiles').update({ high_protein: newVal }).eq('id', userId);
-      if (error) { console.error('Toggle failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
+      if (error) { if (__DEV__) console.error('Toggle failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
       setProfile((p: any) => p ? { ...p, high_protein: newVal } : p);
     } catch (e) {
-      console.error('Toggle error:', e);
+      if (__DEV__) console.error('Toggle error:', e);
     }
   };
 
@@ -153,7 +153,7 @@ export default function SettingsRestyle() {
       setWaterGoalOz(parsed);
       setWaterGoalModalVisible(false);
     } catch (e) {
-      console.error('Failed to save water goal:', e);
+      if (__DEV__) console.error('Failed to save water goal:', e);
     }
   };
 
@@ -165,7 +165,7 @@ export default function SettingsRestyle() {
       setProfile((p: any) => (p ? { ...p, goal_calories: goals.goalCalories } : p));
       setGoalsModalVisible(false);
     } catch (error) {
-      console.error('Failed to save goals:', error);
+      if (__DEV__) console.error('Failed to save goals:', error);
     }
   };
 
@@ -414,9 +414,10 @@ export default function SettingsRestyle() {
           <SettingsRow
             icon="info" iconBg="silverTint" iconColor="silver"
             label="About" isLast
+            onPress={() => Alert.alert('CampusPlate v2.5', 'Virginia Tech dining nutrition tracker.\nTrack meals, hit your macros, eat smarter.\n\nBuilt for Hokies, by Hokies.')}
             rightContent={
               <>
-                <Text variant="bodySmall" color="textDim" marginRight="s">v2.0</Text>
+                <Text variant="bodySmall" color="textDim" marginRight="s">v2.5</Text>
                 <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
               </>
             }
@@ -433,7 +434,7 @@ export default function SettingsRestyle() {
 
         {/* ── Footer ── */}
         <Box alignItems="center" style={{ marginTop: 24, paddingBottom: 8 }}>
-          <Text variant="muted" color="silver" style={{ fontSize: 13 }}>CampusPlate v2.0</Text>
+          <Text variant="muted" color="silver" style={{ fontSize: 13 }}>CampusPlate v2.5</Text>
           <Text variant="dim" color="silver" style={{ opacity: 0.5, marginTop: 4 }}>Built for Hokies, by Hokies</Text>
         </Box>
       </ScrollView>

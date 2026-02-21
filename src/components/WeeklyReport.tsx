@@ -85,7 +85,7 @@ export default function WeeklyReport({ visible, onClose, initialEndDate }: Weekl
       const report = await getWeeklyReport(userId, dateStr);
       setData(report);
     } catch (err) {
-      console.error('Weekly report load failed:', (err as Error).message);
+      if (__DEV__) console.error('Weekly report load failed:', (err as Error).message);
       Alert.alert('Error', 'Failed to load weekly report.');
     } finally {
       setLoading(false);

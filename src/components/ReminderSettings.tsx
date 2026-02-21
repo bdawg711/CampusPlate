@@ -50,7 +50,7 @@ export default function ReminderSettings({ visible, onClose }: ReminderSettingsP
         const userId = await requireUserId();
         const prefs = await loadMealReminders(userId);
         setReminders(prefs);
-      } catch (e: any) { console.error('Failed to load reminders:', e?.message); } finally { setLoading(false); }
+      } catch (e: any) { if (__DEV__) console.error('Failed to load reminders:', e?.message); } finally { setLoading(false); }
     })();
   }, [visible]);
 
@@ -109,7 +109,7 @@ export default function ReminderSettings({ visible, onClose }: ReminderSettingsP
       await saveMealReminders(userId, reminders);
       Alert.alert('Saved', 'Your meal reminders have been updated.');
       onClose();
-    } catch (e: any) { console.error('Failed to save reminders:', e?.message); Alert.alert('Error', 'Failed to save reminders. Please try again.'); } finally { setSaving(false); }
+    } catch (e: any) { if (__DEV__) console.error('Failed to save reminders:', e?.message); Alert.alert('Error', 'Failed to save reminders. Please try again.'); } finally { setSaving(false); }
   };
 
   return (

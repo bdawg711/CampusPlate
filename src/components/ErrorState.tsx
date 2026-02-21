@@ -8,7 +8,7 @@ interface ErrorStateProps {
   onRetry?: () => void;
 }
 
-export default function ErrorState({
+function ErrorState({
   message = "Couldn't load data",
   onRetry,
 }: ErrorStateProps) {
@@ -50,3 +50,5 @@ export default function ErrorState({
     </Box>
   );
 }
+
+export default React.memo(ErrorState);

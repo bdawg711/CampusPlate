@@ -245,7 +245,7 @@ export default function ProgressScreen() {
         });
       }
     } catch (e) {
-      console.error('Progress load error:', e);
+      if (__DEV__) console.error('Progress load error:', e);
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -275,7 +275,7 @@ export default function ProgressScreen() {
       // Reload weight chart data
       await loadData();
     } catch (e) {
-      console.error('Weight save error:', e);
+      if (__DEV__) console.error('Weight save error:', e);
       Alert.alert('Error', 'Failed to save weight. Please try again.');
     } finally {
       setSavingWeight(false);
@@ -816,7 +816,7 @@ export default function ProgressScreen() {
                 await Sharing.shareAsync(uri);
                 triggerHaptic('light');
               } catch (e) {
-                console.error('Share error:', e);
+                if (__DEV__) console.error('Share error:', e);
               } finally {
                 setSharing(false);
               }

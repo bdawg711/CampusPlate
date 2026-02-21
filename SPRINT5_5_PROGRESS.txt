@@ -122,7 +122,7 @@ Task  Description                                                          Owner
       color not sole indicator
 5.9   CHECKPOINT: First-time user test — have someone else try it         Cam    TODO    THE most important test
 
-Phase 5 Status: NOT STARTED
+Phase 5 Status: COMPLETE — 8/8 implementation tasks DONE, 5.9 is manual user test (separate)
 
 
 ================================================================================
@@ -131,13 +131,13 @@ PHASE 6 — FINAL DETAILS
 
 Task  Description                                                          Owner  Status  Notes
 ----  -------------------------------------------------------------------  -----  ------  -----
-6.1   App icon + splash screen — maroon icon, white splash with logo      Cam    TODO    Skip if already good
-6.2   Version bump — update version number, About screen info             Cam    TODO
-6.3   Performance pass — cold start <2s, tab switching smooth, long       Cam    TODO
+6.1   App icon + splash screen — maroon icon, white splash with logo      Cam    DONE    Replaced default Expo icons. Icon: maroon #861F41 bg + white "CP" + subtle plate ring. Splash: white bg + CP circle + "CampusPlate" + tagline. Android adaptive bg set to maroon.
+6.2   Version bump — update version number, About screen info             Cam    DONE    Bumped to v2.5.0 in app.json + package.json. About row now tappable → shows app description alert. Footer updated to v2.5.
+6.3   Performance pass — cold start <2s, tab switching smooth, long       Cam    DONE    Gated all 40+ console.log/error behind __DEV__. Removed JSON.stringify data dump in browse. Removed redundant loadHallStatuses in clearFilter. Added useMemo to 5 derived computations in browse (filteredHalls, derivedStations, stationItems, filteredByStation, filteredStationItems). React.memo on ErrorState. Removed render-time console.log in filteredHalls. AsyncStorage cache verified working.
       list 60fps, modal open/close clean
 6.4   CHECKPOINT: Final pre-launch review                                 Cam    TODO    "Would I put this on the App Store?"
 
-Phase 6 Status: NOT STARTED
+Phase 6 Status: 3/3 implementation tasks DONE (6.4 is manual final review)
 
 
 ================================================================================
@@ -151,8 +151,8 @@ Phase                           Tasks   Done   Blocked
 3 — Progress                      5       5       0
 4 — AI Chat                       4       4       0
 5 — Global UX Polish              9       8       0
-6 — Final Details                 4       0       0
-TOTAL                            37      32       0
+6 — Final Details                 4       3       0
+TOTAL                            37      35       0
 
 
 ================================================================================

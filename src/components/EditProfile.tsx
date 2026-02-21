@@ -139,7 +139,7 @@ export default function EditProfile({ visible, onClose, onSaved }: EditProfilePr
         age: parseInt(age) || 0, is_male: isMale,
         activity_level: activityLevel, goal, home_hall_id: homeHallId,
       }).eq('id', userId);
-      if (error) { console.error('Save profile failed:', error.message); Alert.alert('Error', 'Failed to save profile. Please try again.'); return; }
+      if (error) { if (__DEV__) console.error('Save profile failed:', error.message); Alert.alert('Error', 'Failed to save profile. Please try again.'); return; }
 
       Alert.alert('Profile Saved', 'Recalculate your nutrition goals based on your updated body stats?', [
         { text: 'No thanks', style: 'cancel', onPress: () => { onSaved(); onClose(); } },

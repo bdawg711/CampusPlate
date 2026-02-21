@@ -307,7 +307,7 @@ export default function HomeScreen() {
         }
       }
     } catch (e) {
-      console.error('Dashboard load error:', e);
+      if (__DEV__) console.error('Dashboard load error:', e);
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -370,10 +370,10 @@ export default function HomeScreen() {
     try {
       const userId = await requireUserId();
       const { error } = await supabase.from('meal_logs').delete().eq('id', logId).eq('user_id', userId);
-      if (error) { console.error('Delete failed:', error.message); Alert.alert('Error', 'Failed to delete. Please try again.'); return; }
+      if (error) { if (__DEV__) console.error('Delete failed:', error.message); Alert.alert('Error', 'Failed to delete. Please try again.'); return; }
       setLogs((prev) => prev.filter((l) => l.id !== logId));
     } catch (e) {
-      console.error('Delete error:', e);
+      if (__DEV__) console.error('Delete error:', e);
     }
   };
 
@@ -390,7 +390,7 @@ export default function HomeScreen() {
         setBannerVisible(true);
       }
     } catch (error) {
-      console.error('Failed to add water:', error);
+      if (__DEV__) console.error('Failed to add water:', error);
     }
   };
 

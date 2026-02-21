@@ -25,6 +25,6 @@ export function triggerHaptic(style: HapticStyle): void {
         break;
     }
   } catch (e) {
-    console.log('[Haptics] Error:', e);
+    // Haptics silently fail on unsupported platforms (e.g. simulator)
   }
 }

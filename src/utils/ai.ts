@@ -57,7 +57,6 @@ export async function sendMessage(
   const session = sessionData.session;
 
   const invokeBody = { userId, message, history: trimmedHistory, date };
-  console.log('[AI] Invoking ai-chat with body:', JSON.stringify(invokeBody));
 
   const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
     method: 'POST',
@@ -70,8 +69,6 @@ export async function sendMessage(
   });
 
   const responseText = await response.text();
-  console.log('[AI] Raw response status:', response.status);
-  console.log('[AI] Raw response body:', responseText);
 
   if (!response.ok) {
     throw new Error(`AI error (${response.status}): ${responseText}`);
@@ -80,7 +77,7 @@ export async function sendMessage(
   const data = JSON.parse(responseText);
 
   if (data?.error) {
-    console.error('[AI] Function returned error in body:', data.error);
+    if (__DEV__) console.error('[AI] Function returned error in body:', data.error);
     throw new Error(data.error);
   }
 

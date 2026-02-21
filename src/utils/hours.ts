@@ -88,11 +88,8 @@ export async function isHallOpen(hallId: number, now: Date): Promise<HallStatus>
     if (error) throw new Error(`Failed to fetch hall hours: ${error.message}`);
 
     const rows = data ?? [];
-    console.log(`[hours] isHallOpen(${hallId}) returned ${rows.length} rows`);
-
     // Fallback to default hours if no data
     if (rows.length === 0) {
-      console.log(`[hours] No hours for hall ${hallId} — using default VT hours`);
       return computeStatus(nowMinutes, DEFAULT_MEAL_HOURS, DEFAULT_MEAL_HOURS);
     }
 
@@ -125,11 +122,8 @@ export async function getAllHallStatuses(now: Date): Promise<Record<number, Hall
     if (error) throw new Error(`Failed to fetch hall hours: ${error.message}`);
 
     const rows = data ?? [];
-    console.log(`[hours] dining_hall_hours query returned ${rows.length} rows for ${today}/${tomorrow}`);
-
     // If table is empty, use default time-based fallback for all halls
     if (rows.length === 0) {
-      console.log('[hours] No hours data — using default VT dining hours fallback');
       try {
         const { data: hallsData } = await supabase
           .from('dining_halls')
@@ -141,7 +135,7 @@ export async function getAllHallStatuses(now: Date): Promise<Record<number, Hall
         }
         return result;
       } catch (fallbackErr) {
-        console.log('[hours] Fallback dining_halls query also failed:', fallbackErr);
+        if (__DEV__) console.warn('[hours] Fallback dining_halls query failed:', fallbackErr);
         return {};
       }
     }
@@ -177,7 +171,7 @@ export async function getAllHallStatuses(now: Date): Promise<Record<number, Hall
         .select('id');
       for (const h of allHalls ?? []) {
         if (!result[h.id]) {
-          console.log(`[hours] Hall ${h.id} missing from hours data — applying default hours`);
+          if (__DEV__) console.log(`[hours] Hall ${h.id} missing from hours data — applying default hours`);
           result[h.id] = computeStatus(nowMinutes, DEFAULT_MEAL_HOURS, DEFAULT_MEAL_HOURS);
         }
       }
