@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  RefreshControl,
   ScrollView,
   Share,
   Switch,
@@ -35,6 +36,7 @@ export default function SettingsRestyle() {
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [waterGoalOz, setWaterGoalOz] = useState<number>(64);
@@ -248,7 +250,21 @@ export default function SettingsRestyle() {
   // ── Main render ──
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingTop: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingTop: 20, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadData();
+              setRefreshing(false);
+            }}
+            tintColor="#861F41"
+          />
+        }
+      >
 
         {/* Page title */}
         <Text variant="pageTitle" style={{ paddingHorizontal: 20 }}>Settings</Text>
