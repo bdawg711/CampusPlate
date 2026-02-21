@@ -109,6 +109,7 @@ export default function HomeScreen() {
   const [forYouLight, setForYouLight] = useState<RecommendedItem[]>([]);
   const [hallNames, setHallNames] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [waterOz, setWaterOz] = useState<number>(0);
   const [waterGoal, setWaterGoal] = useState<number>(64);
@@ -136,9 +137,32 @@ export default function HomeScreen() {
   // Track previous log count to detect new meal logs (for success haptic)
   const prevLogCount = useRef(0);
 
+  // 300ms delay before showing skeletons (prevent flash on fast loads)
+  useEffect(() => {
+    if (!loading) { setShowSkeleton(false); return; }
+    const timer = setTimeout(() => setShowSkeleton(true), 300);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  // Restore cached dashboard data + streak milestone on mount
   useEffect(() => {
     AsyncStorage.getItem('lastStreakMilestone').then((val) => {
       if (val) lastCelebratedMilestone.current = parseInt(val, 10) || 0;
+    });
+    // Restore cached dashboard snapshot for instant display
+    AsyncStorage.getItem('dashboardCache').then((raw) => {
+      if (!raw) return;
+      try {
+        const cached = JSON.parse(raw);
+        const today = getLocalDate();
+        if (cached.date !== today) return; // stale cache from different day
+        if (cached.profile) setProfile(cached.profile);
+        if (cached.logs) setLogs(cached.logs);
+        if (cached.waterOz != null) setWaterOz(cached.waterOz);
+        if (cached.waterGoal != null) setWaterGoal(cached.waterGoal);
+        if (cached.streakData) setStreakData(cached.streakData);
+        setLoading(false); // show cached data immediately
+      } catch { /* ignore corrupt cache */ }
     });
   }, []);
 
@@ -244,6 +268,18 @@ export default function HomeScreen() {
       setWaterGoal(waterGoalRes);
       if (hallStatusMap) setOpenHalls(hallStatusMap);
       if (streakResult) setStreakData(streakResult);
+
+      // Save dashboard snapshot to AsyncStorage for instant next load
+      try {
+        await AsyncStorage.setItem('dashboardCache', JSON.stringify({
+          date: today,
+          profile: profileRes.data,
+          logs: logsRes.data,
+          waterOz: waterCount,
+          waterGoal: waterGoalRes,
+          streakData: streakResult,
+        }));
+      } catch { /* non-critical */ }
 
       // Reset celebration refs on date change
       if (today !== currentDateRef.current) {
@@ -435,7 +471,7 @@ export default function HomeScreen() {
 
   // ─── Loading skeleton ───
 
-  if (loading) {
+  if (loading && showSkeleton) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
         <Box padding="m" paddingBottom="xxl">
@@ -463,6 +499,11 @@ export default function HomeScreen() {
         </Box>
       </SafeAreaView>
     );
+  }
+
+  // Still loading but within 300ms window — show nothing (prevents skeleton flash)
+  if (loading) {
+    return <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }} />;
   }
 
   // ─── Main render ───
