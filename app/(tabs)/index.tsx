@@ -596,6 +596,7 @@ export default function HomeScreen() {
               onHistoryPress={() => setShowHistory(true)}
               onDeleteLog={deleteLog}
               logBelongsToMealGroup={logBelongsToMealGroup}
+              onBrowseMeal={(meal) => router.push({ pathname: '/(tabs)/browse', params: { meal } })}
             />
           </Box>
         </StaggeredList>

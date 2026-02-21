@@ -51,7 +51,7 @@ Task  Description                                                          Owner
       between major sections
 2.3   Smarter For You — only show sections with items, max 2 visible,     Cam    DONE    Max 2 sections, priority: Macros>Favs>New. Cards 164px wide, 2-line name, bold maroon cal, dim hall. Removed icon top-right.
       wider food cards with no name truncation
-2.4   Compact empty states — single line "No lunch · Browse →" with       Cam    TODO    Cuts height from ~80px to ~40px
+2.4   Compact empty states — single line "No lunch · Browse →" with       Cam    DONE    Compact ~40px empty state: "Nothing for lunch yet · Browse →" tappable maroon link, removed Feather icons, wired onBrowseMeal nav
       tappable link, remove decorative icons
 2.5   Water tracker — "Almost there!" at 80%, goal hit feedback,          Cam    TODO    Mini confetti burst at 100%
       bounce animation on buttons

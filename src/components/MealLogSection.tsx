@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '../theme/restyleTheme';
 
@@ -30,14 +30,15 @@ interface MealLogSectionProps {
   onHistoryPress: () => void;
   onDeleteLog: (logId: string) => void;
   logBelongsToMealGroup: (logMeal: string, group: string) => boolean;
+  onBrowseMeal?: (meal: string) => void;
 }
 
 // ── Meal groups config ──────────────────────────────────────────────────────
 
-const MEAL_GROUPS: { key: string; label: string; icon: string }[] = [
-  { key: 'Breakfast', label: 'BREAKFAST', icon: 'coffee' },
-  { key: 'Lunch', label: 'LUNCH', icon: 'sun' },
-  { key: 'Dinner', label: 'DINNER', icon: 'moon' },
+const MEAL_GROUPS: { key: string; label: string; labelLower: string }[] = [
+  { key: 'Breakfast', label: 'BREAKFAST', labelLower: 'breakfast' },
+  { key: 'Lunch', label: 'LUNCH', labelLower: 'lunch' },
+  { key: 'Dinner', label: 'DINNER', labelLower: 'dinner' },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -72,6 +73,7 @@ export default function MealLogSection({
   onHistoryPress,
   onDeleteLog,
   logBelongsToMealGroup,
+  onBrowseMeal,
 }: MealLogSectionProps) {
   return (
     <Box>
@@ -107,19 +109,21 @@ export default function MealLogSection({
           <Box key={group.key} marginBottom="m">
             {/* Section header */}
             <Text variant="sectionHeader" marginBottom="s">
-              {group.label} — {mealCals} cal
+              {group.label} — {mealCals} CAL
             </Text>
 
             {mealLogs.length === 0 ? (
-              /* Empty state — Feather icon, no emoji */
-              <Box alignItems="center" paddingVertical="m">
-                <Feather
-                  name={group.icon as any}
-                  size={24}
-                  color="#A8A9AD"
-                />
-                <Text variant="muted" style={{ marginTop: 6 }}>
-                  No {group.label.toLowerCase()} logged yet
+              /* Compact empty state — single line ~40px */
+              <Box style={{ paddingVertical: 4 }}>
+                <Text variant="muted" style={{ fontSize: 13 }}>
+                  Nothing for {group.labelLower} yet{' · '}
+                  <Text
+                    variant="muted"
+                    style={{ fontSize: 13, color: '#861F41', fontFamily: 'DMSans_600SemiBold' }}
+                    onPress={() => onBrowseMeal?.(group.key)}
+                  >
+                    Browse →
+                  </Text>
                 </Text>
               </Box>
             ) : (
