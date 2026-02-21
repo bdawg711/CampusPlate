@@ -94,10 +94,10 @@ Task  Description                                                          Owner
       cards as distinct tappable elements with Log button
 4.3   Chat input — disabled send when empty, disabled during response,    Cam    DONE    Send disabled+dimmed (0.4 opacity) when empty or loading. Input non-editable during response. Time-based placeholder: "Ask about breakfast/lunch/dinner..."
       time-based placeholder text
-4.4   CHECKPOINT: AI Chat test — suggestion tap → response → food         Cam    TODO    MUST PASS before Phase 5
+4.4   CHECKPOINT: AI Chat test — suggestion tap → response → food         Cam    DONE    All 5 steps verified: time-aware suggestions, tap→response with food cards, tap food→log, custom question, typing indicator.
       card tap → log
 
-Phase 4 Status: 4.1-4.3 DONE — awaiting 4.4 device checkpoint
+Phase 4 Status: COMPLETE — all 4 tasks DONE
 
 
 ================================================================================
@@ -106,14 +106,14 @@ PHASE 5 — GLOBAL UX POLISH
 
 Task  Description                                                          Owner  Status  Notes
 ----  -------------------------------------------------------------------  -----  ------  -----
-5.1   Haptic feedback audit — verify firing, increase intensity on        Cam    TODO    Add console.log in catch for testing
+5.1   Haptic feedback audit — verify firing, increase intensity on        Cam    DONE    Tab bar→medium, removed card press haptics (AnimatedCard+ForYou+Browse), console.log in catch, verified success on log/water-goal
       logging/celebrations, remove from frequent actions
-5.2   Tab bar labels — "Browse" → "Menu", "AI" → "Ask AI"                Cam    TODO    Small but meaningful
-5.3   Loading states — 300ms delay before skeletons, AsyncStorage         Cam    TODO    Big UX win for repeat opens
+5.2   Tab bar labels — "Browse" → "Menu", "AI" → "Ask AI"                Cam    DONE    Updated FloatingTabBar TAB_CONFIG labels
+5.3   Loading states — 300ms delay before skeletons, AsyncStorage         Cam    DONE    300ms skeleton delay prevents flash. Cache-first: save dashboard snapshot, restore on next open, silently update from Supabase.
       cache for instant repeat loads
-5.4   Error handling — consistent error cards with retry button,          Cam    TODO
+5.4   Error handling — consistent error cards with retry button,          Cam    DONE    ErrorState component (alert-circle + message + Try Again btn). Added to Dashboard, Browse, Progress.
       network error messaging
-5.5   Micro-copy pass — conversational tone, time-aware placeholders,     Cam    TODO    See PRD for specific copy changes
+5.5   Micro-copy pass — conversational tone, time-aware placeholders,     Cam    DONE    "Calorie goal crushed!", "Nutrition breakdown →", "Tell a friend", "Add your weight to start tracking". Week-in-review/Enter weight already done.
       encouraging empty states, fun celebrations
 5.6   Navigation audit — back buttons on all non-tab screens,             Cam    TODO
       consistent modal close position, nav stack integrity
@@ -149,10 +149,10 @@ Phase                           Tasks   Done   Blocked
 1 — Browse Flow                   8       8       0
 2 — Dashboard                     7       7       0
 3 — Progress                      5       5       0
-4 — AI Chat                       4       3       0
-5 — Global UX Polish              9       0       0
+4 — AI Chat                       4       4       0
+5 — Global UX Polish              9       5       0
 6 — Final Details                 4       0       0
-TOTAL                            37      23       0
+TOTAL                            37      29       0
 
 
 ================================================================================
