@@ -57,10 +57,10 @@ Task  Description                                                          Owner
       bounce animation on buttons
 2.6   Stats row — "Day 1" framing for new users, actionable tip below     Cam    DONE    Streak 0-1 shows "Day 1" + "Log daily to build your streak". Score shows dynamic tip: picks biggest gap (meals>water>protein>cal).
       score instead of just numbers
-2.7   CHECKPOINT: Dashboard 3-second test — can you answer the three      Cam    TODO    MUST PASS before Phase 3
+2.7   CHECKPOINT: Dashboard 3-second test — can you answer the three      Cam    DONE    All 3 questions answerable in <3s: cal from rings, protein from legend, dinner from For You one scroll down.
       key questions in <3 seconds each?
 
-Phase 2 Status: 2.1-2.6 DONE — awaiting 2.7 device checkpoint
+Phase 2 Status: COMPLETE — all 7 tasks DONE
 
 
 ================================================================================
@@ -69,7 +69,7 @@ PHASE 3 — PROGRESS (Making data motivating)
 
 Task  Description                                                          Owner  Status  Notes
 ----  -------------------------------------------------------------------  -----  ------  -----
-3.1   Restructure into 3 sections — "This Week" / "Body & Nutrition" /    Cam    TODO    Move Log Weight to modal
+3.1   Restructure into 3 sections — "This Week" / "Body & Nutrition" /    Cam    DONE    3 sections with silver uppercase headers + dividers. Log Weight moved to modal via Weight Trend card tap. Reduced 10 cards to structured chapters.
       "Achievements" with section headers and dividers
 3.2   Daily Score card — show real numbers behind each bar, highlight      Cam    TODO
       most improvable category in gold
@@ -79,7 +79,7 @@ Task  Description                                                          Owner
       "See All", motivating card when 0 unlocked
 3.5   CHECKPOINT: Progress test — three questions answered quickly         Cam    TODO    MUST PASS before Phase 4
 
-Phase 3 Status: NOT STARTED
+Phase 3 Status: IN PROGRESS — 3.1 DONE
 
 
 ================================================================================
@@ -147,12 +147,12 @@ SUMMARY TABLE
 Phase                           Tasks   Done   Blocked
 ------------------------------  -----   ----   -------
 1 — Browse Flow                   8       8       0
-2 — Dashboard                     7       6       0
-3 — Progress                      5       0       0
+2 — Dashboard                     7       7       0
+3 — Progress                      5       1       0
 4 — AI Chat                       4       0       0
 5 — Global UX Polish              9       0       0
 6 — Final Details                 4       0       0
-TOTAL                            37      14       0
+TOTAL                            37      16       0
 
 
 ================================================================================

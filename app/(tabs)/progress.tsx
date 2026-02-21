@@ -19,7 +19,6 @@ import * as Sharing from 'expo-sharing';
 // Restyle primitives
 import { Box, Text } from '@/src/theme/restyleTheme';
 import StaggeredList from '@/src/components/StaggeredList';
-import AnimatedCard from '@/src/components/AnimatedCard';
 
 import Skeleton from '@/src/components/Skeleton';
 import { requireUserId } from '@/src/utils/auth';
@@ -83,6 +82,36 @@ interface DayData {
 
 type RangeType = '1W' | '1M' | '3M' | 'All';
 
+// ─── Section Header — silver uppercase with divider ─────────────────────────
+function SectionHeader({ title, isFirst = false }: { title: string; isFirst?: boolean }) {
+  return (
+    <View style={{ marginTop: isFirst ? 0 : 28 }}>
+      {!isFirst && (
+        <View
+          style={{
+            height: 1,
+            backgroundColor: C.borderLight,
+            marginHorizontal: 0,
+            marginBottom: 16,
+          }}
+        />
+      )}
+      <Text
+        style={{
+          fontSize: 12,
+          fontFamily: 'DMSans_700Bold',
+          color: C.silver,
+          letterSpacing: 1.5,
+          textTransform: 'uppercase',
+          marginBottom: 14,
+        }}
+      >
+        {title}
+      </Text>
+    </View>
+  );
+}
+
 export default function ProgressScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,6 +141,7 @@ export default function ProgressScreen() {
   // Modals
   const [weeklyReportVisible, setWeeklyReportVisible] = useState(false);
   const [showMicros, setShowMicros] = useState(false);
+  const [showWeightModal, setShowWeightModal] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -215,6 +245,7 @@ export default function ProgressScreen() {
       }
       setLastWeight(w);
       setWeightInput('');
+      setShowWeightModal(false);
       // Reload weight chart data
       await loadData();
     } catch (e) {
@@ -227,7 +258,9 @@ export default function ProgressScreen() {
 
   const today = getLocalDate();
   const todayData = progressData?.days.find(d => d.date === today);
-  const earnedBadges = badges.filter(b => b.earned).length;
+  const earnedBadges = badges.filter(b => b.earned);
+  const lockedBadges = badges.filter(b => !b.earned);
+  const [showAllBadges, setShowAllBadges] = useState(false);
 
   if (loading) {
     return (
@@ -242,6 +275,8 @@ export default function ProgressScreen() {
             <Skeleton width={70} height={36} borderRadius={6} />
             <Skeleton width={70} height={36} borderRadius={6} />
           </Box>
+          {/* Section header skeleton */}
+          <Skeleton width={80} height={10} borderRadius={4} style={{ marginBottom: 14 }} />
           {/* Daily Score card */}
           <Box
             style={{ backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E8E8EA', padding: 16, marginBottom: 16 }}
@@ -267,11 +302,6 @@ export default function ProgressScreen() {
                 <Skeleton width={70} height={12} borderRadius={6} />
               </Box>
             </Box>
-            <Box flexDirection="row" justifyContent="space-around" style={{ marginTop: 16 }}>
-              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} width={28} height={28} borderRadius={14} />
-              ))}
-            </Box>
           </Box>
           {/* Calorie Trend card */}
           <Box
@@ -280,20 +310,6 @@ export default function ProgressScreen() {
             <Skeleton width={120} height={12} borderRadius={6} style={{ marginBottom: 16 }} />
             <Skeleton width={'100%' as any} height={140} borderRadius={8} />
           </Box>
-          {/* Macro Breakdown card */}
-          <Box
-            style={{ backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E8E8EA', padding: 16, marginBottom: 16 }}
-          >
-            <Skeleton width={130} height={12} borderRadius={6} style={{ marginBottom: 16 }} />
-            <Box alignItems="center">
-              <Skeleton width={120} height={120} borderRadius={60} />
-            </Box>
-            <Box flexDirection="row" justifyContent="space-around" style={{ marginTop: 16 }}>
-              <Skeleton width={60} height={12} borderRadius={6} />
-              <Skeleton width={60} height={12} borderRadius={6} />
-              <Skeleton width={60} height={12} borderRadius={6} />
-            </Box>
-          </Box>
         </Box>
       </SafeAreaView>
     );
@@ -301,374 +317,497 @@ export default function ProgressScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.offWhite }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadData();
+              setRefreshing(false);
+            }}
+            tintColor={C.maroon}
+          />
+        }
       >
-        <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={async () => {
-                setRefreshing(true);
-                await loadData();
-                setRefreshing(false);
-              }}
-              tintColor={C.maroon}
-            />
-          }
-        >
-          {/* Header — pageTitle */}
-          <Text variant="pageTitle" marginBottom="m">Progress</Text>
+        {/* Header — pageTitle */}
+        <Text variant="pageTitle" marginBottom="m">Progress</Text>
 
-          {/* Rectangular time range tabs — same style as Browse meal filters */}
-          <Box flexDirection="row" marginBottom="l" style={{ gap: 0 }}>
-            {(['1W', '1M', '3M', 'All'] as RangeType[]).map((r) => {
-              const isActive = range === r;
-              return (
-                <TouchableOpacity
-                  key={r}
-                  onPress={() => { triggerHaptic('light'); setRange(r); }}
+        {/* Rectangular time range tabs */}
+        <Box flexDirection="row" marginBottom="l" style={{ gap: 0 }}>
+          {(['1W', '1M', '3M', 'All'] as RangeType[]).map((r) => {
+            const isActive = range === r;
+            return (
+              <TouchableOpacity
+                key={r}
+                onPress={() => { triggerHaptic('light'); setRange(r); }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  alignItems: 'center',
+                  backgroundColor: isActive ? C.maroon : 'transparent',
+                  borderRadius: isActive ? 6 : 0,
+                  borderBottomWidth: isActive ? 0 : 2,
+                  borderBottomColor: isActive ? 'transparent' : C.borderLight,
+                }}
+              >
+                <Text
+                  variant="body"
                   style={{
-                    flex: 1,
-                    paddingVertical: 10,
-                    alignItems: 'center',
-                    backgroundColor: isActive ? C.maroon : 'transparent',
-                    borderRadius: isActive ? 6 : 0,
-                    borderBottomWidth: isActive ? 0 : 2,
-                    borderBottomColor: isActive ? 'transparent' : C.borderLight,
+                    fontFamily: 'DMSans_600SemiBold',
+                    fontSize: 13,
+                    color: isActive ? C.white : C.textMuted,
                   }}
                 >
-                  <Text
-                    variant="body"
-                    style={{
-                      fontFamily: 'DMSans_600SemiBold',
-                      fontSize: 13,
-                      color: isActive ? C.white : C.textMuted,
-                    }}
-                  >
-                    {r}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </Box>
+                  {r}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </Box>
 
-          {/* Empty state — no meal logs at all */}
-          {(progressData?.totalMealsLogged ?? 0) === 0 && (
-            <Box
-              backgroundColor="card"
-              borderColor="border"
-              borderWidth={1}
-              borderRadius="m"
-              padding="m"
-              marginBottom="m"
-              alignItems="center"
-              style={{ paddingVertical: 32 }}
+        {/* Empty state — no meal logs at all */}
+        {(progressData?.totalMealsLogged ?? 0) === 0 && (
+          <Box
+            backgroundColor="card"
+            borderColor="border"
+            borderWidth={1}
+            borderRadius="m"
+            padding="m"
+            marginBottom="m"
+            alignItems="center"
+            style={{ paddingVertical: 32 }}
+          >
+            <Feather name="bar-chart-2" size={32} color={C.silver} />
+            <Text
+              variant="cardTitle"
+              style={{ marginTop: 12, textAlign: 'center' }}
             >
-              <Feather name="bar-chart-2" size={32} color={C.silver} />
-              <Text
-                variant="cardTitle"
-                style={{ marginTop: 12, textAlign: 'center' }}
-              >
-                Start logging meals to see your progress here!
-              </Text>
-              <Text
-                variant="muted"
-                style={{ marginTop: 8, textAlign: 'center' }}
-              >
-                Head to Browse to find your first meal
-              </Text>
+              Start logging meals to see your progress here!
+            </Text>
+            <Text
+              variant="muted"
+              style={{ marginTop: 8, textAlign: 'center' }}
+            >
+              Head to Browse to find your first meal
+            </Text>
+          </Box>
+        )}
+
+        <StaggeredList staggerDelay={50}>
+
+          {/* ═══════════════════════════════════════════════════════════
+              SECTION 1 — THIS WEEK
+             ═══════════════════════════════════════════════════════════ */}
+          <SectionHeader title="This Week" isFirst />
+
+          {/* Daily Score */}
+          {dailyScore && (
+            <Box marginBottom="m">
+              <DailyScoreCard
+                score={dailyScore.score}
+                grade={dailyScore.grade}
+                gradeColor={dailyScore.gradeColor}
+                breakdown={dailyScore.breakdown}
+              />
             </Box>
           )}
 
-          {/* All section cards wrapped in StaggeredList (50ms stagger) */}
-          <StaggeredList staggerDelay={50}>
-
-            {/* SECTION 1 — Daily Score */}
-            {dailyScore && (
-              <Box marginBottom="m">
-                <DailyScoreCard
-                  score={dailyScore.score}
-                  grade={dailyScore.grade}
-                  gradeColor={dailyScore.gradeColor}
-                  breakdown={dailyScore.breakdown}
-                />
-              </Box>
-            )}
-
-            {/* SECTION 2 — Streak */}
-            <Box
-              backgroundColor="card"
-              borderColor="border"
-              borderWidth={1}
-              borderRadius="m"
-              padding="m"
-              marginBottom="m"
-            >
-              <StreakDisplay
-                currentStreak={streakData?.currentStreak ?? 0}
-                longestStreak={streakData?.longestStreak ?? 0}
-              />
-              {/* 7-day dot row */}
-              <Box flexDirection="row" justifyContent="space-around" style={{ marginTop: 16 }}>
-                {weekDots.map((d, i) => {
-                  const isToday = d.date === today;
-                  const isFuture = d.date > today;
-                  return (
-                    <Box key={i} alignItems="center">
-                      <Box
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 14,
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          backgroundColor: d.logged
-                            ? C.maroon
-                            : (isToday || isFuture)
-                              ? 'transparent'
-                              : C.silver,
-                          borderWidth: (!d.logged && isToday) ? 2 : (!d.logged && isFuture) ? 2 : 0,
-                          borderColor: (!d.logged && isToday)
-                            ? C.gold
-                            : (!d.logged && isFuture)
-                              ? C.borderLight
-                              : 'transparent',
-                        }}
-                      >
-                        {d.logged && <Feather name="check" size={12} color="#fff" />}
-                      </Box>
-                      <Text variant="dim" style={{ marginTop: 4 }}>{d.label}</Text>
+          {/* Streak */}
+          <Box
+            backgroundColor="card"
+            borderColor="border"
+            borderWidth={1}
+            borderRadius="m"
+            padding="m"
+            marginBottom="m"
+          >
+            <StreakDisplay
+              currentStreak={streakData?.currentStreak ?? 0}
+              longestStreak={streakData?.longestStreak ?? 0}
+            />
+            {/* 7-day dot row */}
+            <Box flexDirection="row" justifyContent="space-around" style={{ marginTop: 16 }}>
+              {weekDots.map((d, i) => {
+                const isToday = d.date === today;
+                const isFuture = d.date > today;
+                return (
+                  <Box key={i} alignItems="center">
+                    <Box
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: d.logged
+                          ? C.maroon
+                          : (isToday || isFuture)
+                            ? 'transparent'
+                            : C.silver,
+                        borderWidth: (!d.logged && isToday) ? 2 : (!d.logged && isFuture) ? 2 : 0,
+                        borderColor: (!d.logged && isToday)
+                          ? C.gold
+                          : (!d.logged && isFuture)
+                            ? C.borderLight
+                            : 'transparent',
+                      }}
+                    >
+                      {d.logged && <Feather name="check" size={12} color="#fff" />}
                     </Box>
-                  );
-                })}
+                    <Text variant="dim" style={{ marginTop: 4 }}>{d.label}</Text>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+
+          {/* Calorie Trend */}
+          <Box
+            backgroundColor="card"
+            borderColor="border"
+            borderWidth={1}
+            borderRadius="m"
+            padding="m"
+            marginBottom="s"
+          >
+            <Text variant="cardTitle" marginBottom="s">Calorie Trend</Text>
+            <CalorieChart
+              data={progressData?.days ?? []}
+              goalCalories={progressData?.goals.calories ?? 2000}
+              range={range}
+            />
+          </Box>
+
+          {/* ═══════════════════════════════════════════════════════════
+              SECTION 2 — BODY & NUTRITION
+             ═══════════════════════════════════════════════════════════ */}
+          <SectionHeader title="Body & Nutrition" />
+
+          {/* Weight Trend — tappable to open log weight modal */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setShowWeightModal(true)}
+          >
+            <Box
+              backgroundColor="card"
+              borderColor="border"
+              borderWidth={1}
+              borderRadius="m"
+              padding="m"
+              marginBottom="m"
+            >
+              <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="s">
+                <Text variant="cardTitle">Weight Trend</Text>
+                <Box flexDirection="row" alignItems="center" style={{ gap: 4 }}>
+                  <Text variant="dim" style={{ color: C.maroon }}>Log Weight</Text>
+                  <Feather name="plus-circle" size={14} color={C.maroon} />
+                </Box>
               </Box>
-            </Box>
-
-            {/* SECTION 3 — Calorie Trend */}
-            <Box
-              backgroundColor="card"
-              borderColor="border"
-              borderWidth={1}
-              borderRadius="m"
-              padding="m"
-              marginBottom="m"
-            >
-              <Text variant="cardTitle" marginBottom="s">Calorie Trend</Text>
-              <CalorieChart
-                data={progressData?.days ?? []}
-                goalCalories={progressData?.goals.calories ?? 2000}
-                range={range}
-              />
-            </Box>
-
-            {/* SECTION 4 — Weight Trend */}
-            <Box
-              backgroundColor="card"
-              borderColor="border"
-              borderWidth={1}
-              borderRadius="m"
-              padding="m"
-              marginBottom="m"
-            >
-              <Text variant="cardTitle" marginBottom="s">Weight Trend</Text>
               {weightEntries.length >= 2 && weightTrend ? (
                 <WeightChart entries={weightEntries} trend={weightTrend} />
               ) : (
-                <Box alignItems="center" style={{ paddingVertical: 20, gap: 8 }}>
+                <Box alignItems="center" style={{ paddingVertical: 16, gap: 8 }}>
                   <Feather name="trending-up" size={28} color={C.silver} />
-                  <Text variant="muted">Log your weight to see trends here</Text>
+                  <Text variant="muted">Add your weight to start tracking</Text>
                 </Box>
               )}
             </Box>
+          </TouchableOpacity>
 
-            {/* SECTION 5 — Macro Breakdown */}
-            <Box
-              backgroundColor="card"
-              borderColor="border"
-              borderWidth={1}
-              borderRadius="m"
-              padding="m"
-              marginBottom="m"
-            >
-              <Text variant="cardTitle" marginBottom="s">Macro Split (7-day avg)</Text>
-              <MacroBreakdown
-                actual={{
-                  protein: progressData?.weeklyAverages.thisWeek.protein ?? 0,
-                  carbs: progressData?.weeklyAverages.thisWeek.carbs ?? 0,
-                  fat: progressData?.weeklyAverages.thisWeek.fat ?? 0,
-                }}
-                target={{
-                  protein: progressData?.goals.protein ?? 150,
-                  carbs: progressData?.goals.carbs ?? 250,
-                  fat: progressData?.goals.fat ?? 65,
-                }}
-              />
-            </Box>
+          {/* Macro Split */}
+          <Box
+            backgroundColor="card"
+            borderColor="border"
+            borderWidth={1}
+            borderRadius="m"
+            padding="m"
+            marginBottom="m"
+          >
+            <Text variant="cardTitle" marginBottom="s">Macro Split (7-day avg)</Text>
+            <MacroBreakdown
+              actual={{
+                protein: progressData?.weeklyAverages.thisWeek.protein ?? 0,
+                carbs: progressData?.weeklyAverages.thisWeek.carbs ?? 0,
+                fat: progressData?.weeklyAverages.thisWeek.fat ?? 0,
+              }}
+              target={{
+                protein: progressData?.goals.protein ?? 150,
+                carbs: progressData?.goals.carbs ?? 250,
+                fat: progressData?.goals.fat ?? 65,
+              }}
+            />
+          </Box>
 
-            {/* SECTION 6 — Badges */}
-            <Box marginBottom="m">
-              <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="s">
-                <Text variant="cardTitle">Your Badges</Text>
-                <Text variant="dim">{earnedBadges} of {badges.length}</Text>
-              </Box>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 12, paddingBottom: 4 }}
+          {/* View All Nutrients link */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setShowMicros(true)}
+            style={{
+              backgroundColor: C.white,
+              borderWidth: 1,
+              borderColor: C.border,
+              borderRadius: 8,
+              padding: 16,
+              marginBottom: 4,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Text variant="body" style={{ color: C.textMuted }}>Nutrition Breakdown</Text>
+            <Feather name="chevron-right" size={18} color={C.textDim} />
+          </TouchableOpacity>
+
+          {/* ═══════════════════════════════════════════════════════════
+              SECTION 3 — ACHIEVEMENTS
+             ═══════════════════════════════════════════════════════════ */}
+          <SectionHeader title="Achievements" />
+
+          {/* Badges */}
+          <Box marginBottom="m">
+            {earnedBadges.length > 0 ? (
+              <>
+                {/* Unlocked badges — prominent */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 16, paddingBottom: 4 }}
+                >
+                  {earnedBadges.map((b) => (
+                    <StreakBadge key={b.id} badge={b} size="large" />
+                  ))}
+                </ScrollView>
+
+                {/* Locked badges — collapsed */}
+                {lockedBadges.length > 0 && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setShowAllBadges(!showAllBadges)}
+                    style={{ marginTop: 14 }}
+                  >
+                    <Text
+                      variant="muted"
+                      style={{ color: C.maroon, fontFamily: 'DMSans_600SemiBold' }}
+                    >
+                      {lockedBadges.length} more to earn{' '}
+                      <Text variant="muted" style={{ color: C.maroon }}>
+                        {showAllBadges ? '· Hide' : '· See All'}
+                      </Text>
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {showAllBadges && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 12, paddingBottom: 4, marginTop: 12 }}
+                  >
+                    {lockedBadges.map((b) => (
+                      <StreakBadge key={b.id} badge={b} size="small" />
+                    ))}
+                  </ScrollView>
+                )}
+              </>
+            ) : (
+              /* Zero unlocked — motivating card */
+              <Box
+                backgroundColor="card"
+                borderColor="border"
+                borderWidth={1}
+                borderRadius="m"
+                padding="m"
+                style={{ alignItems: 'center', paddingVertical: 24 }}
               >
-                {badges.map((b) => (
-                  <StreakBadge key={b.id} badge={b} size="small" />
-                ))}
-              </ScrollView>
-            </Box>
+                <Feather name="award" size={32} color={C.gold} />
+                <Text
+                  variant="cardTitle"
+                  style={{ marginTop: 12, textAlign: 'center' }}
+                >
+                  Your first badge is one day away
+                </Text>
+                <Text
+                  variant="muted"
+                  style={{ marginTop: 6, textAlign: 'center' }}
+                >
+                  Log meals tomorrow to earn Getting Started
+                </Text>
 
-            {/* SECTION 7 — Micronutrient Link */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setShowMicros(true)}
-              style={{
-                backgroundColor: C.white,
-                borderWidth: 1,
-                borderColor: C.border,
-                borderRadius: 8,
-                padding: 16,
-                marginBottom: 16,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Text variant="body" style={{ color: C.textMuted }}>View All Nutrients</Text>
-              <Feather name="chevron-right" size={18} color={C.textDim} />
-            </TouchableOpacity>
-
-            {/* SECTION 8 — Weekly Report */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setWeeklyReportVisible(true)}
-              style={{
-                backgroundColor: C.white,
-                borderWidth: 1,
-                borderColor: C.border,
-                borderRadius: 8,
-                padding: 16,
-                marginBottom: 16,
-              }}
-            >
-              <Text variant="cardTitle">Weekly Report</Text>
-              <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-                <Text variant="muted">Your weekly report is ready</Text>
-                <Feather name="chevron-right" size={18} color={C.textDim} />
-              </Box>
-            </TouchableOpacity>
-
-            {/* SECTION 9 — Weight Logging */}
-            <Box
-              backgroundColor="card"
-              borderColor="border"
-              borderWidth={1}
-              borderRadius="m"
-              padding="m"
-              marginBottom="m"
-            >
-              <Text variant="cardTitle">Log Weight</Text>
-              <Text variant="muted" style={{ marginBottom: 12 }}>
-                {lastWeight ? `Last logged: ${lastWeight} lbs` : 'Track your weight to see trends'}
-              </Text>
-              <Box flexDirection="row" style={{ gap: 10 }}>
-                <TextInput
-                  style={{
-                    flex: 1,
-                    backgroundColor: C.inputBg,
-                    borderRadius: 6,
-                    padding: 14,
-                    fontSize: 16,
-                    fontFamily: 'DMSans_400Regular',
-                    color: C.text,
-                  }}
-                  placeholder="Weight in lbs"
-                  placeholderTextColor={C.textDim}
-                  value={weightInput}
-                  onChangeText={setWeightInput}
-                  keyboardType="numeric"
-                />
+                {/* Still allow peeking at locked badges */}
                 <TouchableOpacity
-                  onPress={logWeight}
-                  disabled={savingWeight}
                   activeOpacity={0.7}
-                  style={{
-                    backgroundColor: C.maroon,
-                    borderRadius: 6,
-                    paddingHorizontal: 20,
-                    paddingVertical: 14,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    opacity: savingWeight ? 0.6 : 1,
-                  }}
+                  onPress={() => setShowAllBadges(!showAllBadges)}
+                  style={{ marginTop: 14 }}
                 >
                   <Text
-                    style={{
-                      color: '#fff',
-                      fontSize: 14,
-                      fontFamily: 'DMSans_700Bold',
-                    }}
+                    variant="muted"
+                    style={{ color: C.maroon, fontFamily: 'DMSans_600SemiBold' }}
                   >
-                    Save
+                    {showAllBadges ? 'Hide badges' : `${lockedBadges.length} badges to earn · See All`}
                   </Text>
                 </TouchableOpacity>
+                {showAllBadges && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 12, paddingBottom: 4, marginTop: 12 }}
+                  >
+                    {lockedBadges.map((b) => (
+                      <StreakBadge key={b.id} badge={b} size="small" />
+                    ))}
+                  </ScrollView>
+                )}
               </Box>
-            </Box>
+            )}
+          </Box>
 
-            {/* SECTION 10 — Share */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              disabled={sharing}
-              onPress={async () => {
-                if (!shareCardRef.current) return;
-                setSharing(true);
-                try {
-                  const uri = await captureRef(shareCardRef, { format: 'png', quality: 0.9 });
-                  await Sharing.shareAsync(uri);
-                  triggerHaptic('light');
-                } catch (e) {
-                  console.error('Share error:', e);
-                } finally {
-                  setSharing(false);
-                }
-              }}
+          {/* Weekly Report link */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setWeeklyReportVisible(true)}
+            style={{
+              backgroundColor: C.white,
+              borderWidth: 1,
+              borderColor: C.border,
+              borderRadius: 8,
+              padding: 16,
+              marginBottom: 16,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Box>
+              <Text variant="cardTitle">Weekly Report</Text>
+              <Text variant="muted">Your week in review</Text>
+            </Box>
+            <Feather name="chevron-right" size={18} color={C.textDim} />
+          </TouchableOpacity>
+
+          {/* Share button */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            disabled={sharing}
+            onPress={async () => {
+              if (!shareCardRef.current) return;
+              setSharing(true);
+              try {
+                const uri = await captureRef(shareCardRef, { format: 'png', quality: 0.9 });
+                await Sharing.shareAsync(uri);
+                triggerHaptic('light');
+              } catch (e) {
+                console.error('Share error:', e);
+              } finally {
+                setSharing(false);
+              }
+            }}
+            style={{
+              borderWidth: 1,
+              borderColor: C.maroon,
+              borderRadius: 6,
+              padding: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              backgroundColor: 'transparent',
+              opacity: sharing ? 0.6 : 1,
+            }}
+          >
+            <Feather name="share" size={16} color={C.maroon} style={{ marginRight: 8 }} />
+            <Text
               style={{
-                borderWidth: 1,
-                borderColor: C.maroon,
-                borderRadius: 6,
-                padding: 16,
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'row',
-                backgroundColor: 'transparent',
-                opacity: sharing ? 0.6 : 1,
+                color: C.maroon,
+                fontSize: 15,
+                fontFamily: 'DMSans_700Bold',
               }}
             >
-              <Feather name="share" size={16} color={C.maroon} style={{ marginRight: 8 }} />
-              <Text
+              Tell a Friend
+            </Text>
+          </TouchableOpacity>
+
+        </StaggeredList>
+      </ScrollView>
+
+      {/* ─── Weight Log Modal ─────────────────────────────────────── */}
+      <Modal
+        visible={showWeightModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowWeightModal(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.offWhite }}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            {/* Modal header */}
+            <Box
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              padding="m"
+              style={{ borderBottomWidth: 1, borderBottomColor: C.borderLight }}
+            >
+              <Text variant="pageTitle">Log Weight</Text>
+              <TouchableOpacity
+                onPress={() => setShowWeightModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Feather name="x" size={24} color={C.text} />
+              </TouchableOpacity>
+            </Box>
+
+            <Box padding="m" style={{ gap: 16 }}>
+              <Text variant="muted">
+                {lastWeight ? `Last logged: ${lastWeight} lbs` : 'Track your weight to see trends'}
+              </Text>
+
+              <TextInput
                 style={{
-                  color: C.maroon,
-                  fontSize: 15,
-                  fontFamily: 'DMSans_700Bold',
+                  backgroundColor: C.inputBg,
+                  borderRadius: 10,
+                  padding: 16,
+                  fontSize: 18,
+                  fontFamily: 'DMSans_400Regular',
+                  color: C.text,
+                }}
+                placeholder="Enter weight"
+                placeholderTextColor={C.textDim}
+                value={weightInput}
+                onChangeText={setWeightInput}
+                keyboardType="numeric"
+                autoFocus
+              />
+
+              <TouchableOpacity
+                onPress={logWeight}
+                disabled={savingWeight || !weightInput}
+                activeOpacity={0.7}
+                style={{
+                  backgroundColor: C.maroon,
+                  borderRadius: 10,
+                  paddingVertical: 16,
+                  alignItems: 'center',
+                  opacity: (savingWeight || !weightInput) ? 0.5 : 1,
                 }}
               >
-                Share Today's Score
-              </Text>
-            </TouchableOpacity>
-
-          </StaggeredList>
-        </ScrollView>
-      </KeyboardAvoidingView>
+                <Text
+                  style={{
+                    color: '#fff',
+                    fontSize: 16,
+                    fontFamily: 'DMSans_700Bold',
+                  }}
+                >
+                  {savingWeight ? 'Saving...' : 'Save Weight'}
+                </Text>
+              </TouchableOpacity>
+            </Box>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
 
       <WeeklyReport
         visible={weeklyReportVisible}
