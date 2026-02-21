@@ -9,13 +9,12 @@ import { ScoreBreakdown } from '../utils/dailyScore';
 // Milestones that get gold gradient text
 const MILESTONES = [7, 14, 30, 60, 100];
 
-// Grade color mapping (A uses GradientText, others use flat)
-const GRADE_COLORS: Record<string, string> = {
-  B: '#2D8A4E',
-  C: '#D4A024',
-  D: '#A8325A',
-  F: '#C0392B',
-};
+// Score percentage color: maroon <50%, gold 50-79%, green 80%+
+function getScoreColor(score: number): string {
+  if (score >= 80) return '#2D8A4E';
+  if (score >= 50) return '#C5A55A';
+  return '#861F41';
+}
 
 interface DashboardStatsRowProps {
   streak: number;
@@ -62,10 +61,10 @@ export default function DashboardStatsRow({
   breakdown,
 }: DashboardStatsRowProps) {
   const isMilestone = MILESTONES.includes(streak);
-  const isGradeA = grade === 'A' || grade === 'A+';
-  const gradeColor = GRADE_COLORS[grade] || '#1A1A1A';
   const isNewUser = streak <= 1;
   const scoreTip = getScoreTip(breakdown);
+  const scoreColor = getScoreColor(score);
+  const isHighScore = score >= 80;
 
   return (
     <Box flexDirection="row" gap="s">
@@ -121,11 +120,11 @@ export default function DashboardStatsRow({
           borderColor="border"
           borderWidth={1}
         >
-          <Text variant="statLabel">TODAY'S SCORE</Text>
+          <Text variant="statLabel">DAILY GOAL</Text>
           <Box marginTop="xs" marginBottom="xxs">
-            {isGradeA ? (
+            {isHighScore ? (
               <GradientText
-                text={grade}
+                text={`${score}%`}
                 gradientType="gold"
                 fontSize={32}
                 fontFamily="Outfit_700Bold"
@@ -133,19 +132,14 @@ export default function DashboardStatsRow({
             ) : (
               <Text
                 variant="grade"
-                style={{ color: gradeColor }}
+                style={{ color: scoreColor }}
               >
-                {grade}
+                {score}%
               </Text>
             )}
           </Box>
-          <AnimatedNumber
-            value={score}
-            suffix=" / 100"
-            textVariant="muted"
-            duration={600}
-          />
-          {scoreTip && !isGradeA && (
+          <Text variant="muted">daily goal</Text>
+          {scoreTip && !isHighScore && (
             <Text variant="dim" style={{ fontSize: 11, marginTop: 4 }}>
               {scoreTip}
             </Text>

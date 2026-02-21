@@ -15,6 +15,7 @@ interface Props {
   grade: string;
   gradeColor: string;
   streak: number;
+  score?: number;
   cardRef: React.RefObject<View>;
 }
 
@@ -34,6 +35,7 @@ export default function ShareCard({
   grade,
   gradeColor,
   streak,
+  score,
   cardRef,
 }: Props) {
   const { colors } = useTheme();
@@ -54,8 +56,8 @@ export default function ShareCard({
       {/* Brand */}
       <Text style={[styles.brand, { color: colors.maroon }]}>CampusPlate</Text>
 
-      {/* Grade */}
-      <Text style={[styles.grade, { color: gradeColor }]}>{grade}</Text>
+      {/* Score percentage */}
+      <Text style={[styles.grade, { color: gradeColor }]}>{score != null ? `${score}%` : grade}</Text>
 
       {/* Score ring */}
       <View style={styles.ringContainer}>

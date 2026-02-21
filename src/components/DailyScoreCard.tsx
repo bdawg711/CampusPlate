@@ -68,17 +68,15 @@ const TIPS: Record<string, string> = {
   water:    "Tip: Try to hit your water goal — that's 10 easy points!",
 };
 
-// Grade color mapping per PRD: A=gold gradient, B=success, C=warning, D=maroonLight, F=error
-function getGradeColor(grade: string): string {
-  if (grade === 'A+' || grade === 'A') return C.gold;
-  if (grade === 'B') return C.success;
-  if (grade === 'C') return C.warning;
-  if (grade === 'D') return C.maroonLight;
-  return C.error;
+// Score percentage color: maroon <50%, gold 50-79%, green 80%+
+function getScoreColor(score: number): string {
+  if (score >= 80) return C.success;
+  if (score >= 50) return C.gold;
+  return C.maroon;
 }
 
-function isAGrade(grade: string): boolean {
-  return grade === 'A+' || grade === 'A';
+function isHighScore(score: number): boolean {
+  return score >= 80;
 }
 
 function formatNum(n: number): string {
@@ -113,16 +111,16 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
     }
   }
 
-  const dynamicGradeColor = getGradeColor(grade);
-  const showGoldGrade = isAGrade(grade);
+  const dynamicScoreColor = getScoreColor(score);
+  const showGold = isHighScore(score);
   const [shimmerPlayed, setShimmerPlayed] = useState(false);
 
   useEffect(() => {
-    if (showGoldGrade && !shimmerPlayed) {
+    if (showGold && !shimmerPlayed) {
       const timer = setTimeout(() => setShimmerPlayed(true), 600);
       return () => clearTimeout(timer);
     }
-  }, [showGoldGrade, shimmerPlayed]);
+  }, [showGold, shimmerPlayed]);
 
   return (
     <Box
@@ -133,19 +131,19 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
       padding="l"
       style={{ overflow: 'hidden' }}
     >
-      {/* Header: Grade + Score */}
+      {/* Header: Percentage + label */}
       <Box flexDirection="row" alignItems="baseline" style={{ gap: 10, marginBottom: 16 }}>
         <View style={{ position: 'relative' }}>
-          {showGoldGrade ? (
+          {showGold ? (
             <>
               <GradientText
-                text={grade}
+                text={`${score}%`}
                 gradientType="gold"
                 fontSize={48}
                 fontFamily="Outfit_700Bold"
               />
               <MetallicShimmer
-                width={60}
+                width={80}
                 height={56}
                 borderRadius={4}
                 play={shimmerPlayed}
@@ -156,19 +154,19 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
               style={{
                 fontSize: 48,
                 fontFamily: 'Outfit_700Bold',
-                color: dynamicGradeColor,
+                color: dynamicScoreColor,
               }}
             >
-              {grade}
+              {score}%
             </Text>
           )}
         </View>
-        <AnimatedNumber
-          value={score}
-          suffix=" / 100"
-          textVariant="body"
-          color={C.textMuted}
-        />
+        <Text
+          variant="body"
+          style={{ color: C.textMuted }}
+        >
+          of daily goal
+        </Text>
       </Box>
 
       {/* Breakdown bars with real numbers */}
@@ -251,8 +249,8 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
 
 function CompactView({ score, grade }: { score: number; grade: string }) {
   const scale = useSharedValue(0);
-  const showGoldGrade = isAGrade(grade);
-  const dynamicGradeColor = getGradeColor(grade);
+  const showGold = isHighScore(score);
+  const dynamicScoreColor = getScoreColor(score);
 
   useEffect(() => {
     scale.value = withSpring(1, { damping: 12, stiffness: 120 });
@@ -272,11 +270,11 @@ function CompactView({ score, grade }: { score: number; grade: string }) {
         padding="m"
         flex={1}
       >
-        <Text variant="statLabel">TODAY'S SCORE</Text>
-        {showGoldGrade ? (
+        <Text variant="statLabel">DAILY GOAL</Text>
+        {showGold ? (
           <Box style={{ marginTop: 4 }}>
             <GradientText
-              text={grade}
+              text={`${score}%`}
               gradientType="gold"
               fontSize={32}
               fontFamily="Outfit_700Bold"
@@ -287,14 +285,14 @@ function CompactView({ score, grade }: { score: number; grade: string }) {
             style={{
               fontSize: 32,
               fontFamily: 'Outfit_700Bold',
-              color: dynamicGradeColor,
+              color: dynamicScoreColor,
               marginTop: 4,
             }}
           >
-            {grade}
+            {score}%
           </Text>
         )}
-        <Text variant="muted" style={{ marginTop: 2 }}>{score} / 100</Text>
+        <Text variant="muted" style={{ marginTop: 2 }}>daily goal</Text>
       </Box>
     </Animated.View>
   );

@@ -170,7 +170,7 @@ export default function EditGoals({
               {/* Calories */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#861F41' }} />
-                <Text style={{ width: 64, fontSize: 15, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Calories</Text>
+                <Text style={{ width: 72, fontSize: 14, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Calories</Text>
                 <TextInput
                   style={getInputStyle('#861F41')}
                   value={calories}
@@ -189,7 +189,7 @@ export default function EditGoals({
               {/* Protein */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#4A7FC5' }} />
-                <Text style={{ width: 64, fontSize: 15, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Protein</Text>
+                <Text style={{ width: 72, fontSize: 14, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Protein</Text>
                 <TextInput
                   style={getInputStyle('#4A7FC5')}
                   value={protein}
@@ -208,7 +208,7 @@ export default function EditGoals({
               {/* Carbs */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#C5A55A' }} />
-                <Text style={{ width: 64, fontSize: 15, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Carbs</Text>
+                <Text style={{ width: 72, fontSize: 14, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Carbs</Text>
                 <TextInput
                   style={getInputStyle('#C5A55A')}
                   value={carbs}
@@ -227,7 +227,7 @@ export default function EditGoals({
               {/* Fat */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#A8A9AD' }} />
-                <Text style={{ width: 64, fontSize: 15, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Fat</Text>
+                <Text style={{ width: 72, fontSize: 14, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Fat</Text>
                 <TextInput
                   style={getInputStyle('#A8A9AD')}
                   value={fat}

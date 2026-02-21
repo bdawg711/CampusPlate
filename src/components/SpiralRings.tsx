@@ -118,10 +118,10 @@ export default function SpiralRings({
   // Compute raw percentages
   const macros = [calories, protein, carbs, fat];
   const rawPcts = macros.map((m) => (m.goal > 0 ? m.current / m.goal : 0));
-  // At 100%+: fully closed ring (1.0). At 96-99%: cap at 95% to keep spiral gap.
-  // Below 96%: proportional fill.
+  // At 100%+: slightly overshoot to 1.01 so round linecaps overlap and close the gap.
+  // At 96-99%: cap at 95% to keep spiral gap. Below 96%: proportional fill.
   const targets = rawPcts.map((p) => {
-    if (p >= 1.0) return 1.0;           // goal hit — fully closed ring
+    if (p >= 1.0) return 1.01;          // goal hit — overshoot ensures fully closed ring
     if (p >= 0.96) return MAX_FILL;     // nearly there — cap to show gap
     return p;                            // proportional fill
   });

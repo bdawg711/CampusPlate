@@ -93,7 +93,7 @@ export default function HelpFAQ({ visible, onClose }: HelpFAQProps) {
           </View>
 
           <Text style={{ textAlign: 'center', fontSize: 12, opacity: 0.4, marginTop: 24, color: '#A8A9AD', fontFamily: 'DMSans_400Regular' }}>
-            CampusPlate v2.0 · Built for Hokies, by Hokies
+            CampusPlate v2.5 · Built for Hokies, by Hokies
           </Text>
         </ScrollView>
       </View>

@@ -87,7 +87,7 @@ function FormattedContent({ content, color }: { content: string; color: string }
 
     // ### Header
     if (trimmed.startsWith('### ') || trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
-      const headerText = trimmed.replace(/^#+\s*/, '');
+      const headerText = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '');
       elements.push(
         <Text
           key={`h-${i}`}

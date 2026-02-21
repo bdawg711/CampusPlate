@@ -757,7 +757,7 @@ export default function BrowseScreen() {
         </TouchableOpacity>
       )}
       <Box flex={1}>
-        {view === 'halls' && <Text variant="pageTitle">Log a Meal</Text>}
+        {view === 'halls' && <Text variant="pageTitle">Today's Menu</Text>}
         {view === 'stations' && (
           <>
             <Text variant="pageTitle">{selectedHall?.name}</Text>
@@ -1230,17 +1230,25 @@ export default function BrowseScreen() {
                 filteredHalls.map((hall) => {
                   const status = hallStatuses[hall.id];
                   const isClosed = status && !status.isOpen;
+                  const hasNoItems = hall.stationCount === 0 && hall.count === 0;
                   return (
                     <AnimatedCard
                       key={hall.id}
                       onPress={() => openHall(hall)}
                       padding="m"
                       marginBottom="s"
-                      style={{ opacity: isClosed ? 0.5 : 1 }}
+                      style={{ opacity: isClosed || hasNoItems ? 0.5 : 1 }}
                     >
                       <Box flexDirection="row" alignItems="center" style={{ gap: 8 }}>
                         <Text variant="cardTitle" style={{ flexShrink: 1 }}>{hall.name}</Text>
-                        {status?.isOpen && status.closingSoon ? (
+                        {hasNoItems ? (
+                          <Box style={{
+                            paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
+                            backgroundColor: 'rgba(168,169,173,0.12)',
+                          }}>
+                            <Text style={{ fontSize: 11, color: C.silver, fontFamily: 'DMSans_700Bold' }}>No Items</Text>
+                          </Box>
+                        ) : status?.isOpen && status.closingSoon ? (
                           <Box style={{
                             paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
                             backgroundColor: C.goldMuted,

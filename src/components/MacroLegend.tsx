@@ -15,11 +15,11 @@ interface MacroLegendProps {
   fat: MacroData;
 }
 
-const LEGEND_ITEMS: { label: string; key: keyof MacroLegendProps; dotColor: string; suffix: string }[] = [
-  { label: 'Calories', key: 'calories', dotColor: '#861F41', suffix: '' },
-  { label: 'Protein', key: 'protein', dotColor: '#4A7FC5', suffix: 'g' },
-  { label: 'Carbs', key: 'carbs', dotColor: '#C5A55A', suffix: 'g' },
-  { label: 'Fat', key: 'fat', dotColor: '#A8A9AD', suffix: 'g' },
+const LEGEND_ITEMS: { label: string; key: keyof MacroLegendProps; dotColor: string; overColor: string; suffix: string }[] = [
+  { label: 'Calories', key: 'calories', dotColor: '#861F41', overColor: '#861F41', suffix: '' },
+  { label: 'Protein', key: 'protein', dotColor: '#4A7FC5', overColor: '#4A7FC5', suffix: 'g' },
+  { label: 'Carbs', key: 'carbs', dotColor: '#C5A55A', overColor: '#C5A55A', suffix: 'g' },
+  { label: 'Fat', key: 'fat', dotColor: '#A8A9AD', overColor: '#666666', suffix: 'g' },
 ];
 
 export default function MacroLegend({ calories, protein, carbs, fat }: MacroLegendProps) {
@@ -43,7 +43,7 @@ export default function MacroLegend({ calories, protein, carbs, fat }: MacroLege
                   value={macro.current}
                   fontSize={18}
                   fontFamily="DMSans_700Bold"
-                  color={isOver ? item.dotColor : undefined}
+                  color={isOver ? item.overColor : undefined}
                   suffix={item.suffix}
                 />
                 <Text variant="dim" style={{ marginLeft: 4 }}>
@@ -70,7 +70,7 @@ export default function MacroLegend({ calories, protein, carbs, fat }: MacroLege
                   value={macro.current}
                   fontSize={18}
                   fontFamily="DMSans_700Bold"
-                  color={isOver ? item.dotColor : undefined}
+                  color={isOver ? item.overColor : undefined}
                   suffix={item.suffix}
                 />
                 <Text variant="dim" style={{ marginLeft: 4 }}>

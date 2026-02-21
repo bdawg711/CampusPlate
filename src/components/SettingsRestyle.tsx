@@ -41,6 +41,7 @@ export default function SettingsRestyle() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [waterGoalOz, setWaterGoalOz] = useState<number>(64);
   const [totalMeals, setTotalMeals] = useState(0);
+  const [scoreValue, setScoreValue] = useState(0);
   const [scoreGrade, setScoreGrade] = useState('—');
   const [scoreGradeColor, setScoreGradeColor] = useState('#2D8A4E');
 
@@ -116,8 +117,9 @@ export default function SettingsRestyle() {
         { calories: goals.goalCalories, protein: goals.goalProtein, carbs: goals.goalCarbs, fat: goals.goalFat },
         mealsToday, waterToday, data?.water_goal_oz ?? 64,
       );
+      setScoreValue(dailyScore.score);
       setScoreGrade(dailyScore.grade);
-      setScoreGradeColor(dailyScore.gradeColor);
+      setScoreGradeColor(dailyScore.score >= 80 ? '#2D8A4E' : dailyScore.score >= 50 ? '#C5A55A' : '#861F41');
     } catch (e) {
       if (__DEV__) console.error('More load error:', e);
     } finally {
@@ -315,8 +317,8 @@ export default function SettingsRestyle() {
             </Box>
             <Box width={1} marginVertical="s" backgroundColor="borderLight" />
             <Box flex={1} alignItems="center" style={{ paddingVertical: 12 }}>
-              <Text variant="statValue" style={{ color: scoreGradeColor }}>{scoreGrade}</Text>
-              <Text variant="statLabel" style={{ marginTop: 2 }}>SCORE</Text>
+              <Text variant="statValue" style={{ color: scoreGradeColor }}>{scoreValue}%</Text>
+              <Text variant="statLabel" style={{ marginTop: 2 }}>GOAL</Text>
             </Box>
           </Box>
 

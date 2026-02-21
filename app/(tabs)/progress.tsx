@@ -955,6 +955,7 @@ export default function ProgressScreen() {
         grade={dailyScore?.grade ?? '–'}
         gradeColor={dailyScore?.gradeColor ?? C.textDim}
         streak={streakData?.currentStreak ?? 0}
+        score={dailyScore?.score ?? 0}
       />
     </SafeAreaView>
   );

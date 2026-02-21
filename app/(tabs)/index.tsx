@@ -320,45 +320,6 @@ export default function HomeScreen() {
     }, [loadData])
   );
 
-  // ─── Meal logging success animation ───
-  // Fires haptic + celebration when new logs detected (returning from Browse)
-  useEffect(() => {
-    if (loading || logs.length === 0) return;
-
-    // Detect new meal log (count increased)
-    if (logs.length > prevLogCount.current && prevLogCount.current > 0) {
-      // Haptic success on new meal logged
-      triggerHaptic('success');
-
-      // Check each macro goal for celebration
-      if (profile) {
-        const goal = profile.goal_calories || 2000;
-        if (totalCal >= goal && !calorieGoalCelebrated.current) {
-          calorieGoalCelebrated.current = true;
-          setShowConfetti(true);
-          setBannerMessage('Calorie goal crushed!');
-          setBannerVariant('goal');
-          setBannerColor(undefined);
-          setBannerVisible(true);
-        }
-      }
-    } else if (prevLogCount.current === 0 && profile) {
-      // First load — check calorie goal without haptic
-      const goal = profile.goal_calories || 2000;
-      if (totalCal >= goal && !calorieGoalCelebrated.current) {
-        calorieGoalCelebrated.current = true;
-        setShowConfetti(true);
-        setBannerMessage('Calorie goal crushed!');
-        setBannerVariant('goal');
-        setBannerColor(undefined);
-        setBannerVisible(true);
-        triggerHaptic('success');
-      }
-    }
-
-    prevLogCount.current = logs.length;
-  }, [logs]);
-
   const onRefresh = async () => {
     setRefreshing(true);
     setRingsKey((k) => k + 1);
@@ -424,6 +385,46 @@ export default function HomeScreen() {
     waterOz,
     waterGoal
   );
+
+  // ─── Meal logging success animation ───
+  // Fires haptic + celebration when new logs detected (returning from Browse)
+  useEffect(() => {
+    if (loading || logs.length === 0) return;
+
+    if (__DEV__) console.log('[GoalCheck] logs:', logs.length, 'prev:', prevLogCount.current, 'totalCal:', totalCal, 'goal:', goalCal, 'celebrated:', calorieGoalCelebrated.current);
+
+    // Detect new meal log (count increased)
+    if (logs.length > prevLogCount.current && prevLogCount.current > 0) {
+      // Haptic success on new meal logged
+      triggerHaptic('success');
+
+      // Check calorie goal for celebration
+      if (totalCal >= goalCal && !calorieGoalCelebrated.current) {
+        if (__DEV__) console.log('[GoalCheck] Calorie goal hit! Firing celebration.');
+        calorieGoalCelebrated.current = true;
+        setShowConfetti(true);
+        setBannerMessage('Calorie goal crushed!');
+        setBannerVariant('goal');
+        setBannerColor(undefined);
+        setBannerVisible(true);
+        triggerHaptic('success');
+      }
+    } else if (prevLogCount.current === 0) {
+      // First load — check calorie goal without extra haptic
+      if (totalCal >= goalCal && !calorieGoalCelebrated.current) {
+        if (__DEV__) console.log('[GoalCheck] First load calorie goal already hit.');
+        calorieGoalCelebrated.current = true;
+        setShowConfetti(true);
+        setBannerMessage('Calorie goal crushed!');
+        setBannerVariant('goal');
+        setBannerColor(undefined);
+        setBannerVisible(true);
+        triggerHaptic('success');
+      }
+    }
+
+    prevLogCount.current = logs.length;
+  }, [logs, loading, totalCal, goalCal]);
 
   // ─── Build ForYou sections ───
 
