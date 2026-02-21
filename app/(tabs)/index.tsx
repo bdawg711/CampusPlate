@@ -4,11 +4,13 @@ import {
   Modal,
   RefreshControl,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Feather } from '@expo/vector-icons';
 
 // Restyle primitives
 import { Box, Text } from '@/src/theme/restyleTheme';
@@ -671,12 +673,21 @@ export default function HomeScreen() {
         onRequestClose={() => setShowHistory(false)}
       >
         <Box flex={1} backgroundColor="background">
-          {/* Modal handle */}
-          <Box alignItems="center" style={{ paddingTop: 8, paddingBottom: 4 }}>
-            <Box style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: '#A8A9AD' }} />
-          </Box>
-          <Box flexDirection="row" justifyContent="flex-end" paddingHorizontal="m" paddingTop="s" paddingBottom="s">
-            <Text variant="body" style={{ color: '#A8A9AD', fontFamily: 'DMSans_500Medium' }} onPress={() => setShowHistory(false)}>Close</Text>
+          {/* Modal header */}
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            paddingHorizontal="m"
+            style={{ paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E8E8EA' }}
+          >
+            <Text variant="pageTitle">History</Text>
+            <TouchableOpacity
+              onPress={() => setShowHistory(false)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Feather name="x" size={24} color="#1A1A1A" />
+            </TouchableOpacity>
           </Box>
           <HistoryScreen />
         </Box>

@@ -889,8 +889,15 @@ export default function BrowseScreen() {
           padding="l"
           style={{ backgroundColor: C.white, width: '100%' }}
         >
-          {/* Modal handle */}
-          <Box alignSelf="center" style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: C.silver, marginBottom: 16 }} />
+          {/* Close button top-right */}
+          <Box flexDirection="row" justifyContent="flex-end" style={{ marginBottom: 8 }}>
+            <TouchableOpacity
+              onPress={() => setRatingModalVisible(false)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Feather name="x" size={22} color={C.textMuted} />
+            </TouchableOpacity>
+          </Box>
 
           <Text variant="pageTitle" style={{ fontSize: 20, textAlign: 'center', marginBottom: 4 }}>
             Rate {selectedHall?.name}
