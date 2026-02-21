@@ -124,6 +124,7 @@ export default function ProgressScreen() {
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [weekDots, setWeekDots] = useState<DayData[]>([]);
+  const [monthDots, setMonthDots] = useState<DayData[]>([]);
 
   // Weight data
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
@@ -195,6 +196,19 @@ export default function ProgressScreen() {
         });
       }
       setWeekDots(dots);
+
+      // Build 28-day data for month calendar grid
+      const mDays: DayData[] = [];
+      for (let i = 27; i >= 0; i--) {
+        const date = getLocalDate(-i);
+        const dayLog = progressRes.days.find(d => d.date === date);
+        mDays.push({
+          date,
+          label: '',
+          logged: (dayLog?.mealsLogged ?? 0) > 0,
+        });
+      }
+      setMonthDots(mDays);
 
       // Calculate today's daily score
       const todayStr = getLocalDate();
@@ -426,7 +440,7 @@ export default function ProgressScreen() {
             </Box>
           )}
 
-          {/* Streak */}
+          {/* Streak — visualization changes per range */}
           <Box
             backgroundColor="card"
             borderColor="border"
@@ -439,40 +453,117 @@ export default function ProgressScreen() {
               currentStreak={streakData?.currentStreak ?? 0}
               longestStreak={streakData?.longestStreak ?? 0}
             />
-            {/* 7-day dot row */}
-            <Box flexDirection="row" justifyContent="space-around" style={{ marginTop: 16 }}>
-              {weekDots.map((d, i) => {
-                const isToday = d.date === today;
-                const isFuture = d.date > today;
-                return (
-                  <Box key={i} alignItems="center">
-                    <Box
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 14,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        backgroundColor: d.logged
-                          ? C.maroon
-                          : (isToday || isFuture)
-                            ? 'transparent'
-                            : C.silver,
-                        borderWidth: (!d.logged && isToday) ? 2 : (!d.logged && isFuture) ? 2 : 0,
-                        borderColor: (!d.logged && isToday)
-                          ? C.gold
-                          : (!d.logged && isFuture)
-                            ? C.borderLight
-                            : 'transparent',
-                      }}
-                    >
-                      {d.logged && <Feather name="check" size={12} color="#fff" />}
+
+            {/* 1W: 7-day dots */}
+            {range === '1W' && (
+              <Box flexDirection="row" justifyContent="space-around" style={{ marginTop: 16 }}>
+                {weekDots.map((d, i) => {
+                  const isToday = d.date === today;
+                  const isFuture = d.date > today;
+                  return (
+                    <Box key={i} alignItems="center">
+                      <Box
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          backgroundColor: d.logged
+                            ? C.maroon
+                            : (isToday || isFuture)
+                              ? 'transparent'
+                              : C.silver,
+                          borderWidth: (!d.logged && isToday) ? 2 : (!d.logged && isFuture) ? 2 : 0,
+                          borderColor: (!d.logged && isToday)
+                            ? C.gold
+                            : (!d.logged && isFuture)
+                              ? C.borderLight
+                              : 'transparent',
+                        }}
+                      >
+                        {d.logged && <Feather name="check" size={12} color="#fff" />}
+                      </Box>
+                      <Text variant="dim" style={{ marginTop: 4 }}>{d.label}</Text>
                     </Box>
-                    <Text variant="dim" style={{ marginTop: 4 }}>{d.label}</Text>
+                  );
+                })}
+              </Box>
+            )}
+
+            {/* 1M: Mini calendar grid — 4 rows of 7 (GitHub contribution graph) */}
+            {range === '1M' && (
+              <Box style={{ marginTop: 16 }}>
+                {/* Day-of-week headers */}
+                <Box flexDirection="row" style={{ marginBottom: 6 }}>
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
+                    <Box key={i} style={{ flex: 1, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 10, fontFamily: 'DMSans_500Medium', color: C.textDim }}>{label}</Text>
+                    </Box>
+                  ))}
+                </Box>
+                {/* 4 rows of 7 squares */}
+                {[0, 1, 2, 3].map((row) => (
+                  <Box key={row} flexDirection="row" style={{ marginBottom: 4 }}>
+                    {[0, 1, 2, 3, 4, 5, 6].map((col) => {
+                      const idx = row * 7 + col;
+                      const d = monthDots[idx];
+                      if (!d) return <Box key={col} style={{ flex: 1, aspectRatio: 1 }} />;
+                      const isToday = d.date === today;
+                      return (
+                        <Box key={col} style={{ flex: 1, padding: 2 }}>
+                          <Box
+                            style={{
+                              aspectRatio: 1,
+                              borderRadius: 4,
+                              backgroundColor: d.logged ? C.maroon : C.borderLight,
+                              borderWidth: isToday ? 2 : 0,
+                              borderColor: isToday ? C.gold : 'transparent',
+                            }}
+                          />
+                        </Box>
+                      );
+                    })}
                   </Box>
-                );
-              })}
-            </Box>
+                ))}
+              </Box>
+            )}
+
+            {/* 3M / All: Condensed streak numbers */}
+            {(range === '3M' || range === 'All') && (
+              <Box flexDirection="row" style={{ marginTop: 16, gap: 24 }}>
+                <Box alignItems="center" style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 28,
+                      fontFamily: 'Outfit_700Bold',
+                      color: C.maroon,
+                    }}
+                  >
+                    {streakData?.currentStreak ?? 0}
+                  </Text>
+                  <Text variant="dim">Current streak</Text>
+                </Box>
+                <Box
+                  style={{
+                    width: 1,
+                    backgroundColor: C.borderLight,
+                  }}
+                />
+                <Box alignItems="center" style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 28,
+                      fontFamily: 'Outfit_700Bold',
+                      color: C.gold,
+                    }}
+                  >
+                    {streakData?.longestStreak ?? 0}
+                  </Text>
+                  <Text variant="dim">Best streak</Text>
+                </Box>
+              </Box>
+            )}
           </Box>
 
           {/* Calorie Trend */}
