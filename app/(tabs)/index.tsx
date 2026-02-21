@@ -334,7 +334,7 @@ export default function HomeScreen() {
         if (totalCal >= goal && !calorieGoalCelebrated.current) {
           calorieGoalCelebrated.current = true;
           setShowConfetti(true);
-          setBannerMessage('Daily calorie goal reached!');
+          setBannerMessage('Calorie goal crushed!');
           setBannerVariant('goal');
           setBannerColor(undefined);
           setBannerVisible(true);
@@ -346,7 +346,7 @@ export default function HomeScreen() {
       if (totalCal >= goal && !calorieGoalCelebrated.current) {
         calorieGoalCelebrated.current = true;
         setShowConfetti(true);
-        setBannerMessage('Daily calorie goal reached!');
+        setBannerMessage('Calorie goal crushed!');
         setBannerVariant('goal');
         setBannerColor(undefined);
         setBannerVisible(true);

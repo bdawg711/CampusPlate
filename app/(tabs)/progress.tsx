@@ -879,7 +879,7 @@ export default function ProgressScreen() {
 
             <Box padding="m" style={{ gap: 16 }}>
               <Text variant="muted">
-                {lastWeight ? `Last logged: ${lastWeight} lbs` : 'Track your weight to see trends'}
+                {lastWeight ? `Last logged: ${lastWeight} lbs` : 'Add your weight to start tracking'}
               </Text>
 
               <TextInput

@@ -393,7 +393,7 @@ export default function SettingsRestyle() {
           />
           <SettingsRow
             icon="share-2" iconBg="silverTint" iconColor="silver"
-            label="Share CampusPlate" onPress={handleShare}
+            label="Tell a friend" onPress={handleShare}
           />
           <SettingsRow
             icon="info" iconBg="silverTint" iconColor="silver"

@@ -1587,7 +1587,7 @@ export default function BrowseScreen() {
                 activeOpacity={0.7}
               >
                 <Text variant="body" style={{ color: C.maroon, fontFamily: 'DMSans_600SemiBold', fontSize: 14 }}>
-                  View All Nutrients →
+                  Nutrition breakdown →
                 </Text>
               </TouchableOpacity>
 
