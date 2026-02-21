@@ -505,9 +505,10 @@ export default function HomeScreen() {
         </Box>
 
         {/* 2. SpiralRings hero (has its own animation — NOT in StaggeredList) */}
-        <Box alignItems="center" marginBottom="s">
+        <Box alignItems="center" style={{ paddingTop: 16 }} marginBottom="s">
           <SpiralRings
             key={ringsKey}
+            size={300}
             calories={{ current: totalCal, goal: goalCal }}
             protein={{ current: totalPro, goal: goalPro }}
             carbs={{ current: totalCarb, goal: goalCarb }}
@@ -517,8 +518,8 @@ export default function HomeScreen() {
 
         {/* StaggeredList wraps MacroLegend downward */}
         <StaggeredList staggerDelay={50} initialDelay={200}>
-          {/* 3. MacroLegend — 28px space below creates visual chapter break */}
-          <Box style={{ marginBottom: 28 }}>
+          {/* 3. MacroLegend — 40px space below creates visual chapter break */}
+          <Box style={{ marginBottom: 40 }}>
             <MacroLegend
               calories={{ current: totalCal, goal: goalCal }}
               protein={{ current: totalPro, goal: goalPro }}
@@ -527,8 +528,8 @@ export default function HomeScreen() {
             />
           </Box>
 
-          {/* 4. DashboardStatsRow — 20px gap below */}
-          <Box style={{ marginBottom: 20 }}>
+          {/* 4. DashboardStatsRow — 24px gap below */}
+          <Box style={{ marginBottom: 24 }}>
             <DashboardStatsRow
               streak={streakData?.currentStreak ?? 0}
               score={dailyScore.score}
@@ -537,8 +538,8 @@ export default function HomeScreen() {
             />
           </Box>
 
-          {/* 5. WaterTracker — 32px gap + divider below before For You */}
-          <Box style={{ marginBottom: 32 }}>
+          {/* 5. WaterTracker — 40px gap + divider below before For You */}
+          <Box style={{ marginBottom: 40 }}>
             <WaterTracker
               waterOz={waterOz}
               waterGoal={waterGoal}
@@ -547,10 +548,10 @@ export default function HomeScreen() {
           </Box>
 
           {/* Divider between WaterTracker and For You */}
-          <Box style={{ height: 1, backgroundColor: '#E5E5E5', marginHorizontal: -4, marginBottom: 32 }} />
+          <Box style={{ height: 1, backgroundColor: '#E5E5E5', marginHorizontal: -4, marginBottom: 24 }} />
 
-          {/* 6. ForYouSection — 32px gap + divider below before Today's Meals */}
-          <Box style={{ marginBottom: 32 }}>
+          {/* 6. ForYouSection — 40px gap + divider below before Today's Meals */}
+          <Box style={{ marginBottom: 40 }}>
             {forYouLoading ? (
               <Box>
                 <Text variant="cardTitle" marginBottom="m">For You</Text>
@@ -588,7 +589,7 @@ export default function HomeScreen() {
           </Box>
 
           {/* Divider between For You and Today's Meals */}
-          <Box style={{ height: 1, backgroundColor: '#E5E5E5', marginHorizontal: -4, marginBottom: 32 }} />
+          <Box style={{ height: 1, backgroundColor: '#E5E5E5', marginHorizontal: -4, marginBottom: 24 }} />
 
           {/* 7. MealLogSection */}
           <Box marginBottom="xxl">

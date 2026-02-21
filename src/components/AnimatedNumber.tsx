@@ -19,6 +19,8 @@ interface AnimatedNumberProps {
   textVariant?: keyof Theme['textVariants'];
   color?: string;
   decimals?: number;
+  fontSize?: number;
+  fontFamily?: string;
 }
 
 export default function AnimatedNumber({
@@ -29,6 +31,8 @@ export default function AnimatedNumber({
   textVariant = 'body',
   color,
   decimals,
+  fontSize: fontSizeOverride,
+  fontFamily: fontFamilyOverride,
 }: AnimatedNumberProps) {
   const theme = useTheme<Theme>();
   const animatedValue = useSharedValue(0);
@@ -69,8 +73,8 @@ export default function AnimatedNumber({
       editable={false}
       animatedProps={animatedProps}
       style={{
-        fontSize: variantAny.fontSize ?? 15,
-        fontFamily: variantAny.fontFamily,
+        fontSize: fontSizeOverride ?? variantAny.fontSize ?? 15,
+        fontFamily: fontFamilyOverride ?? variantAny.fontFamily,
         color: resolvedColor,
         padding: 0,
         margin: 0,

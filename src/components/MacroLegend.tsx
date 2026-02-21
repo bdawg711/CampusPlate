@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box } from '../theme/restyleTheme';
+import { View } from 'react-native';
+import { Box, Text } from '../theme/restyleTheme';
 import AnimatedNumber from './AnimatedNumber';
 
 interface MacroData {
@@ -14,9 +15,8 @@ interface MacroLegendProps {
   fat: MacroData;
 }
 
-// Dot colors: maroon, steel blue, flat gold, flat silver
 const LEGEND_ITEMS: { label: string; key: keyof MacroLegendProps; dotColor: string; suffix: string }[] = [
-  { label: 'Cal', key: 'calories', dotColor: '#861F41', suffix: '' },
+  { label: 'Calories', key: 'calories', dotColor: '#861F41', suffix: '' },
   { label: 'Protein', key: 'protein', dotColor: '#4A7FC5', suffix: 'g' },
   { label: 'Carbs', key: 'carbs', dotColor: '#C5A55A', suffix: 'g' },
   { label: 'Fat', key: 'fat', dotColor: '#A8A9AD', suffix: 'g' },
@@ -26,31 +26,61 @@ export default function MacroLegend({ calories, protein, carbs, fat }: MacroLege
   const data: Record<string, MacroData> = { calories, protein, carbs, fat };
 
   return (
-    <Box
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      paddingHorizontal="s"
-    >
-      {LEGEND_ITEMS.map((item) => {
-        const macro = data[item.key];
-        return (
-          <Box key={item.key} flexDirection="row" alignItems="center" gap="xs">
-            <Box
-              width={8}
-              height={8}
-              borderRadius="full"
-              style={{ backgroundColor: item.dotColor }}
-            />
-            <AnimatedNumber
-              value={macro.current}
-              textVariant="bodySmall"
-              color="#6B6B6F"
-              suffix={` / ${macro.goal}${item.suffix}`}
-            />
-          </Box>
-        );
-      })}
-    </Box>
+    <View style={{ gap: 12 }}>
+      {/* Row 1: Calories + Protein */}
+      <View style={{ flexDirection: 'row', gap: 16 }}>
+        {LEGEND_ITEMS.slice(0, 2).map((item) => {
+          const macro = data[item.key];
+          const isOver = macro.current > macro.goal;
+          return (
+            <View key={item.key} style={{ flex: 1, alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: item.dotColor }} />
+                <Text variant="muted" style={{ fontSize: 12 }}>{item.label}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <AnimatedNumber
+                  value={macro.current}
+                  fontSize={18}
+                  fontFamily="DMSans_700Bold"
+                  color={isOver ? item.dotColor : undefined}
+                  suffix={item.suffix}
+                />
+                <Text variant="dim" style={{ marginLeft: 4 }}>
+                  of {macro.goal.toLocaleString()}{item.suffix}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+      {/* Row 2: Carbs + Fat */}
+      <View style={{ flexDirection: 'row', gap: 16 }}>
+        {LEGEND_ITEMS.slice(2, 4).map((item) => {
+          const macro = data[item.key];
+          const isOver = macro.current > macro.goal;
+          return (
+            <View key={item.key} style={{ flex: 1, alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: item.dotColor }} />
+                <Text variant="muted" style={{ fontSize: 12 }}>{item.label}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <AnimatedNumber
+                  value={macro.current}
+                  fontSize={18}
+                  fontFamily="DMSans_700Bold"
+                  color={isOver ? item.dotColor : undefined}
+                  suffix={item.suffix}
+                />
+                <Text variant="dim" style={{ marginLeft: 4 }}>
+                  of {macro.goal.toLocaleString()}{item.suffix}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
   );
 }
