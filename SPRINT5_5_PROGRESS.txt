@@ -53,7 +53,7 @@ Task  Description                                                          Owner
       wider food cards with no name truncation
 2.4   Compact empty states — single line "No lunch · Browse →" with       Cam    DONE    Compact ~40px empty state: "Nothing for lunch yet · Browse →" tappable maroon link, removed Feather icons, wired onBrowseMeal nav
       tappable link, remove decorative icons
-2.5   Water tracker — "Almost there!" at 80%, goal hit feedback,          Cam    TODO    Mini confetti burst at 100%
+2.5   Water tracker — "Almost there!" at 80%, goal hit feedback,          Cam    DONE    "Almost there!" gold at 80%, "Goal hit!" green at 100%. Bounce on +8/+16 buttons. Haptic success + 6-piece mini confetti at 100%.
       bounce animation on buttons
 2.6   Stats row — "Day 1" framing for new users, actionable tip below     Cam    TODO    "Log lunch for +10 pts"
       score instead of just numbers
