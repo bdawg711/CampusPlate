@@ -90,14 +90,14 @@ Task  Description                                                          Owner
 ----  -------------------------------------------------------------------  -----  ------  -----
 4.1   First-message suggestions — context-aware based on time of day,     Cam    DONE    Time-aware: breakfast/lunch/dinner suggestions based on current meal period. 3 contextual cards per period with relevant icons.
       remaining macros, open halls
-4.2   AI response formatting — visual segments inside bubbles, food       Cam    TODO    Fix the whitespace bug too
+4.2   AI response formatting — visual segments inside bubbles, food       Cam    DONE    Markdown-lite parser (bold, headers, bullets). Food cards as distinct elements with maroon Log pill button. "Tap to log" divider. Wider bubble (85%). Fixed whitespace.
       cards as distinct tappable elements with Log button
 4.3   Chat input — disabled send when empty, disabled during response,    Cam    TODO
       time-based placeholder text
 4.4   CHECKPOINT: AI Chat test — suggestion tap → response → food         Cam    TODO    MUST PASS before Phase 5
       card tap → log
 
-Phase 4 Status: IN PROGRESS — 4.1 DONE
+Phase 4 Status: IN PROGRESS — 4.1-4.2 DONE
 
 
 ================================================================================
@@ -149,10 +149,10 @@ Phase                           Tasks   Done   Blocked
 1 — Browse Flow                   8       8       0
 2 — Dashboard                     7       7       0
 3 — Progress                      5       5       0
-4 — AI Chat                       4       1       0
+4 — AI Chat                       4       2       0
 5 — Global UX Polish              9       0       0
 6 — Final Details                 4       0       0
-TOTAL                            37      21       0
+TOTAL                            37      22       0
 
 
 ================================================================================
