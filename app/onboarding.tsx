@@ -171,6 +171,8 @@ export default function OnboardingScreen({ onComplete }: Props) {
   const [year, setYear] = useState('');
   const [dorm, setDorm] = useState('');
   const [mealsPerDay, setMealsPerDay] = useState<number | null>(null);
+  // Water goal
+  const [waterGoalOz, setWaterGoalOz] = useState<number>(64);
 
   const totalSteps = 10;
   const progress = (step + 1) / totalSteps;
@@ -261,6 +263,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
         dietary_needs: dietaryNeeds,
         high_protein: false,
         meals_per_day: mealsPerDay ?? 2,
+        water_goal_oz: waterGoalOz,
         onboarding_complete: true,
       }).select();
       if (upsertError) {
@@ -284,14 +287,14 @@ export default function OnboardingScreen({ onComplete }: Props) {
         return (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <Feather name="coffee" size={64} color="#861F41" style={{ marginBottom: 16 }} />
-            <Text style={[{ fontSize: 36, color: colors.text, fontFamily: 'Outfit_800ExtraBold', textAlign: 'center' }]}>
-              CampusPlate
+            <Text style={{ fontSize: 28, color: colors.text, fontFamily: 'Outfit_700Bold', textAlign: 'center' }}>
+              Welcome to CampusPlate
             </Text>
-            <Text style={{ fontSize: 15, lineHeight: 22, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'center', marginTop: 12, paddingHorizontal: 20 }}>
-              Track what you eat on campus. Hit your goals without the guesswork.
+            <Text style={{ fontSize: 16, lineHeight: 24, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'center', marginTop: 12, paddingHorizontal: 20 }}>
+              Track your nutrition across Virginia Tech dining halls
             </Text>
             <ContinueBtn onPress={next} label="Get Started" />
-            <Text style={[{ color: colors.textDim, fontSize: 12, marginTop: 24, fontFamily: 'DMSans_400Regular' }]}>
+            <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 24, fontFamily: 'DMSans_400Regular' }}>
               Built for Virginia Tech
             </Text>
           </View>
@@ -529,9 +532,15 @@ export default function OnboardingScreen({ onComplete }: Props) {
               </View>
               <InputField label="Dorm / Residence" value={dorm} onChangeText={setDorm} placeholder="Slusher Hall" />
               <Text style={{ fontSize: 13, marginBottom: 10, color: colors.textMuted, fontFamily: 'DMSans_500Medium' }}>Meals on campus per day</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20 }}>
                 {[1, 2, 3].map((n) => (
                   <Chip key={n} label={n === 3 ? '3+' : String(n)} selected={mealsPerDay === n} onPress={() => setMealsPerDay(n)} />
+                ))}
+              </View>
+              <Text style={{ fontSize: 13, marginBottom: 10, color: colors.textMuted, fontFamily: 'DMSans_500Medium' }}>Daily water goal</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                {[48, 64, 80, 96, 128].map((oz) => (
+                  <Chip key={oz} label={`${oz} oz`} selected={waterGoalOz === oz} onPress={() => setWaterGoalOz(oz)} />
                 ))}
               </View>
             </View>
@@ -579,10 +588,14 @@ export default function OnboardingScreen({ onComplete }: Props) {
             </View>
 
             <View style={{ width: '100%', padding: 16, borderRadius: 14, marginBottom: 10, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }}>
-              <Text style={[{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'center' }]}>
+              <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'center' }}>
                 We'll highlight the best options at {hallName} every day based on your macros.
               </Text>
             </View>
+
+            <Text style={{ fontSize: 12, color: colors.textDim, fontFamily: 'DMSans_400Regular', textAlign: 'center', marginBottom: 4 }}>
+              These can be changed anytime in Settings
+            </Text>
 
             <TouchableOpacity
               style={{ width: '100%', padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 24, backgroundColor: colors.orange, opacity: saving ? 0.6 : 1 }}
@@ -592,7 +605,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
               {saving ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'DMSans_700Bold' }}>Let's Go →</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'DMSans_700Bold' }}>Start Tracking</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -606,10 +619,20 @@ export default function OnboardingScreen({ onComplete }: Props) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Progress bar */}
-      {step > 0 && (
-        <View style={{ height: 3, marginHorizontal: 20, borderRadius: 2, marginTop: 8, backgroundColor: colors.border }}>
-          <View style={{ height: 3, borderRadius: 2, backgroundColor: '#861F41', width: `${progress * 100}%` }} />
+      {/* Dot indicators */}
+      {step > 0 && step < totalSteps - 1 && (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+          {Array.from({ length: totalSteps }, (_, i) => (
+            <View
+              key={i}
+              style={{
+                width: i === step ? 20 : 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: i <= step ? colors.maroon : colors.border,
+              }}
+            />
+          ))}
         </View>
       )}
 
