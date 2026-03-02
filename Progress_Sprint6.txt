@@ -11,7 +11,7 @@ FEATURE 1 — Custom Meal Logging
 [x] 1.6  Delete custom meals from Dashboard (Cameron)
 
 FEATURE 2 — Edit Logged Meals
-[ ] 2.1  Create src/components/EditMealModal.tsx (Bandhip)
+[x] 2.1  Create src/components/EditMealModal.tsx (Bandhip)
 [ ] 2.2  Wire edit modal into Dashboard (Cameron)
 [ ] 2.3  Wire edit modal into History (Cameron)
 
@@ -33,5 +33,5 @@ FEATURE 5 — Daily Summary Notification
 [ ] 5.2  Add daily summary toggle to Settings (Cameron)
 
 ================================================================================
-TOTAL: 5 / 20 complete
+TOTAL: 6 / 20 complete
 ================================================================================
