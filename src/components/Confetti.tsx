@@ -14,49 +14,68 @@ interface Props {
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const PIECE_COUNT = 35;
+const PIECE_COUNT = 30;
 
-const COLORS = ['#861F41', '#C5A55A', '#A8A9AD', '#FFFFFF'];
+const COLORS = ['#861F41', '#C5A55A', '#A8A9AD', '#4A7FC5', '#E87722', '#34C759'];
 
 interface PieceConfig {
   startX: number;
+  startY: number;
   color: string;
-  isCircle: boolean;
+  width: number;
+  height: number;
+  borderRadius: number;
   duration: number;
   driftX: number;
   rotation: number;
 }
 
 function generatePieces(): PieceConfig[] {
-  return Array.from({ length: PIECE_COUNT }, () => ({
-    startX: Math.random() * SCREEN_WIDTH,
-    color: COLORS[Math.floor(Math.random() * COLORS.length)],
-    isCircle: Math.random() > 0.5,
-    duration: 1500 + Math.random() * 1000,
-    driftX: (Math.random() - 0.5) * 60,
-    rotation: Math.random() * 720,
-  }));
+  return Array.from({ length: PIECE_COUNT }, () => {
+    const isCircle = Math.random() > 0.5;
+    const size = 4 + Math.random() * 6; // 4-10px varied sizes
+    return {
+      startX: Math.random() * SCREEN_WIDTH,
+      startY: -10 - Math.random() * 30, // stagger start positions
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      width: isCircle ? size : size * (0.8 + Math.random() * 0.6),
+      height: isCircle ? size : size * (0.3 + Math.random() * 0.4),
+      borderRadius: isCircle ? size / 2 : 1,
+      duration: 2000 + Math.random() * 1000, // 2-3 seconds
+      driftX: (Math.random() - 0.5) * 120, // wider horizontal drift
+      rotation: Math.random() * 720,
+    };
+  });
 }
 
 function ConfettiPiece({ config, onDone }: { config: PieceConfig; onDone?: () => void }) {
-  const translateY = useSharedValue(-20);
+  const translateY = useSharedValue(0);
   const translateX = useSharedValue(0);
   const rotate = useSharedValue(0);
+  const opacity = useSharedValue(1);
 
   useEffect(() => {
-    translateY.value = withTiming(SCREEN_HEIGHT + 20, {
+    // Fall with deceleration
+    translateY.value = withTiming(SCREEN_HEIGHT * 0.7, {
       duration: config.duration,
-      easing: Easing.out(Easing.quad),
+      easing: Easing.out(Easing.cubic),
     }, (finished) => {
       if (finished && onDone) runOnJS(onDone)();
     });
+    // Horizontal drift with sinusoidal easing
     translateX.value = withTiming(config.driftX, {
       duration: config.duration,
       easing: Easing.inOut(Easing.sin),
     });
+    // Spin
     rotate.value = withTiming(config.rotation, {
       duration: config.duration,
       easing: Easing.out(Easing.quad),
+    });
+    // Fade out in the last third of the animation
+    opacity.value = withTiming(0, {
+      duration: config.duration,
+      easing: Easing.in(Easing.quad),
     });
   }, []);
 
@@ -66,6 +85,7 @@ function ConfettiPiece({ config, onDone }: { config: PieceConfig; onDone?: () =>
       { translateX: translateX.value },
       { rotate: `${rotate.value}deg` },
     ],
+    opacity: opacity.value,
   }));
 
   return (
@@ -74,10 +94,10 @@ function ConfettiPiece({ config, onDone }: { config: PieceConfig; onDone?: () =>
         {
           position: 'absolute',
           left: config.startX,
-          top: -20,
-          width: config.isCircle ? 6 : 8,
-          height: config.isCircle ? 6 : 4,
-          borderRadius: config.isCircle ? 3 : 1,
+          top: config.startY,
+          width: config.width,
+          height: config.height,
+          borderRadius: config.borderRadius,
           backgroundColor: config.color,
         },
         animStyle,
