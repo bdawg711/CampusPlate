@@ -13,7 +13,7 @@ FEATURE 1 — Custom Meal Logging
 FEATURE 2 — Edit Logged Meals
 [x] 2.1  Create src/components/EditMealModal.tsx (Bandhip)
 [x] 2.2  Wire edit modal into Dashboard (Cameron)
-[ ] 2.3  Wire edit modal into History (Cameron)
+[x] 2.3  Wire edit modal into History (Cameron)
 
 FEATURE 3 — Animation Polish
 [ ] 3.1  Fix calorie ring animation (Cameron)
@@ -33,5 +33,5 @@ FEATURE 5 — Daily Summary Notification
 [ ] 5.2  Add daily summary toggle to Settings (Cameron)
 
 ================================================================================
-TOTAL: 7 / 20 complete
+TOTAL: 8 / 20 complete
 ================================================================================

@@ -16,6 +16,7 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { logBelongsToMealGroup } from '@/src/utils/meals';
+import EditMealModal, { EditingMeal } from '@/src/components/EditMealModal';
 
 function getLocalDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -45,9 +46,11 @@ export default function HistoryScreen() {
   const { colors } = useTheme();
   const [selectedDate, setSelectedDate] = useState(getLocalDate());
   const [logs, setLogs] = useState<any[]>([]);
+  const [customMeals, setCustomMeals] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [editingMeal, setEditingMeal] = useState<EditingMeal | null>(null);
   const dateStripRef = useRef<ScrollView>(null);
   const days = getDays(30);
 
@@ -69,7 +72,7 @@ export default function HistoryScreen() {
   const loadData = useCallback(async (date: string) => {
     try {
       const userId = await requireUserId();
-      const [profileRes, logsRes] = await Promise.all([
+      const [profileRes, logsRes, customRes] = await Promise.all([
         supabase.from('profiles').select('goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g').eq('id', userId).single(),
         supabase
           .from('meal_logs')
@@ -77,9 +80,16 @@ export default function HistoryScreen() {
           .eq('user_id', userId)
           .eq('date', date)
           .order('created_at', { ascending: true }),
+        supabase
+          .from('custom_meals')
+          .select('id, name, calories, protein_g, total_carbs_g, total_fat_g, meal_period, created_at')
+          .eq('user_id', userId)
+          .eq('date', date)
+          .order('created_at', { ascending: true }),
       ]);
       if (profileRes.data) setProfile(profileRes.data);
       setLogs(logsRes.data || []);
+      setCustomMeals(customRes.data || []);
     } catch (e) {
       if (__DEV__) console.error('History load error:', e);
     } finally {
@@ -107,39 +117,111 @@ export default function HistoryScreen() {
     return { cal: Math.round(cal * s), pro: Math.round(pro * s), carb: Math.round(carb * s), fat: Math.round(fat * s) };
   };
 
-  const totalCal = logs.reduce((sum: number, l: any) => sum + getNutrition(l).cal, 0);
-  const totalPro = logs.reduce((sum: number, l: any) => sum + getNutrition(l).pro, 0);
-  const totalCarb = logs.reduce((sum: number, l: any) => sum + getNutrition(l).carb, 0);
-  const totalFat = logs.reduce((sum: number, l: any) => sum + getNutrition(l).fat, 0);
+  const logCal = logs.reduce((sum: number, l: any) => sum + getNutrition(l).cal, 0);
+  const logPro = logs.reduce((sum: number, l: any) => sum + getNutrition(l).pro, 0);
+  const logCarb = logs.reduce((sum: number, l: any) => sum + getNutrition(l).carb, 0);
+  const logFat = logs.reduce((sum: number, l: any) => sum + getNutrition(l).fat, 0);
+
+  const customCal = customMeals.reduce((sum: number, m: any) => sum + (m.calories || 0), 0);
+  const customPro = customMeals.reduce((sum: number, m: any) => sum + Math.round(m.protein_g || 0), 0);
+  const customCarb = customMeals.reduce((sum: number, m: any) => sum + Math.round(m.total_carbs_g || 0), 0);
+  const customFat = customMeals.reduce((sum: number, m: any) => sum + Math.round(m.total_fat_g || 0), 0);
+
+  const totalCal = logCal + customCal;
+  const totalPro = logPro + customPro;
+  const totalCarb = logCarb + customCarb;
+  const totalFat = logFat + customFat;
+
+  const handleEditDiningLog = (log: any) => {
+    setEditingMeal({
+      type: 'dining',
+      id: log.id,
+      name: log.menu_items?.name || 'Unknown item',
+      station: log.menu_items?.station,
+      meal: log.meal,
+      servings: log.servings,
+    });
+  };
+
+  const handleEditCustomMeal = (meal: any) => {
+    setEditingMeal({
+      type: 'custom',
+      id: meal.id,
+      name: meal.name,
+      calories: meal.calories,
+      protein_g: meal.protein_g,
+      total_carbs_g: meal.total_carbs_g,
+      total_fat_g: meal.total_fat_g,
+      meal_period: meal.meal_period,
+    });
+  };
 
   const renderMealGroup = (meal: string, label: string) => {
     const mealLogs = logs.filter((l: any) => logBelongsToMealGroup(l.meal, meal));
-    const mealCals = mealLogs.reduce((sum: number, l: any) => sum + getNutrition(l).cal, 0);
+    const groupCustom = customMeals.filter((m: any) => m.meal_period === meal);
+    const mealCals =
+      mealLogs.reduce((sum: number, l: any) => sum + getNutrition(l).cal, 0) +
+      groupCustom.reduce((sum: number, m: any) => sum + (m.calories || 0), 0);
+    const totalItems = mealLogs.length + groupCustom.length;
+
     return (
       <View key={meal} style={{ marginBottom: 20 }}>
         <Text style={{ fontSize: 12, fontFamily: 'DMSans_700Bold', letterSpacing: 1.5, opacity: 0.3, textTransform: 'uppercase', marginBottom: 12, color: colors.text }}>{label} — {mealCals} cal</Text>
-        {mealLogs.length === 0 ? (
+        {totalItems === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 12 }}>
             <Feather name="clipboard" size={32} color="#A8A9AD" />
-            <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 4, fontFamily: 'DMSans_400Regular' }]}>
+            <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4, fontFamily: 'DMSans_400Regular' }}>
               No {label.toLowerCase()} logged
             </Text>
           </View>
         ) : (
-          mealLogs.map((log: any, i: number) => {
-            const n = getNutrition(log);
-            const name = log.menu_items?.name || 'Unknown item';
-            return (
-              <View key={log.id}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, marginRight: 12, backgroundColor: colors.maroon }} />
-                  <Text style={{ flex: 1, fontSize: 14, color: colors.text, fontFamily: 'DMSans_500Medium' }} numberOfLines={1}>{name}</Text>
-                  <Text style={{ fontSize: 14, opacity: 0.7, color: colors.text, fontFamily: 'DMSans_600SemiBold' }}>{n.cal}</Text>
+          <>
+            {mealLogs.map((log: any, i: number) => {
+              const n = getNutrition(log);
+              const name = log.menu_items?.name || 'Unknown item';
+              return (
+                <View key={log.id}>
+                  <TouchableOpacity
+                    onPress={() => handleEditDiningLog(log)}
+                    activeOpacity={0.6}
+                    accessibilityLabel="Edit meal"
+                    accessibilityRole="button"
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, marginRight: 12, backgroundColor: colors.maroon }} />
+                      <Text style={{ flex: 1, fontSize: 14, color: colors.text, fontFamily: 'DMSans_500Medium' }} numberOfLines={1}>{name}</Text>
+                      <Text style={{ fontSize: 14, opacity: 0.7, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginRight: 8 }}>{n.cal}</Text>
+                      <Feather name="chevron-right" size={16} color={colors.textMuted} />
+                    </View>
+                  </TouchableOpacity>
+                  {(i < mealLogs.length - 1 || groupCustom.length > 0) && <View style={{ height: 1, marginLeft: 20, backgroundColor: colors.cardGlassBorder }} />}
                 </View>
-                {i < mealLogs.length - 1 && <View style={{ height: 1, marginLeft: 20, backgroundColor: colors.cardGlassBorder }} />}
+              );
+            })}
+            {groupCustom.map((meal: any, i: number) => (
+              <View key={meal.id}>
+                <TouchableOpacity
+                  onPress={() => handleEditCustomMeal(meal)}
+                  activeOpacity={0.6}
+                  accessibilityLabel="Edit custom meal"
+                  accessibilityRole="button"
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
+                    <Feather name="edit-3" size={14} color={colors.orange} style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 14, color: colors.text, fontFamily: 'DMSans_500Medium', flexShrink: 1 }} numberOfLines={1}>{meal.name}</Text>
+                      <View style={{ paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, backgroundColor: 'rgba(232,119,34,0.12)' }}>
+                        <Text style={{ fontSize: 10, fontFamily: 'DMSans_600SemiBold', color: colors.orange }}>Custom</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 14, opacity: 0.7, color: colors.text, fontFamily: 'DMSans_600SemiBold', marginRight: 8 }}>{meal.calories}</Text>
+                    <Feather name="chevron-right" size={16} color={colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
+                {i < groupCustom.length - 1 && <View style={{ height: 1, marginLeft: 20, backgroundColor: colors.cardGlassBorder }} />}
               </View>
-            );
-          })
+            ))}
+          </>
         )}
       </View>
     );
@@ -208,10 +290,20 @@ export default function HistoryScreen() {
               {renderMealGroup('Breakfast', 'BREAKFAST')}
               {renderMealGroup('Lunch', 'LUNCH')}
               {renderMealGroup('Dinner', 'DINNER')}
+              {customMeals.some((m: any) => m.meal_period === 'Snack') && renderMealGroup('Snack', 'SNACKS')}
             </View>
           </View>
         )}
       </ScrollView>
+
+      {/* Edit Meal Modal */}
+      <EditMealModal
+        visible={!!editingMeal}
+        meal={editingMeal}
+        onClose={() => setEditingMeal(null)}
+        onSaved={() => { setEditingMeal(null); loadData(selectedDate); }}
+        onDeleted={() => { setEditingMeal(null); loadData(selectedDate); }}
+      />
     </SafeAreaView>
   );
 }
