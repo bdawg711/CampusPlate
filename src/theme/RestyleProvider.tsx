@@ -1,7 +1,10 @@
 import React from 'react';
 import { ThemeProvider } from '@shopify/restyle';
-import { theme } from './restyleTheme';
+import { theme, darkTheme } from './restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 
 export function RestyleProvider({ children }: { children: React.ReactNode }) {
-  return <ThemeProvider theme={theme}>{children}</ThemeProvider>;
+  const { mode } = useTheme();
+  const activeTheme = mode === 'dark' ? darkTheme : theme;
+  return <ThemeProvider theme={activeTheme}>{children}</ThemeProvider>;
 }

@@ -29,11 +29,13 @@ import { Goals, getGoals, saveCustomGoals, recalculateGoals } from '@/src/utils/
 import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged, StreakData, Badge } from '@/src/utils/streaks';
 import StreakBadge from '@/src/components/StreakBadge';
 import { scheduleDailySummary } from '@/src/utils/dailySummaryNotification';
+import { useTheme as useAppTheme } from '@/src/context/ThemeContext';
 
 type ColorName = keyof Theme['colors'];
 
 export default function SettingsRestyle() {
   const theme = useRestyleTheme<Theme>();
+  const { mode: themeMode, toggleTheme } = useAppTheme();
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -412,6 +414,18 @@ export default function SettingsRestyle() {
         {/* ── APP section ── */}
         <Text variant="sectionHeader" style={{ paddingHorizontal: 20, marginTop: 20, marginBottom: 6 }}>APP</Text>
         <Card borderRadius="l" marginHorizontal="m" style={{ paddingHorizontal: 18, paddingVertical: 2 }}>
+          <SettingsRow
+            icon="moon" iconBg="silverTint" iconColor="silver"
+            label="Appearance"
+            rightContent={
+              <Switch
+                value={themeMode === 'dark'}
+                onValueChange={toggleTheme}
+                trackColor={{ false: theme.colors.silverLight, true: theme.colors.maroon }}
+                thumbColor="#fff"
+              />
+            }
+          />
           <SettingsRow
             icon="bell" iconBg="warningTint" iconColor="warning"
             label="Reminders" onPress={handleReminders}

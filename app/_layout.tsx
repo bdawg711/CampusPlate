@@ -37,7 +37,7 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootContent() {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const [loaded, error] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -158,10 +158,12 @@ function RootContent() {
     );
   }
 
+  const statusBarStyle = mode === 'dark' ? 'light' : 'dark';
+
   if (!session) {
     return (
       <>
-        <StatusBar style="dark" />
+        <StatusBar style={statusBarStyle} />
         <AuthScreen />
       </>
     );
@@ -170,7 +172,7 @@ function RootContent() {
   if (!onboardingComplete) {
     return (
       <>
-        <StatusBar style="dark" />
+        <StatusBar style={statusBarStyle} />
         <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />
       </>
     );
@@ -178,7 +180,7 @@ function RootContent() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
       </Stack>

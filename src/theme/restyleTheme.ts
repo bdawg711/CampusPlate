@@ -49,37 +49,7 @@ const palette = {
   overlay: 'rgba(0,0,0,0.5)',
 };
 
-const theme = createTheme({
-  colors: {
-    ...palette,
-
-    // Semantic tokens
-    background: '#FFFFFF',
-    backgroundAlt: '#FAFAFA',
-    card: '#FFFFFF',
-    cardAlt: '#FAFAFA',
-    text: '#1A1A1A',
-    textMuted: '#6B6B6F',
-    textDim: '#9A9A9E',
-    border: '#E8E8EA',
-    borderLight: '#F0F0F2',
-    inputBg: '#F5F5F7',
-    inputBorder: '#E8E8EA',
-    barTrack: 'rgba(0,0,0,0.06)',
-    glowMaroon: 'rgba(134,31,65,0.12)',
-    tabBarBg: '#FFFFFF',
-    mutedTint: 'rgba(0,0,0,0.04)',
-
-    // Icon tint backgrounds
-    maroonTint: 'rgba(134,31,65,0.08)',
-    goldTint: 'rgba(197,165,90,0.12)',
-    silverTint: 'rgba(168,169,173,0.10)',
-    successTint: 'rgba(45,138,78,0.10)',
-    warningTint: 'rgba(212,160,36,0.10)',
-    errorTint: 'rgba(192,57,43,0.10)',
-    proteinTint: 'rgba(74,127,197,0.10)',
-  },
-
+const sharedLayout = {
   spacing: {
     xxs: 2,
     xs: 4,
@@ -169,22 +139,104 @@ const theme = createTheme({
 
   cardVariants: {
     defaults: {
-      backgroundColor: 'card',
-      borderColor: 'border',
+      backgroundColor: 'card' as const,
+      borderColor: 'border' as const,
       borderWidth: 1,
-      borderRadius: 'm',
+      borderRadius: 'm' as const,
     },
     feature: {
-      backgroundColor: 'card',
-      borderColor: 'border',
+      backgroundColor: 'card' as const,
+      borderColor: 'border' as const,
       borderWidth: 1,
-      borderRadius: 'l',
+      borderRadius: 'l' as const,
     },
   },
+} as const;
+
+const theme = createTheme({
+  colors: {
+    ...palette,
+
+    // Semantic tokens
+    background: '#FFFFFF',
+    backgroundAlt: '#FAFAFA',
+    card: '#FFFFFF',
+    cardAlt: '#FAFAFA',
+    text: '#1A1A1A',
+    textMuted: '#6B6B6F',
+    textDim: '#9A9A9E',
+    border: '#E8E8EA',
+    borderLight: '#F0F0F2',
+    inputBg: '#F5F5F7',
+    inputBorder: '#E8E8EA',
+    barTrack: 'rgba(0,0,0,0.06)',
+    glowMaroon: 'rgba(134,31,65,0.12)',
+    tabBarBg: '#FFFFFF',
+    mutedTint: 'rgba(0,0,0,0.04)',
+
+    // Icon tint backgrounds
+    maroonTint: 'rgba(134,31,65,0.08)',
+    goldTint: 'rgba(197,165,90,0.12)',
+    silverTint: 'rgba(168,169,173,0.10)',
+    successTint: 'rgba(45,138,78,0.10)',
+    warningTint: 'rgba(212,160,36,0.10)',
+    errorTint: 'rgba(192,57,43,0.10)',
+    proteinTint: 'rgba(74,127,197,0.10)',
+  },
+
+  ...sharedLayout,
+});
+
+const darkTheme = createTheme({
+  colors: {
+    ...palette,
+
+    // Brighten accents for dark bg
+    maroon: '#A8325A',
+    maroonLight: '#C04872',
+    maroonDark: '#861F41',
+    success: '#34C759',
+    warning: '#FFD60A',
+    error: '#FF453A',
+    gold: '#D4BA7A',
+    goldLight: '#E8D5A3',
+    silver: '#B8B9BD',
+    silverLight: '#D8D8DC',
+    calorieRing: '#A8325A',
+    proteinRing: '#5B9BD5',
+
+    // Semantic tokens — dark
+    background: '#0E0E10',
+    backgroundAlt: '#1C1C1E',
+    card: '#1C1C1E',
+    cardAlt: '#2C2C2E',
+    text: '#F5F5F7',
+    textMuted: '#A1A1A6',
+    textDim: '#6E6E73',
+    border: '#38383A',
+    borderLight: '#2C2C2E',
+    inputBg: '#1C1C1E',
+    inputBorder: '#38383A',
+    barTrack: 'rgba(255,255,255,0.08)',
+    glowMaroon: 'rgba(168,50,90,0.20)',
+    tabBarBg: '#1C1C1E',
+    mutedTint: 'rgba(255,255,255,0.04)',
+
+    // Icon tint backgrounds — dark
+    maroonTint: 'rgba(168,50,90,0.15)',
+    goldTint: 'rgba(212,186,122,0.15)',
+    silverTint: 'rgba(184,185,189,0.12)',
+    successTint: 'rgba(52,199,89,0.12)',
+    warningTint: 'rgba(255,214,10,0.12)',
+    errorTint: 'rgba(255,69,58,0.12)',
+    proteinTint: 'rgba(91,155,213,0.12)',
+  },
+
+  ...sharedLayout,
 });
 
 export type Theme = typeof theme;
-export { theme };
+export { theme, darkTheme };
 
 // Primitives
 export const Box = createBox<Theme>();

@@ -1,8 +1,9 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ── Single light theme colors matching the Hokie Prestige palette ──────────
+// ── Light theme ───────────────────────────────────────────────────────────────
 
-const colors = {
+const lightColors = {
   // Backgrounds
   background: '#FFFFFF',
   card: '#FFFFFF',
@@ -21,7 +22,7 @@ const colors = {
   inputBg: '#F5F5F7',
   inputBorder: '#E8E8EA',
 
-  // Legacy tokens (mapped to new palette for un-migrated screens)
+  // Legacy tokens
   cardGlass: '#FFFFFF',
   cardGlassBorder: '#E8E8EA',
   barTrack: 'rgba(0,0,0,0.06)',
@@ -54,23 +55,99 @@ const colors = {
   errorTint: 'rgba(192,57,43,0.10)',
 };
 
-export type ThemeColors = typeof colors;
+// ── Dark theme ────────────────────────────────────────────────────────────────
+
+const darkColors: typeof lightColors = {
+  // Backgrounds
+  background: '#0E0E10',
+  card: '#1C1C1E',
+  cardAlt: '#2C2C2E',
+
+  // Text
+  text: '#F5F5F7',
+  textMuted: '#A1A1A6',
+  textDim: '#6E6E73',
+
+  // Borders
+  border: '#38383A',
+  borderLight: '#2C2C2E',
+
+  // Inputs
+  inputBg: '#1C1C1E',
+  inputBorder: '#38383A',
+
+  // Legacy tokens
+  cardGlass: '#1C1C1E',
+  cardGlassBorder: '#38383A',
+  barTrack: 'rgba(255,255,255,0.08)',
+  glowMaroon: 'rgba(168,50,90,0.20)',
+  tabBarBg: '#1C1C1E',
+  mutedTint: 'rgba(255,255,255,0.04)',
+
+  // Accent colors (same or slightly brightened for dark backgrounds)
+  maroon: '#A8325A',
+  maroonLight: '#C04872',
+  maroonDark: '#861F41',
+  orange: '#F09040',
+  green: '#34C759',
+  blue: '#5B9BD5',
+  yellow: '#FFD60A',
+  red: '#FF453A',
+
+  // Metallic
+  gold: '#D4BA7A',
+  goldLight: '#E8D5A3',
+  silver: '#B8B9BD',
+  silverLight: '#D8D8DC',
+
+  // Tint backgrounds
+  maroonTint: 'rgba(168,50,90,0.15)',
+  goldTint: 'rgba(212,186,122,0.15)',
+  silverTint: 'rgba(184,185,189,0.12)',
+  successTint: 'rgba(52,199,89,0.12)',
+  warningTint: 'rgba(255,214,10,0.12)',
+  errorTint: 'rgba(255,69,58,0.12)',
+};
+
+export type ThemeColors = typeof lightColors;
+type ThemeMode = 'light' | 'dark';
+
+const STORAGE_KEY = 'campusplate_theme_mode';
 
 interface ThemeContextType {
-  mode: 'light';
+  mode: ThemeMode;
   colors: ThemeColors;
   toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   mode: 'light',
-  colors,
+  colors: lightColors,
   toggleTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [mode, setMode] = useState<ThemeMode>('light');
+
+  // Load persisted theme on mount
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((saved) => {
+      if (saved === 'dark' || saved === 'light') setMode(saved);
+    }).catch(() => {});
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setMode((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const colors = mode === 'dark' ? darkColors : lightColors;
+
   return (
-    <ThemeContext.Provider value={{ mode: 'light', colors, toggleTheme: () => {} }}>
+    <ThemeContext.Provider value={{ mode, colors, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
