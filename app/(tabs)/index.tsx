@@ -716,7 +716,7 @@ export default function HomeScreen() {
               <ForYouSection
                 sections={forYouSections}
                 onSeeAll={(filter) => router.push({ pathname: '/(tabs)/browse', params: { filter } })}
-                onItemPress={() => router.push('/(tabs)/browse')}
+                onItemPress={(item) => router.push({ pathname: '/(tabs)/browse', params: { itemId: String(item.id) } })}
               />
             )}
           </Box>

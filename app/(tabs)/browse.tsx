@@ -133,7 +133,7 @@ function PressScaleButton({ onPress, disabled, children, style }: {
 type ViewState = 'halls' | 'stations' | 'items' | 'detail';
 
 export default function BrowseScreen() {
-  const params = useLocalSearchParams<{ filter?: string; meal?: string }>();
+  const params = useLocalSearchParams<{ filter?: string; meal?: string; itemId?: string }>();
   const [view, setView] = useState<ViewState>('halls');
   const [meal, setMeal] = useState(params.meal && ['Breakfast', 'Lunch', 'Dinner'].includes(params.meal) ? params.meal : autoMeal);
 
@@ -381,6 +381,25 @@ export default function BrowseScreen() {
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, [hallSearch, searchGlobalFood]);
 
+  const openItemById = useCallback(async (itemId: string) => {
+    try {
+      const { data } = await supabase
+        .from('menu_items')
+        .select('id, name, rec_num, station, dietary_flags, ingredients, nutrition(*), dining_hall_id, dining_halls(id, name)')
+        .eq('id', itemId)
+        .single();
+      if (data) {
+        setSelectedHall(data.dining_halls ?? null);
+        setSelectedItem(data);
+        setServings(1);
+        setLogSuccess(false);
+        setView('detail');
+      }
+    } catch (e) {
+      if (__DEV__) console.error('Failed to open item by ID:', e);
+    }
+  }, []);
+
   useFocusEffect(useCallback(() => {
     setView('halls');
     setHallSearch('');
@@ -390,7 +409,11 @@ export default function BrowseScreen() {
     if (params.meal && ['Breakfast', 'Lunch', 'Dinner'].includes(params.meal)) {
       setMeal(params.meal);
     }
-    if (params.filter) {
+    if (params.itemId) {
+      // Deep-link directly to item detail
+      openItemById(params.itemId);
+      loadHalls();
+    } else if (params.filter) {
       setActiveFilter(params.filter);
       loadFilteredItems(params.filter);
     } else {
@@ -401,7 +424,7 @@ export default function BrowseScreen() {
     loadRatings();
     loadHallStatuses();
     loadRecentSearches();
-  }, [params.filter, params.meal, loadHalls, loadFavorites, loadRatings, loadHallStatuses, loadRecentSearches]));
+  }, [params.filter, params.meal, params.itemId, loadHalls, loadFavorites, loadRatings, loadHallStatuses, loadRecentSearches, openItemById]));
 
   const onRefresh = async () => {
     setRefreshing(true);
