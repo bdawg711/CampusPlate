@@ -94,14 +94,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Message cannot be empty" }, 400);
     }
 
-    // ALLOWLIST — remove when paywall is implemented
-    const allowedUsers = (Deno.env.get("AI_ALLOWED_USERS") || "").split(",").map((s) => s.trim()).filter(Boolean);
-    if (allowedUsers.length > 0 && !allowedUsers.includes(userId)) {
-      return jsonResponse(
-        { error: "AI Meal Planner is coming soon! Stay tuned." },
-        403
-      );
-    }
+    // ALLOWLIST — removed; all authenticated users can use AI chat now
+    // const allowedUsers = (Deno.env.get("AI_ALLOWED_USERS") || "").split(",").map((s) => s.trim()).filter(Boolean);
+    // if (allowedUsers.length > 0 && !allowedUsers.includes(userId)) {
+    //   return jsonResponse(
+    //     { error: "AI Meal Planner is coming soon! Stay tuned." },
+    //     403
+    //   );
+    // }
 
     // ── 1. Rate limiting ────────────────────────────────────────────────
     const d = new Date();
