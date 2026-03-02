@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -10,6 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -287,6 +293,18 @@ export default function ProgressScreen() {
   const earnedBadges = badges.filter(b => b.earned);
   const lockedBadges = badges.filter(b => !b.earned);
   const [showAllBadges, setShowAllBadges] = useState(false);
+  const badgeFadeOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    badgeFadeOpacity.value = withTiming(showAllBadges ? 1 : 0, {
+      duration: 250,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [showAllBadges]);
+
+  const badgeFadeStyle = useAnimatedStyle(() => ({
+    opacity: badgeFadeOpacity.value,
+  }));
 
   if (loading) {
     return (
@@ -718,15 +736,17 @@ export default function ProgressScreen() {
                   </TouchableOpacity>
                 )}
                 {showAllBadges && (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 12, paddingBottom: 4, marginTop: 12 }}
-                  >
-                    {lockedBadges.map((b) => (
-                      <StreakBadge key={b.id} badge={b} size="small" />
-                    ))}
-                  </ScrollView>
+                  <Animated.View style={badgeFadeStyle}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 12, paddingBottom: 4, marginTop: 12 }}
+                    >
+                      {lockedBadges.map((b) => (
+                        <StreakBadge key={b.id} badge={b} size="small" />
+                      ))}
+                    </ScrollView>
+                  </Animated.View>
                 )}
               </>
             ) : (
@@ -767,15 +787,17 @@ export default function ProgressScreen() {
                   </Text>
                 </TouchableOpacity>
                 {showAllBadges && (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 12, paddingBottom: 4, marginTop: 12 }}
-                  >
-                    {lockedBadges.map((b) => (
-                      <StreakBadge key={b.id} badge={b} size="small" />
-                    ))}
-                  </ScrollView>
+                  <Animated.View style={badgeFadeStyle}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 12, paddingBottom: 4, marginTop: 12 }}
+                    >
+                      {lockedBadges.map((b) => (
+                        <StreakBadge key={b.id} badge={b} size="small" />
+                      ))}
+                    </ScrollView>
+                  </Animated.View>
                 )}
               </Box>
             )}

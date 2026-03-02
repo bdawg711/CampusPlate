@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   ScrollView,
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Text } from '@/src/theme/restyleTheme';
 
@@ -30,6 +36,19 @@ function FAQItem({ question, answer, expanded, onToggle }: {
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const opacity = useSharedValue(expanded ? 1 : 0);
+
+  useEffect(() => {
+    opacity.value = withTiming(expanded ? 1 : 0, {
+      duration: 200,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [expanded]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   return (
     <View>
       <TouchableOpacity
@@ -43,11 +62,11 @@ function FAQItem({ question, answer, expanded, onToggle }: {
         <Feather name={expanded ? 'chevron-down' : 'chevron-right'} size={16} color="#A8A9AD" />
       </TouchableOpacity>
       {expanded && (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+        <Animated.View style={[{ paddingHorizontal: 16, paddingBottom: 16 }, animStyle]}>
           <Text style={{ fontSize: 13, lineHeight: 20, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>
             {answer}
           </Text>
-        </View>
+        </Animated.View>
       )}
     </View>
   );
