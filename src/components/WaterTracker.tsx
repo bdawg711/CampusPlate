@@ -117,7 +117,10 @@ function WaterBottle({ pct, goalHit }: { pct: number; goalHit: boolean }) {
   const fillHeight = useSharedValue(0);
 
   useEffect(() => {
-    fillHeight.value = withSpring(Math.min(pct, 1), { damping: 14, stiffness: 90 });
+    fillHeight.value = withTiming(Math.min(pct, 1), {
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+    });
   }, [pct]);
 
   // Body area: y=16 to y=68, height=52
