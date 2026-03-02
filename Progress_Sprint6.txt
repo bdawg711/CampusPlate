@@ -29,9 +29,9 @@ FEATURE 4 — Onboarding Flow
 [x] 4.3  Wire onboarding into app flow (Cameron)
 
 FEATURE 5 — Daily Summary Notification
-[ ] 5.1  Create src/utils/dailySummaryNotification.ts (Bandhip)
+[x] 5.1  Create src/utils/dailySummaryNotification.ts (Bandhip)
 [ ] 5.2  Add daily summary toggle to Settings (Cameron)
 
 ================================================================================
-TOTAL: 17 / 20 complete
+TOTAL: 18 / 20 complete
 ================================================================================
