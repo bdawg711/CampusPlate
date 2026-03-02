@@ -136,14 +136,22 @@ export default function SettingsRestyle() {
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const toggleHighProtein = async () => {
+    const newVal = !profile?.high_protein;
+    // Optimistic update so the Switch doesn't snap back while waiting for Supabase
+    setProfile((p: any) => p ? { ...p, high_protein: newVal } : p);
     try {
       const userId = await requireUserId();
-      const newVal = !profile?.high_protein;
       const { error } = await supabase.from('profiles').update({ high_protein: newVal }).eq('id', userId);
-      if (error) { if (__DEV__) console.error('Toggle failed:', error.message); Alert.alert('Error', 'Failed to save. Please try again.'); return; }
-      setProfile((p: any) => p ? { ...p, high_protein: newVal } : p);
+      if (error) {
+        if (__DEV__) console.error('Toggle failed:', error.message);
+        // Revert on failure
+        setProfile((p: any) => p ? { ...p, high_protein: !newVal } : p);
+        Alert.alert('Error', 'Failed to save. Please try again.');
+      }
     } catch (e) {
       if (__DEV__) console.error('Toggle error:', e);
+      // Revert on failure
+      setProfile((p: any) => p ? { ...p, high_protein: !newVal } : p);
     }
   };
 
