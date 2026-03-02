@@ -25,7 +25,7 @@ FEATURE 3 — Animation Polish
 
 FEATURE 4 — Onboarding Flow
 [x] 4.1  Create src/components/OnboardingFlow.tsx (Bandhip)
-[ ] 4.2  Add onboarding_complete column to profiles (Cameron — Supabase)
+[x] 4.2  Add onboarding_complete column to profiles (Cameron — Supabase)
 [ ] 4.3  Wire onboarding into app flow (Cameron)
 
 FEATURE 5 — Daily Summary Notification
@@ -33,5 +33,5 @@ FEATURE 5 — Daily Summary Notification
 [ ] 5.2  Add daily summary toggle to Settings (Cameron)
 
 ================================================================================
-TOTAL: 15 / 20 complete
+TOTAL: 16 / 20 complete
 ================================================================================
