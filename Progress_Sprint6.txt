@@ -20,7 +20,7 @@ FEATURE 3 — Animation Polish
 [x] 3.2  Fix water bar animation (Cameron)
 [x] 3.3  Fix goal hit banner animation (Cameron)
 [x] 3.4  Polish confetti animation (Cameron)
-[ ] 3.5  Tab bar transition polish (Cameron)
+[x] 3.5  Tab bar transition polish (Cameron)
 [ ] 3.6  General animation audit (Cameron)
 
 FEATURE 4 — Onboarding Flow
@@ -33,5 +33,5 @@ FEATURE 5 — Daily Summary Notification
 [ ] 5.2  Add daily summary toggle to Settings (Cameron)
 
 ================================================================================
-TOTAL: 12 / 20 complete
+TOTAL: 13 / 20 complete
 ================================================================================

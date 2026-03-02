@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Pressable,
@@ -10,11 +10,12 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
+  withRepeat,
+  withSequence,
   Easing,
 } from 'react-native-reanimated';
 import { triggerHaptic } from '@/src/utils/haptics';
-import { Box, Text } from '@/src/theme/restyleTheme';
+import { Text } from '@/src/theme/restyleTheme';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const TAB_CONFIG: {
@@ -45,18 +46,48 @@ function TabItem({
   onLongPress: () => void;
 }) {
   const scale = useSharedValue(1);
+  const labelOpacity = useSharedValue(isFocused ? 1 : 0.5);
+  const glowOpacity = useSharedValue(0.15);
   const isAI = config.name === 'ai';
+
+  // Animate label opacity on focus change
+  useEffect(() => {
+    labelOpacity.value = withTiming(isFocused ? 1 : 0.5, { duration: 200 });
+  }, [isFocused]);
+
+  // AI glow pulse when focused
+  useEffect(() => {
+    if (isAI && isFocused) {
+      glowOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.25, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+          withTiming(0.15, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+        ),
+        -1, // infinite
+      );
+    } else if (isAI) {
+      glowOpacity.value = withTiming(0.15, { duration: 200 });
+    }
+  }, [isFocused, isAI]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  const labelAnimStyle = useAnimatedStyle(() => ({
+    opacity: labelOpacity.value,
+  }));
+
+  const glowAnimStyle = useAnimatedStyle(() => ({
+    shadowOpacity: glowOpacity.value,
+  }));
+
   const handlePressIn = () => {
-    scale.value = withTiming(0.85, { duration: 100, easing: Easing.out(Easing.quad) });
+    scale.value = withTiming(0.9, { duration: 75, easing: Easing.out(Easing.quad) });
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 150 });
+    scale.value = withTiming(1, { duration: 75, easing: Easing.out(Easing.quad) });
   };
 
   const iconColor = isAI ? '#FFFFFF' : isFocused ? MAROON : SILVER;
@@ -80,45 +111,49 @@ function TabItem({
     >
       <Animated.View style={[{ alignItems: 'center', justifyContent: 'center' }, animatedStyle]}>
         {isAI ? (
-          <View
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 9999,
-              backgroundColor: MAROON,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: -20,
-              ...Platform.select({
-                ios: {
-                  shadowColor: MAROON,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                },
-                android: {
-                  elevation: 6,
-                },
-              }),
-            }}
+          <Animated.View
+            style={[
+              {
+                width: 48,
+                height: 48,
+                borderRadius: 9999,
+                backgroundColor: MAROON,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: -20,
+                ...Platform.select({
+                  ios: {
+                    shadowColor: MAROON,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowRadius: 8,
+                  },
+                  android: {
+                    elevation: 6,
+                  },
+                }),
+              },
+              glowAnimStyle,
+            ]}
           >
             <Feather name={config.icon} size={config.size} color="#FFFFFF" />
-          </View>
+          </Animated.View>
         ) : (
           <Feather name={config.icon} size={config.size} color={iconColor} />
         )}
         {!isAI && (
-          <Text
-            style={{
-              fontSize: 11,
-              fontFamily: 'DMSans_500Medium',
-              marginTop: 2,
-              color: labelColor,
-            }}
-            numberOfLines={1}
-          >
-            {config.label}
-          </Text>
+          <Animated.View style={labelAnimStyle}>
+            <Text
+              style={{
+                fontSize: 11,
+                fontFamily: 'DMSans_500Medium',
+                marginTop: 2,
+                color: labelColor,
+              }}
+              numberOfLines={1}
+            >
+              {config.label}
+            </Text>
+          </Animated.View>
         )}
       </Animated.View>
     </Pressable>
