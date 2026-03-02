@@ -3,10 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedProps,
-  withTiming,
   withDelay,
   withSpring,
-  Easing,
 } from 'react-native-reanimated';
 import Svg, {
   Circle,
@@ -43,8 +41,6 @@ const STROKE_WIDTH = 10;
 const RING_GAP = 8;
 const MAX_FILL = 0.95; // Cap visual fill at 95% for 96-99% range
 
-// Ring durations (outer → inner, each 50ms shorter)
-const DURATIONS = [900, 850, 800, 750];
 // Stagger delays (0 / 120 / 240 / 360 ms)
 const DELAYS = [0, 120, 240, 360];
 // Rotational offsets: -90 (12 o'clock) then -30 deg stagger per ring
@@ -114,6 +110,8 @@ export default function SpiralRings({
 
   // Previous percentages for threshold detection
   const prevPcts = useRef([0, 0, 0, 0]);
+  // Previous targets to skip redundant animations
+  const prevTargets = useRef([0, 0, 0, 0]);
 
   // Compute raw percentages
   const macros = [calories, protein, carbs, fat];
@@ -127,6 +125,9 @@ export default function SpiralRings({
   });
   const overTargets = rawPcts.map((p) => p > 1);
 
+  // Smooth spring config — lower stiffness for gentle fill, enough damping to avoid bounce
+  const SPRING_CONFIG = { damping: 15, stiffness: 40, mass: 1 };
+
   // ── Animate on data change ──────────────────────────────────────────────
 
   useEffect(() => {
@@ -134,30 +135,34 @@ export default function SpiralRings({
       targets.forEach((t, i) => {
         progress[i].value = t;
       });
+      prevTargets.current = [...targets];
       return;
     }
 
     // Skip if no data yet
     if (targets.every((t) => t === 0)) return;
 
+    // Skip if targets unchanged (prevents flicker on rapid re-renders)
+    const unchanged = targets.every((t, i) => Math.abs(t - prevTargets.current[i]) < 0.001);
+    if (unchanged && !isFirstLoad.current) return;
+
     if (isFirstLoad.current) {
-      // Staggered fill-on-load
+      // Staggered spring fill on initial mount
       targets.forEach((t, i) => {
         progress[i].value = withDelay(
           DELAYS[i],
-          withTiming(t, {
-            duration: DURATIONS[i],
-            easing: Easing.out(Easing.cubic),
-          }),
+          withSpring(t, SPRING_CONFIG),
         );
       });
       isFirstLoad.current = false;
     } else {
-      // Smooth spring update (no rewind — just animate to new value)
+      // Smooth spring to new value (no rewind)
       targets.forEach((t, i) => {
-        progress[i].value = withSpring(t, { damping: 14, stiffness: 90 });
+        progress[i].value = withSpring(t, SPRING_CONFIG);
       });
     }
+
+    prevTargets.current = [...targets];
 
     // Haptic on 25% threshold crossing
     const THRESHOLDS = [0.25, 0.5, 0.75, 1.0];

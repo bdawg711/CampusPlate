@@ -16,7 +16,7 @@ FEATURE 2 — Edit Logged Meals
 [x] 2.3  Wire edit modal into History (Cameron)
 
 FEATURE 3 — Animation Polish
-[ ] 3.1  Fix calorie ring animation (Cameron)
+[x] 3.1  Fix calorie ring animation (Cameron)
 [ ] 3.2  Fix water bar animation (Cameron)
 [ ] 3.3  Fix goal hit banner animation (Cameron)
 [ ] 3.4  Polish confetti animation (Cameron)
@@ -33,5 +33,5 @@ FEATURE 5 — Daily Summary Notification
 [ ] 5.2  Add daily summary toggle to Settings (Cameron)
 
 ================================================================================
-TOTAL: 8 / 20 complete
+TOTAL: 9 / 20 complete
 ================================================================================
