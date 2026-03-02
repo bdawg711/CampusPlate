@@ -31,6 +31,7 @@ import {
 } from '@/src/utils/ai';
 import AIChatBubble from './AIChatBubble';
 import TypingIndicator from './TypingIndicator';
+import CustomMealModal from './CustomMealModal';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,10 @@ function getPlaceholder(): string {
   return 'Ask about dinner...';
 }
 
+function getLocalDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function AIChat({ mode = 'tab', visible = true, onClose, onLogItem }: AIChatProps) {
@@ -105,6 +110,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
   const [initialLoading, setInitialLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
+  const [showCustomMealModal, setShowCustomMealModal] = useState(false);
 
   const flatListRef = useRef<FlatList<DisplayMessage>>(null);
   const historyRef = useRef<ChatMessage[]>([]);
@@ -343,6 +349,12 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
                         onPress={() => handleSend(s.title)}
                       />
                     ))}
+                    <SuggestionCard
+                      icon="edit"
+                      title="Log Custom Meal"
+                      subtitle="Track food from outside campus"
+                      onPress={() => setShowCustomMealModal(true)}
+                    />
                   </Box>
                 </Box>
               ) : null
@@ -445,6 +457,13 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
           </Box>
         </Box>
       </KeyboardAvoidingView>
+
+      <CustomMealModal
+        visible={showCustomMealModal}
+        onClose={() => setShowCustomMealModal(false)}
+        onLogged={() => setShowCustomMealModal(false)}
+        date={getLocalDate()}
+      />
     </Box>
   );
 
