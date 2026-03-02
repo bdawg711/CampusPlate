@@ -41,7 +41,7 @@ export async function getWeightHistory(
   try {
     const { data, error } = await supabase
       .from('weight_logs')
-      .select('date, weight')
+      .select('date, weight_lbs')
       .eq('user_id', userId)
       .gte('date', startDate)
       .order('date', { ascending: true });
@@ -50,7 +50,7 @@ export async function getWeightHistory(
 
     return data.map((row: any) => ({
       date: row.date as string,
-      weight: row.weight as number,
+      weight: row.weight_lbs as number,
     }));
   } catch {
     return [];

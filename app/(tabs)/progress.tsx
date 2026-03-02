@@ -268,7 +268,7 @@ export default function ProgressScreen() {
       const userId = await requireUserId();
       const todayStr = getLocalDate();
       const { error } = await supabase.from('weight_logs').upsert(
-        { user_id: userId, date: todayStr, weight: w },
+        { user_id: userId, date: todayStr, weight_lbs: w },
         { onConflict: 'user_id,date' }
       );
       if (error) {
