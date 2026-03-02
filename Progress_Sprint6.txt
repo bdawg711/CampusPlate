@@ -1,0 +1,37 @@
+================================================================================
+CAMPUSPLATE — SPRINT 6 PROGRESS
+================================================================================
+
+FEATURE 1 — Custom Meal Logging
+[ ] 1.1  Create custom_meals table + RLS policies (Cameron — Supabase)
+[ ] 1.2  Create src/components/CustomMealModal.tsx (Bandhip)
+[ ] 1.3  Add "+ Custom" entry point on Dashboard (Cameron)
+[ ] 1.4  Add custom meal entry point on AI tab (Cameron)
+[ ] 1.5  Include custom_meals in daily totals + streaks + progress (Bandhip — utils, Cameron — index.tsx)
+[ ] 1.6  Delete custom meals from Dashboard (Cameron)
+
+FEATURE 2 — Edit Logged Meals
+[ ] 2.1  Create src/components/EditMealModal.tsx (Bandhip)
+[ ] 2.2  Wire edit modal into Dashboard (Cameron)
+[ ] 2.3  Wire edit modal into History (Cameron)
+
+FEATURE 3 — Animation Polish
+[ ] 3.1  Fix calorie ring animation (Cameron)
+[ ] 3.2  Fix water bar animation (Cameron)
+[ ] 3.3  Fix goal hit banner animation (Cameron)
+[ ] 3.4  Polish confetti animation (Cameron)
+[ ] 3.5  Tab bar transition polish (Cameron)
+[ ] 3.6  General animation audit (Cameron)
+
+FEATURE 4 — Onboarding Flow
+[ ] 4.1  Create src/components/OnboardingFlow.tsx (Bandhip)
+[ ] 4.2  Add onboarding_complete column to profiles (Cameron — Supabase)
+[ ] 4.3  Wire onboarding into app flow (Cameron)
+
+FEATURE 5 — Daily Summary Notification
+[ ] 5.1  Create src/utils/dailySummaryNotification.ts (Bandhip)
+[ ] 5.2  Add daily summary toggle to Settings (Cameron)
+
+================================================================================
+TOTAL: 0 / 20 complete
+================================================================================

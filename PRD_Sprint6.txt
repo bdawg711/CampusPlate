@@ -1,0 +1,460 @@
+================================================================================
+CAMPUSPLATE — SPRINT 6 PRD
+================================================================================
+
+SPRINT GOAL: Custom meal logging, edit existing logs, animation polish,
+onboarding flow, and daily summary notifications.
+
+================================================================================
+GLOBAL RULES (same as Sprint 4/5 — still apply)
+================================================================================
+
+  DATES:
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    NEVER use toISOString() for dates.
+
+  COLORS:
+    Always use useTheme() → colors object. Never hardcode hex values.
+    Glass cards: colors.cardGlass bg + colors.cardGlassBorder border.
+
+  FONTS:
+    Headers: Outfit_700Bold or Outfit_800ExtraBold
+    Body: DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold
+    Never use fontWeight with fontFamily — pick the correct font file.
+
+  ICONS:
+    Feather icons from @expo/vector-icons only. No emojis for UI chrome.
+
+  SUPABASE:
+    All queries wrapped in try/catch.
+    Always filter by user_id.
+    nutrition joins return arrays: item.nutrition[0].calories
+    weight_logs column: weight_lbs (not weight)
+
+  ERRORS:
+    User-friendly alerts. Never show raw error messages.
+    Console.warn for non-critical failures.
+
+  TAB BAR:
+    All screens need paddingBottom: 100 for FloatingTabBar clearance.
+
+  COMMITS:
+    One task = one commit.
+    Format: "feat(sprint6): [task#] short description"
+    git pull before starting. git push when done.
+
+================================================================================
+FEATURE 1 — CUSTOM MEAL LOGGING
+================================================================================
+
+  PURPOSE:
+  Users eat off-campus (Chipotle, home-cooked, snacks, protein shakes, etc.)
+  and need to log those meals to get an accurate daily picture. Right now
+  logging only works for VT dining hall items. This feature adds a manual
+  entry flow accessible from the Dashboard and AI tab.
+
+  TASK 1.1 — Create custom_meals table in Supabase
+  -------------------------------------------------------
+  SQL:
+    CREATE TABLE custom_meals (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      user_id UUID REFERENCES auth.users(id) NOT NULL,
+      name TEXT NOT NULL,
+      calories INTEGER NOT NULL DEFAULT 0,
+      protein_g REAL NOT NULL DEFAULT 0,
+      total_carbs_g REAL NOT NULL DEFAULT 0,
+      total_fat_g REAL NOT NULL DEFAULT 0,
+      date TEXT NOT NULL,
+      meal_period TEXT NOT NULL DEFAULT 'Snack',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Enable RLS
+    ALTER TABLE custom_meals ENABLE ROW LEVEL SECURITY;
+
+    -- Users can only see/modify their own entries
+    CREATE POLICY "Users can view own custom meals"
+      ON custom_meals FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own custom meals"
+      ON custom_meals FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can update own custom meals"
+      ON custom_meals FOR UPDATE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own custom meals"
+      ON custom_meals FOR DELETE USING (auth.uid() = user_id);
+
+  DONE WHEN: Table exists, RLS policies active. Verify in Supabase dashboard.
+
+  TASK 1.2 — Create src/components/CustomMealModal.tsx
+  -------------------------------------------------------
+  A modal form for adding a custom meal. Fields:
+
+    - Meal Name (TextInput, required, placeholder "e.g. Chipotle Bowl")
+    - Calories (numeric TextInput, required)
+    - Protein (numeric TextInput, required, suffix "g")
+    - Carbs (numeric TextInput, required, suffix "g")
+    - Fat (numeric TextInput, required, suffix "g")
+    - Meal Period (single-select pills: Breakfast | Lunch | Dinner | Snack)
+
+  Layout:
+    - Modal with presentationStyle="pageSheet", slide animation
+    - Header: "Log Custom Meal" (20px Outfit_700Bold) + X close button (Feather x)
+    - Inputs stacked vertically, glass card backgrounds (cardGlass/cardGlassBorder)
+    - Macro inputs in a 3-column row (Protein | Carbs | Fat)
+    - Meal period pills in a horizontal row, maroon fill when active
+    - "Log Meal" button at bottom (full-width, maroon bg, 52px height, borderRadius 14)
+    - Button disabled until name + calories filled
+
+  Behavior:
+    - On submit: insert into custom_meals table with user_id, date from
+      getEffectiveMenuDate(), and selected meal_period
+    - Haptic feedback (notificationAsync Success) on successful log
+    - Auto-close modal after successful insert
+    - Calls onLogged() callback so parent can refresh data
+
+  Validation:
+    - Name: min 1 char, max 100 chars
+    - Calories: 0-5000 range, integer only
+    - Protein/Carbs/Fat: 0-500 range, allow decimals
+    - Show inline error text (red, 12px) below invalid fields
+
+  DONE WHEN: Modal renders, validates, inserts into custom_meals, calls onLogged.
+
+  TASK 1.3 — Add "Log Custom Meal" entry point on Dashboard
+  -------------------------------------------------------
+  In app/(tabs)/index.tsx:
+
+    - Import CustomMealModal
+    - Add showCustomMealModal state
+    - In the "Today's Meals" section header row (next to "History →"), add a
+      "+ Custom" button (13px DMSans_500Medium, colors.maroon)
+    - Tapping opens <CustomMealModal>
+    - onLogged callback triggers loadData() to refresh totals
+
+  DONE WHEN: "+ Custom" button visible on Dashboard, opens modal, logs refresh
+  totals after submit.
+
+  TASK 1.4 — Add custom meal entry point on AI tab
+  -------------------------------------------------------
+  In the AI chat empty state (src/components/AIChat.tsx):
+
+    - Add a 4th suggestion card: Feather "edit" icon, "Log Custom Meal",
+      "Track food from outside campus"
+    - Tapping opens CustomMealModal (pass via prop or render inline)
+
+  DONE WHEN: 4th suggestion card renders, opens custom meal modal.
+
+  TASK 1.5 — Include custom_meals in daily totals
+  -------------------------------------------------------
+  Update app/(tabs)/index.tsx loadData():
+
+    - After fetching meal_logs, ALSO query custom_meals for the same date
+    - Sum custom meal calories/protein/carbs/fat into totalCal/Pro/Carb/Fat
+    - Display custom meals in "Today's Meals" section with a distinct visual
+      indicator (Feather "edit-3" icon instead of dining hall name, or
+      a "Custom" tag in colors.orange)
+
+  Update src/utils/dailyScore.ts:
+    - calculateDailyScore already receives totals — no change needed as long
+      as index.tsx passes the combined totals
+
+  Update src/utils/streaks.ts:
+    - getStreakData should also count days where user has custom_meals entries
+      (a day with EITHER meal_logs OR custom_meals counts as logged)
+
+  Update src/utils/progressData.ts:
+    - getProgressData should include custom_meals in calorie/macro aggregation
+
+  DONE WHEN: Custom meals appear in daily totals, Today's Meals list, streak
+  calculation, and progress data.
+
+  TASK 1.6 — Delete custom meals
+  -------------------------------------------------------
+  In the Today's Meals section on Dashboard:
+
+    - Custom meal items should have the same swipe-to-delete or X button
+      as dining hall meals
+    - On delete: remove from custom_meals table, refresh totals
+
+  DONE WHEN: Custom meals can be deleted from the Dashboard.
+
+
+================================================================================
+FEATURE 2 — EDIT LOGGED MEALS
+================================================================================
+
+  PURPOSE:
+  Users currently can only delete logged meals. They should be able to edit
+  servings for dining hall meals and edit all fields for custom meals.
+
+  TASK 2.1 — Create src/components/EditMealModal.tsx
+  -------------------------------------------------------
+  A modal that appears when tapping an existing logged meal.
+
+  For dining hall meals (from meal_logs):
+    - Show item name (read-only), dining hall name, meal period
+    - Editable: servings (numeric stepper: - 0.5 | value | + 0.5, min 0.5, max 10)
+    - "Save" button updates meal_logs row
+    - "Delete" button removes the meal_logs row
+
+  For custom meals (from custom_meals):
+    - All fields editable: name, calories, protein, carbs, fat, meal period
+    - Same validation as CustomMealModal
+    - "Save" button updates custom_meals row
+    - "Delete" button removes the custom_meals row
+
+  Layout:
+    - Modal, pageSheet presentation
+    - Header: "Edit Meal" + close button
+    - Glass card inputs matching CustomMealModal style
+    - Two-button footer: "Delete" (outline, red text) | "Save" (filled, maroon)
+
+  DONE WHEN: Tapping a meal on Dashboard opens EditMealModal with correct data.
+
+  TASK 2.2 — Wire edit modal into Dashboard
+  -------------------------------------------------------
+  In app/(tabs)/index.tsx:
+
+    - Add editingMeal state (holds the meal data + type: 'dining' | 'custom')
+    - Tapping a meal item in Today's Meals opens EditMealModal with that data
+    - On save/delete: refresh totals via loadData()
+    - Replace the current delete-only X button with a tap-to-edit interaction
+      (the delete button moves into the edit modal)
+
+  DONE WHEN: Tapping any meal opens edit modal, save/delete work, totals refresh.
+
+  TASK 2.3 — Wire edit modal into History screen
+  -------------------------------------------------------
+  In app/(tabs)/history.tsx:
+
+    - Same behavior: tapping a meal item opens EditMealModal
+    - After save/delete, refresh the history data
+    - History should also display custom meals for each day
+
+  DONE WHEN: History screen shows custom meals, tapping any meal opens edit.
+
+
+================================================================================
+FEATURE 3 — ANIMATION POLISH
+================================================================================
+
+  PURPOSE:
+  Several animations feel janky or stiff. Replace Animated API usage with
+  smoother implementations. If react-native-reanimated is already installed,
+  use it. If not, improve with better Animated spring/timing configs.
+
+  TASK 3.1 — Fix calorie ring animation
+  -------------------------------------------------------
+  In app/(tabs)/index.tsx (multi-ring display):
+
+    - Current: rings may stutter on mount or data change
+    - Fix: Use useNativeDriver: true if not already set
+    - Add spring config: tension: 40, friction: 7 for smooth fill
+    - Ensure rings animate from 0 to target value on mount
+    - Ensure rings animate smoothly when data changes (not just on mount)
+    - Test with rapid meal logging — rings should not flicker
+
+  DONE WHEN: All 4 rings animate smoothly on mount and on data change.
+
+  TASK 3.2 — Fix water bar animation
+  -------------------------------------------------------
+  In the compact water section on Dashboard:
+
+    - Current: bar width may jump instead of animating
+    - Fix: Animated.timing with duration: 600, easing: Easing.out(Easing.cubic)
+    - Bar should smoothly expand when water is added
+    - Text ("48 / 64 oz") should update immediately, bar animates to match
+
+  DONE WHEN: Water bar fills smoothly, no jumps.
+
+  TASK 3.3 — Fix goal hit banner animation
+  -------------------------------------------------------
+  In src/components/GoalHitBanner.tsx:
+
+    - Current: appears/disappears abruptly
+    - Fix: Slide in from top with spring animation (translateY from -100 to 0)
+    - Auto-dismiss after 3 seconds with fade out (opacity 1 → 0, 500ms)
+    - If user taps banner, dismiss immediately with quick fade
+    - Ensure banner doesn't block interaction with content below
+
+  DONE WHEN: Banner slides in smoothly, auto-fades after 3s, tappable to dismiss.
+
+  TASK 3.4 — Polish confetti animation
+  -------------------------------------------------------
+  In src/components/Confetti.tsx:
+
+    - Review current implementation
+    - Ensure confetti pieces have varied sizes, colors, and rotation
+    - Duration: 2-3 seconds total, pieces should decelerate naturally
+    - Add slight horizontal drift (not just straight down)
+    - Performance: limit to ~30 particles max, use useNativeDriver
+
+  DONE WHEN: Confetti feels celebratory and polished, no frame drops.
+
+  TASK 3.5 — Tab bar transition polish
+  -------------------------------------------------------
+  In src/components/FloatingTabBar.tsx:
+
+    - Add subtle scale animation on tab icon press (1.0 → 0.9 → 1.0, 150ms)
+    - Active tab label should fade in (opacity 0 → 1, 200ms) not just appear
+    - AI tab glow should pulse subtly when on AI tab (opacity 0.15 → 0.25 loop)
+
+  DONE WHEN: Tab switches feel responsive with micro-animations.
+
+  TASK 3.6 — General animation audit
+  -------------------------------------------------------
+  Review ALL screens for:
+    - Any opacity: 0 → 1 that happens without animation (add 200ms fade)
+    - ScrollView/FlatList items that could benefit from staggered fade-in on load
+    - Modal transitions: ensure all use slide animation, not instant appear
+    - Loading skeletons: verify pulse animation is smooth
+
+  Fix any issues found. List all changes in commit message.
+
+  DONE WHEN: All screens feel smooth with no jarring visual transitions.
+
+
+================================================================================
+FEATURE 4 — ONBOARDING FLOW
+================================================================================
+
+  PURPOSE:
+  First-time users currently land on the Dashboard with no data and no
+  guidance. An onboarding flow should collect basic info and explain the app.
+
+  NOTE: app/onboarding.tsx already exists from Sprint 1 with a 10-step wizard
+  and onboarding_complete column in profiles. Task 4.1 should ENHANCE the
+  existing flow, not rebuild from scratch. Check current state first.
+
+  TASK 4.1 — Enhance src/components/OnboardingFlow.tsx or app/onboarding.tsx
+  -------------------------------------------------------
+  Review the existing onboarding and enhance with:
+
+  Step 1 — Welcome
+    - "Welcome to CampusPlate" (28px Outfit_700Bold)
+    - "Track your nutrition across Virginia Tech dining halls" (16px)
+    - "Get Started" button
+
+  Step 2 — Set Your Goals
+    - Calorie goal slider or preset pills (1500 | 1800 | 2100 | 2500 | 3000)
+    - Protein goal (auto-calculated or manual override)
+    - Water goal pills (48 | 64 | 80 | 96 | 128 oz)
+    - "These can be changed anytime in Settings"
+
+  Step 3 — Pick Your Dining Hall
+    - List of all 12 dining halls
+    - User taps their primary hall (highlighted with maroon border)
+    - "This will be your default Browse view"
+
+  Step 4 — You're All Set
+    - Summary of selections
+    - "Start Tracking" button → navigates to Dashboard
+
+  Behavior:
+    - Dot indicators at bottom showing progress (4 dots)
+    - Swipe between steps OR use buttons
+    - On completion: save goals to profiles table, mark onboarding complete
+    - If user kills app mid-onboarding, show it again next launch
+    - Must use glass card styling, Feather icons, Outfit/DMSans fonts
+
+  DONE WHEN: New users see enhanced onboarding, goals saved, hall set.
+
+  TASK 4.2 — Verify onboarding_complete column exists
+  -------------------------------------------------------
+  Check profiles table. Column should already exist from Sprint 1.
+  If missing: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS
+    onboarding_complete BOOLEAN DEFAULT FALSE;
+
+  DONE WHEN: Column confirmed or added.
+
+  TASK 4.3 — Wire onboarding into app flow
+  -------------------------------------------------------
+  In app/_layout.tsx:
+
+    - After auth check, query profiles.onboarding_complete
+    - If false (or null): show onboarding instead of tab navigator
+    - OnboardingFlow receives onComplete callback that:
+      1. Updates profiles set onboarding_complete = true
+      2. Saves goal selections to profiles
+      3. Navigates to main app
+
+  DONE WHEN: New users see onboarding, existing users skip it.
+
+
+================================================================================
+FEATURE 5 — DAILY SUMMARY NOTIFICATION
+================================================================================
+
+  PURPOSE:
+  End-of-day push notification with the user's daily score, encouraging them
+  to maintain their streak.
+
+  TASK 5.1 — Create src/utils/dailySummaryNotification.ts
+  -------------------------------------------------------
+  Function: scheduleDailySummary(enabled: boolean, time: string)
+
+    - Schedules a local notification at the specified time (default: 9:00 PM)
+    - Notification content:
+      Title: "Daily Recap"
+      Body: "Check your daily score and keep your streak going!"
+    - Uses expo-notifications scheduleNotificationAsync with daily trigger
+    - Wraps in try/catch for Expo Go compatibility
+    - Cancels previous daily summary notification before scheduling new one
+      (use a fixed notification identifier: "daily-summary")
+
+  DONE WHEN: Function schedules/cancels notification correctly.
+
+  TASK 5.2 — Add daily summary toggle to Settings
+  -------------------------------------------------------
+  In app/(tabs)/more.tsx:
+
+    - Add "Daily Recap" toggle row in the APP settings group
+      (Feather "bar-chart-2" icon, tinted blue background)
+    - Toggle calls scheduleDailySummary(true/false)
+    - Persist preference in profiles table:
+      ALTER TABLE profiles ADD COLUMN IF NOT EXISTS
+        daily_summary_enabled BOOLEAN DEFAULT TRUE;
+      ALTER TABLE profiles ADD COLUMN IF NOT EXISTS
+        daily_summary_time TEXT DEFAULT '21:00';
+    - Load preference on mount, sync toggle state
+
+  DONE WHEN: Toggle enables/disables daily notification, persists across sessions.
+
+
+================================================================================
+TASK SUMMARY
+================================================================================
+
+  FEATURE 1 — Custom Meal Logging (6 tasks)
+    1.1  Create custom_meals table + RLS
+    1.2  Create CustomMealModal.tsx
+    1.3  Add entry point on Dashboard
+    1.4  Add entry point on AI tab
+    1.5  Include custom_meals in daily totals + streaks + progress
+    1.6  Delete custom meals
+
+  FEATURE 2 — Edit Logged Meals (3 tasks)
+    2.1  Create EditMealModal.tsx
+    2.2  Wire edit modal into Dashboard
+    2.3  Wire edit modal into History
+
+  FEATURE 3 — Animation Polish (6 tasks)
+    3.1  Fix calorie ring animation
+    3.2  Fix water bar animation
+    3.3  Fix goal hit banner animation
+    3.4  Polish confetti animation
+    3.5  Tab bar transition polish
+    3.6  General animation audit
+
+  FEATURE 4 — Onboarding Flow (3 tasks)
+    4.1  Enhance OnboardingFlow
+    4.2  Verify onboarding_complete column
+    4.3  Wire onboarding into app flow
+
+  FEATURE 5 — Daily Summary Notification (2 tasks)
+    5.1  Create dailySummaryNotification.ts
+    5.2  Add daily summary toggle to Settings
+
+  TOTAL: 20 tasks
+
+================================================================================
