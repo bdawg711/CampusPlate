@@ -8,7 +8,7 @@ FEATURE 1 — Custom Meal Logging
 [x] 1.3  Add "+ Custom" entry point on Dashboard (Cameron)
 [x] 1.4  Add custom meal entry point on AI tab (Cameron)
 [x] 1.5  Include custom_meals in daily totals + streaks + progress (Bandhip — utils, Cameron — index.tsx)
-[ ] 1.6  Delete custom meals from Dashboard (Cameron)
+[x] 1.6  Delete custom meals from Dashboard (Cameron)
 
 FEATURE 2 — Edit Logged Meals
 [ ] 2.1  Create src/components/EditMealModal.tsx (Bandhip)
@@ -33,5 +33,5 @@ FEATURE 5 — Daily Summary Notification
 [ ] 5.2  Add daily summary toggle to Settings (Cameron)
 
 ================================================================================
-TOTAL: 4 / 20 complete
+TOTAL: 5 / 20 complete
 ================================================================================
