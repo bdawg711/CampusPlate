@@ -45,6 +45,8 @@ interface MealLogSectionProps {
   onBrowseMeal?: (meal: string) => void;
   onCustomMealPress?: () => void;
   onDeleteCustomMeal?: (id: string) => void;
+  onEditDiningLog?: (log: MealLog) => void;
+  onEditCustomMeal?: (meal: CustomMeal) => void;
 }
 
 // ── Meal groups config ──────────────────────────────────────────────────────
@@ -92,6 +94,8 @@ export default function MealLogSection({
   onBrowseMeal,
   onCustomMealPress,
   onDeleteCustomMeal,
+  onEditDiningLog,
+  onEditCustomMeal,
 }: MealLogSectionProps) {
   // Filter out Snack group if there are no custom snack meals
   const hasSnackCustom = customMeals.some((m) => m.meal_period === 'Snack');
@@ -170,33 +174,34 @@ export default function MealLogSection({
                 {/* Dining hall logs */}
                 {mealLogs.map((log, i) => {
                   const n = getNutrition(log);
-                  return (
-                    <Box key={log.id}>
-                      <Box
-                        flexDirection="row"
-                        alignItems="center"
-                        paddingVertical="s"
-                      >
-                        {/* Name */}
-                        <Box flex={1}>
-                          <Text variant="body" numberOfLines={1}>
-                            {getMealName(log)}
-                          </Text>
-                          <Text variant="dim" style={{ marginTop: 2 }}>
-                            P {n.pro}g · C {n.carb}g · F {n.fat}g
-                          </Text>
-                        </Box>
-
-                        {/* Calories */}
-                        <Text
-                          variant="bodySmall"
-                          color="textMuted"
-                          style={{ marginRight: 8 }}
-                        >
-                          {n.cal} cal
+                  const rowContent = (
+                    <Box
+                      flexDirection="row"
+                      alignItems="center"
+                      paddingVertical="s"
+                    >
+                      {/* Name */}
+                      <Box flex={1}>
+                        <Text variant="body" numberOfLines={1}>
+                          {getMealName(log)}
                         </Text>
+                        <Text variant="dim" style={{ marginTop: 2 }}>
+                          P {n.pro}g · C {n.carb}g · F {n.fat}g
+                        </Text>
+                      </Box>
 
-                        {/* Delete */}
+                      {/* Calories */}
+                      <Text
+                        variant="bodySmall"
+                        color="textMuted"
+                        style={{ marginRight: 8 }}
+                      >
+                        {n.cal} cal
+                      </Text>
+
+                      {onEditDiningLog ? (
+                        <Feather name="chevron-right" size={16} color="#9A9A9E" />
+                      ) : (
                         <TouchableOpacity
                           onPress={() => onDeleteLog(log.id)}
                           accessibilityLabel="Delete meal"
@@ -205,7 +210,24 @@ export default function MealLogSection({
                         >
                           <Feather name="x" size={16} color="#9A9A9E" />
                         </TouchableOpacity>
-                      </Box>
+                      )}
+                    </Box>
+                  );
+
+                  return (
+                    <Box key={log.id}>
+                      {onEditDiningLog ? (
+                        <TouchableOpacity
+                          onPress={() => onEditDiningLog(log)}
+                          activeOpacity={0.6}
+                          accessibilityLabel="Edit meal"
+                          accessibilityRole="button"
+                        >
+                          {rowContent}
+                        </TouchableOpacity>
+                      ) : (
+                        rowContent
+                      )}
 
                       {/* Divider */}
                       {(i < mealLogs.length - 1 || groupCustom.length > 0) && (
@@ -220,56 +242,58 @@ export default function MealLogSection({
                   const pro = Math.round(meal.protein_g || 0);
                   const carb = Math.round(meal.total_carbs_g || 0);
                   const fat = Math.round(meal.total_fat_g || 0);
-                  return (
-                    <Box key={meal.id}>
-                      <Box
-                        flexDirection="row"
-                        alignItems="center"
-                        paddingVertical="s"
-                      >
-                        <Feather
-                          name="edit-3"
-                          size={14}
-                          color="#E87722"
-                          style={{ marginRight: 8 }}
-                        />
-                        <Box flex={1}>
-                          <Box flexDirection="row" alignItems="center" style={{ gap: 6 }}>
-                            <Text variant="body" numberOfLines={1} style={{ flexShrink: 1 }}>
-                              {meal.name}
-                            </Text>
-                            <Box
+                  const customRowContent = (
+                    <Box
+                      flexDirection="row"
+                      alignItems="center"
+                      paddingVertical="s"
+                    >
+                      <Feather
+                        name="edit-3"
+                        size={14}
+                        color="#E87722"
+                        style={{ marginRight: 8 }}
+                      />
+                      <Box flex={1}>
+                        <Box flexDirection="row" alignItems="center" style={{ gap: 6 }}>
+                          <Text variant="body" numberOfLines={1} style={{ flexShrink: 1 }}>
+                            {meal.name}
+                          </Text>
+                          <Box
+                            style={{
+                              paddingHorizontal: 6,
+                              paddingVertical: 1,
+                              borderRadius: 4,
+                              backgroundColor: 'rgba(232,119,34,0.12)',
+                            }}
+                          >
+                            <Text
                               style={{
-                                paddingHorizontal: 6,
-                                paddingVertical: 1,
-                                borderRadius: 4,
-                                backgroundColor: 'rgba(232,119,34,0.12)',
+                                fontSize: 10,
+                                fontFamily: 'DMSans_600SemiBold',
+                                color: '#E87722',
                               }}
                             >
-                              <Text
-                                style={{
-                                  fontSize: 10,
-                                  fontFamily: 'DMSans_600SemiBold',
-                                  color: '#E87722',
-                                }}
-                              >
-                                Custom
-                              </Text>
-                            </Box>
+                              Custom
+                            </Text>
                           </Box>
-                          <Text variant="dim" style={{ marginTop: 2 }}>
-                            P {pro}g · C {carb}g · F {fat}g
-                          </Text>
                         </Box>
-
-                        <Text
-                          variant="bodySmall"
-                          color="textMuted"
-                          style={{ marginRight: 8 }}
-                        >
-                          {meal.calories} cal
+                        <Text variant="dim" style={{ marginTop: 2 }}>
+                          P {pro}g · C {carb}g · F {fat}g
                         </Text>
+                      </Box>
 
+                      <Text
+                        variant="bodySmall"
+                        color="textMuted"
+                        style={{ marginRight: 8 }}
+                      >
+                        {meal.calories} cal
+                      </Text>
+
+                      {onEditCustomMeal ? (
+                        <Feather name="chevron-right" size={16} color="#9A9A9E" />
+                      ) : (
                         <TouchableOpacity
                           onPress={() => onDeleteCustomMeal?.(meal.id)}
                           accessibilityLabel="Delete custom meal"
@@ -278,7 +302,24 @@ export default function MealLogSection({
                         >
                           <Feather name="x" size={16} color="#9A9A9E" />
                         </TouchableOpacity>
-                      </Box>
+                      )}
+                    </Box>
+                  );
+
+                  return (
+                    <Box key={meal.id}>
+                      {onEditCustomMeal ? (
+                        <TouchableOpacity
+                          onPress={() => onEditCustomMeal(meal)}
+                          activeOpacity={0.6}
+                          accessibilityLabel="Edit custom meal"
+                          accessibilityRole="button"
+                        >
+                          {customRowContent}
+                        </TouchableOpacity>
+                      ) : (
+                        customRowContent
+                      )}
 
                       {i < groupCustom.length - 1 && (
                         <Box height={1} backgroundColor="borderLight" />

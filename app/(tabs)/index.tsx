@@ -23,6 +23,7 @@ import WaterTracker from '@/src/components/WaterTracker';
 import ForYouSection, { ForYouSubSection } from '@/src/components/ForYouSection';
 import MealLogSection from '@/src/components/MealLogSection';
 import CustomMealModal from '@/src/components/CustomMealModal';
+import EditMealModal, { EditingMeal } from '@/src/components/EditMealModal';
 import StaggeredList from '@/src/components/StaggeredList';
 import Confetti from '@/src/components/Confetti';
 import GoalHitBanner from '@/src/components/GoalHitBanner';
@@ -135,6 +136,7 @@ export default function HomeScreen() {
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showCustomMealModal, setShowCustomMealModal] = useState(false);
+  const [editingMeal, setEditingMeal] = useState<EditingMeal | null>(null);
 
   // ─── Celebration state ───
   const [showConfetti, setShowConfetti] = useState(false);
@@ -370,6 +372,30 @@ export default function HomeScreen() {
     } catch (e) {
       if (__DEV__) console.error('Delete custom meal error:', e);
     }
+  };
+
+  const handleEditDiningLog = (log: MealLog) => {
+    setEditingMeal({
+      type: 'dining',
+      id: log.id,
+      name: log.menu_items?.name || 'Unknown item',
+      station: log.menu_items?.station,
+      meal: log.meal,
+      servings: log.servings,
+    });
+  };
+
+  const handleEditCustomMeal = (meal: CustomMeal) => {
+    setEditingMeal({
+      type: 'custom',
+      id: meal.id,
+      name: meal.name,
+      calories: meal.calories,
+      protein_g: meal.protein_g,
+      total_carbs_g: meal.total_carbs_g,
+      total_fat_g: meal.total_fat_g,
+      meal_period: meal.meal_period,
+    });
   };
 
   const handleAddWater = async (oz: number) => {
@@ -709,6 +735,8 @@ export default function HomeScreen() {
               logBelongsToMealGroup={logBelongsToMealGroup}
               onBrowseMeal={(meal) => router.push({ pathname: '/(tabs)/browse', params: { meal } })}
               onCustomMealPress={() => setShowCustomMealModal(true)}
+              onEditDiningLog={handleEditDiningLog}
+              onEditCustomMeal={handleEditCustomMeal}
             />
           </Box>
         </StaggeredList>
@@ -720,6 +748,15 @@ export default function HomeScreen() {
         onClose={() => setShowCustomMealModal(false)}
         onLogged={() => loadData()}
         date={getLocalDate()}
+      />
+
+      {/* Edit Meal Modal */}
+      <EditMealModal
+        visible={!!editingMeal}
+        meal={editingMeal}
+        onClose={() => setEditingMeal(null)}
+        onSaved={() => { setEditingMeal(null); loadData(); }}
+        onDeleted={() => { setEditingMeal(null); loadData(); }}
       />
 
       {/* History Modal */}
