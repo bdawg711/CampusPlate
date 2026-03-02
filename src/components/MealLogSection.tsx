@@ -31,6 +31,7 @@ interface MealLogSectionProps {
   onDeleteLog: (logId: string) => void;
   logBelongsToMealGroup: (logMeal: string, group: string) => boolean;
   onBrowseMeal?: (meal: string) => void;
+  onCustomMealPress?: () => void;
 }
 
 // ── Meal groups config ──────────────────────────────────────────────────────
@@ -74,6 +75,7 @@ export default function MealLogSection({
   onDeleteLog,
   logBelongsToMealGroup,
   onBrowseMeal,
+  onCustomMealPress,
 }: MealLogSectionProps) {
   return (
     <Box>
@@ -85,14 +87,26 @@ export default function MealLogSection({
         marginBottom="m"
       >
         <Text variant="cardTitle">Today's Meals</Text>
-        <Text
-          variant="bodySmall"
-          color="maroon"
-          style={{ fontFamily: 'DMSans_600SemiBold' }}
-          onPress={onHistoryPress}
-        >
-          History →
-        </Text>
+        <Box flexDirection="row" alignItems="center" style={{ gap: 16 }}>
+          {onCustomMealPress && (
+            <Text
+              variant="bodySmall"
+              color="maroon"
+              style={{ fontFamily: 'DMSans_500Medium', fontSize: 13 }}
+              onPress={onCustomMealPress}
+            >
+              + Custom
+            </Text>
+          )}
+          <Text
+            variant="bodySmall"
+            color="maroon"
+            style={{ fontFamily: 'DMSans_600SemiBold' }}
+            onPress={onHistoryPress}
+          >
+            History →
+          </Text>
+        </Box>
       </Box>
 
       {/* Meal groups */}

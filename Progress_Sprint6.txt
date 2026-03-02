@@ -5,7 +5,7 @@ CAMPUSPLATE — SPRINT 6 PROGRESS
 FEATURE 1 — Custom Meal Logging
 [ ] 1.1  Create custom_meals table + RLS policies (Cameron — Supabase)
 [x] 1.2  Create src/components/CustomMealModal.tsx (Bandhip)
-[ ] 1.3  Add "+ Custom" entry point on Dashboard (Cameron)
+[x] 1.3  Add "+ Custom" entry point on Dashboard (Cameron)
 [ ] 1.4  Add custom meal entry point on AI tab (Cameron)
 [ ] 1.5  Include custom_meals in daily totals + streaks + progress (Bandhip — utils, Cameron — index.tsx)
 [ ] 1.6  Delete custom meals from Dashboard (Cameron)
@@ -33,5 +33,5 @@ FEATURE 5 — Daily Summary Notification
 [ ] 5.2  Add daily summary toggle to Settings (Cameron)
 
 ================================================================================
-TOTAL: 1 / 20 complete
+TOTAL: 2 / 20 complete
 ================================================================================

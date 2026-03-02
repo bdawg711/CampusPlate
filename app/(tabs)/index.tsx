@@ -22,6 +22,7 @@ import DashboardStatsRow from '@/src/components/DashboardStatsRow';
 import WaterTracker from '@/src/components/WaterTracker';
 import ForYouSection, { ForYouSubSection } from '@/src/components/ForYouSection';
 import MealLogSection from '@/src/components/MealLogSection';
+import CustomMealModal from '@/src/components/CustomMealModal';
 import StaggeredList from '@/src/components/StaggeredList';
 import Confetti from '@/src/components/Confetti';
 import GoalHitBanner from '@/src/components/GoalHitBanner';
@@ -121,6 +122,7 @@ export default function HomeScreen() {
   const [forYouLoading, setForYouLoading] = useState(true);
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showCustomMealModal, setShowCustomMealModal] = useState(false);
 
   // ─── Celebration state ───
   const [showConfetti, setShowConfetti] = useState(false);
@@ -661,10 +663,19 @@ export default function HomeScreen() {
               onDeleteLog={deleteLog}
               logBelongsToMealGroup={logBelongsToMealGroup}
               onBrowseMeal={(meal) => router.push({ pathname: '/(tabs)/browse', params: { meal } })}
+              onCustomMealPress={() => setShowCustomMealModal(true)}
             />
           </Box>
         </StaggeredList>
       </ScrollView>
+
+      {/* Custom Meal Modal */}
+      <CustomMealModal
+        visible={showCustomMealModal}
+        onClose={() => setShowCustomMealModal(false)}
+        onLogged={() => loadData()}
+        date={getLocalDate()}
+      />
 
       {/* History Modal */}
       <Modal
