@@ -50,20 +50,30 @@ export async function getProgressData(
   const startDate = subtractDays(today, days);
 
   try {
-    // Single query for meal logs with nutrition via nested join
-    const { data: logsData, error: logsError } = await supabase
-      .from('meal_logs')
-      .select('date, servings, menu_items(nutrition(calories, protein_g, total_carbs_g, total_fat_g))')
-      .eq('user_id', userId)
-      .gte('date', startDate)
-      .order('date', { ascending: true });
+    // Fetch meal logs with nutrition AND custom meals in parallel
+    const [logsRes, customRes, profileRes] = await Promise.all([
+      supabase
+        .from('meal_logs')
+        .select('date, servings, menu_items(nutrition(calories, protein_g, total_carbs_g, total_fat_g))')
+        .eq('user_id', userId)
+        .gte('date', startDate)
+        .order('date', { ascending: true }),
+      supabase
+        .from('custom_meals')
+        .select('date, calories, protein_g, total_carbs_g, total_fat_g')
+        .eq('user_id', userId)
+        .gte('date', startDate)
+        .order('date', { ascending: true }),
+      supabase
+        .from('profiles')
+        .select('goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g')
+        .eq('id', userId)
+        .single(),
+    ]);
 
-    // Fetch goals from profiles
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g')
-      .eq('id', userId)
-      .single();
+    const logsData = logsRes.data;
+    const customData = customRes.data;
+    const profileData = profileRes.data;
 
     const goals = {
       calories: profileData?.goal_calories ?? 2000,
@@ -72,14 +82,15 @@ export async function getProgressData(
       fat: profileData?.goal_fat_g ?? 65,
     };
 
-    if (logsError || !logsData) {
+    if ((!logsData || logsRes.error) && (!customData || customRes.error)) {
       return { days: [], weeklyAverages: { thisWeek: { calories: 0, protein: 0, carbs: 0, fat: 0 }, lastWeek: { calories: 0, protein: 0, carbs: 0, fat: 0 } }, goals, totalMealsLogged: 0 };
     }
 
     // Group by date
     const dateMap = new Map<string, { calories: number; protein: number; carbs: number; fat: number; meals: number }>();
 
-    for (const row of logsData as any[]) {
+    // Add meal_logs entries
+    for (const row of (logsData ?? []) as any[]) {
       const date = row.date as string;
       const servings = (row.servings ?? 1) as number;
       const nutrition = row.menu_items?.nutrition;
@@ -93,6 +104,18 @@ export async function getProgressData(
       existing.protein += prot;
       existing.carbs += carb;
       existing.fat += fat;
+      existing.meals += 1;
+      dateMap.set(date, existing);
+    }
+
+    // Add custom_meals entries
+    for (const row of (customData ?? []) as any[]) {
+      const date = row.date as string;
+      const existing = dateMap.get(date) ?? { calories: 0, protein: 0, carbs: 0, fat: 0, meals: 0 };
+      existing.calories += row.calories ?? 0;
+      existing.protein += row.protein_g ?? 0;
+      existing.carbs += row.total_carbs_g ?? 0;
+      existing.fat += row.total_fat_g ?? 0;
       existing.meals += 1;
       dateMap.set(date, existing);
     }
@@ -136,7 +159,7 @@ export async function getProgressData(
       days: dayLogs,
       weeklyAverages: { thisWeek, lastWeek },
       goals,
-      totalMealsLogged: logsData.length,
+      totalMealsLogged: (logsData?.length ?? 0) + (customData?.length ?? 0),
     };
   } catch {
     return {

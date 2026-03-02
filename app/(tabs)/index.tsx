@@ -93,6 +93,17 @@ interface Profile {
   goal_fat_g: number;
 }
 
+interface CustomMeal {
+  id: string;
+  name: string;
+  calories: number;
+  protein_g: number;
+  total_carbs_g: number;
+  total_fat_g: number;
+  meal_period: string;
+  created_at?: string;
+}
+
 interface OpenHall {
   id: number;
   name: string;
@@ -106,6 +117,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [logs, setLogs] = useState<MealLog[]>([]);
+  const [customMeals, setCustomMeals] = useState<CustomMeal[]>([]);
   const [forYouFavs, setForYouFavs] = useState<FavoriteMenuItem[]>([]);
   const [forYouMacros, setForYouMacros] = useState<RecommendedItem[]>([]);
   const [forYouTopHalls, setForYouTopHalls] = useState<TopRatedHallItem[]>([]);
@@ -164,6 +176,7 @@ export default function HomeScreen() {
         if (cached.date !== today) return; // stale cache from different day
         if (cached.profile) setProfile(cached.profile);
         if (cached.logs) setLogs(cached.logs);
+        if (cached.customMeals) setCustomMeals(cached.customMeals);
         if (cached.waterOz != null) setWaterOz(cached.waterOz);
         if (cached.waterGoal != null) setWaterGoal(cached.waterGoal);
         if (cached.streakData) setStreakData(cached.streakData);
@@ -254,7 +267,7 @@ export default function HomeScreen() {
       const today = getLocalDate();
       const menuDate = await getEffectiveMenuDate();
 
-      const [profileRes, logsRes, , waterCount, waterGoalRes, hallStatusMap, streakResult] = await Promise.all([
+      const [profileRes, logsRes, , waterCount, waterGoalRes, hallStatusMap, streakResult, customMealsRes] = await Promise.all([
         supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g').eq('id', userId).single(),
         supabase
           .from('meal_logs')
@@ -267,10 +280,17 @@ export default function HomeScreen() {
         getWaterGoal(userId),
         loadOpenHalls(),
         getStreakData(userId),
+        supabase
+          .from('custom_meals')
+          .select('id, name, calories, protein_g, total_carbs_g, total_fat_g, meal_period, created_at')
+          .eq('user_id', userId)
+          .eq('date', today)
+          .order('created_at', { ascending: true }),
       ]);
 
       if (profileRes.data) setProfile(profileRes.data as any);
       if (logsRes.data) setLogs(logsRes.data as any);
+      setCustomMeals((customMealsRes.data as CustomMeal[]) ?? []);
       setWaterOz(waterCount);
       setWaterGoal(waterGoalRes);
       if (hallStatusMap) setOpenHalls(hallStatusMap);
@@ -282,6 +302,7 @@ export default function HomeScreen() {
           date: today,
           profile: profileRes.data,
           logs: logsRes.data,
+          customMeals: customMealsRes.data,
           waterOz: waterCount,
           waterGoal: waterGoalRes,
           streakData: streakResult,
@@ -340,6 +361,17 @@ export default function HomeScreen() {
     }
   };
 
+  const deleteCustomMeal = async (mealId: string) => {
+    try {
+      const userId = await requireUserId();
+      const { error } = await supabase.from('custom_meals').delete().eq('id', mealId).eq('user_id', userId);
+      if (error) { if (__DEV__) console.error('Delete custom meal failed:', error.message); Alert.alert('Error', 'Failed to delete. Please try again.'); return; }
+      setCustomMeals((prev) => prev.filter((m) => m.id !== mealId));
+    } catch (e) {
+      if (__DEV__) console.error('Delete custom meal error:', e);
+    }
+  };
+
   const handleAddWater = async (oz: number) => {
     try {
       const userId = await requireUserId();
@@ -370,10 +402,20 @@ export default function HomeScreen() {
     return { cal: Math.round(cal * s), pro: Math.round(pro * s), carb: Math.round(carb * s), fat: Math.round(fat * s) };
   };
 
-  const totalCal = logs.reduce((sum, l) => sum + getNutrition(l).cal, 0);
-  const totalPro = logs.reduce((sum, l) => sum + getNutrition(l).pro, 0);
-  const totalCarb = logs.reduce((sum, l) => sum + getNutrition(l).carb, 0);
-  const totalFat = logs.reduce((sum, l) => sum + getNutrition(l).fat, 0);
+  const logCal = logs.reduce((sum, l) => sum + getNutrition(l).cal, 0);
+  const logPro = logs.reduce((sum, l) => sum + getNutrition(l).pro, 0);
+  const logCarb = logs.reduce((sum, l) => sum + getNutrition(l).carb, 0);
+  const logFat = logs.reduce((sum, l) => sum + getNutrition(l).fat, 0);
+
+  const customCal = customMeals.reduce((sum, m) => sum + (m.calories || 0), 0);
+  const customPro = customMeals.reduce((sum, m) => sum + Math.round(m.protein_g || 0), 0);
+  const customCarb = customMeals.reduce((sum, m) => sum + Math.round(m.total_carbs_g || 0), 0);
+  const customFat = customMeals.reduce((sum, m) => sum + Math.round(m.total_fat_g || 0), 0);
+
+  const totalCal = logCal + customCal;
+  const totalPro = logPro + customPro;
+  const totalCarb = logCarb + customCarb;
+  const totalFat = logFat + customFat;
 
   const goalCal = profile?.goal_calories || 2000;
   const goalPro = profile?.goal_protein_g || 150;
@@ -383,20 +425,21 @@ export default function HomeScreen() {
   const dailyScore = calculateDailyScore(
     { calories: totalCal, protein: totalPro, carbs: totalCarb, fat: totalFat },
     { calories: goalCal, protein: goalPro, carbs: goalCarb, fat: goalFat },
-    logs.length,
+    logs.length + customMeals.length,
     waterOz,
     waterGoal
   );
 
   // ─── Meal logging success animation ───
   // Fires haptic + celebration when new logs detected (returning from Browse)
+  const totalLogCount = logs.length + customMeals.length;
   useEffect(() => {
-    if (loading || logs.length === 0) return;
+    if (loading || totalLogCount === 0) return;
 
-    if (__DEV__) console.log('[GoalCheck] logs:', logs.length, 'prev:', prevLogCount.current, 'totalCal:', totalCal, 'goal:', goalCal, 'celebrated:', calorieGoalCelebrated.current);
+    if (__DEV__) console.log('[GoalCheck] logs:', totalLogCount, 'prev:', prevLogCount.current, 'totalCal:', totalCal, 'goal:', goalCal, 'celebrated:', calorieGoalCelebrated.current);
 
     // Detect new meal log (count increased)
-    if (logs.length > prevLogCount.current && prevLogCount.current > 0) {
+    if (totalLogCount > prevLogCount.current && prevLogCount.current > 0) {
       // Haptic success on new meal logged
       triggerHaptic('success');
 
@@ -425,8 +468,8 @@ export default function HomeScreen() {
       }
     }
 
-    prevLogCount.current = logs.length;
-  }, [logs, loading, totalCal, goalCal]);
+    prevLogCount.current = totalLogCount;
+  }, [totalLogCount, loading, totalCal, goalCal]);
 
   // ─── Build ForYou sections ───
 
@@ -659,8 +702,10 @@ export default function HomeScreen() {
           <Box marginBottom="xxl">
             <MealLogSection
               logs={logs}
+              customMeals={customMeals}
               onHistoryPress={() => setShowHistory(true)}
               onDeleteLog={deleteLog}
+              onDeleteCustomMeal={deleteCustomMeal}
               logBelongsToMealGroup={logBelongsToMealGroup}
               onBrowseMeal={(meal) => router.push({ pathname: '/(tabs)/browse', params: { meal } })}
               onCustomMealPress={() => setShowCustomMealModal(true)}

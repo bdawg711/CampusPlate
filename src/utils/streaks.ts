@@ -54,18 +54,25 @@ function subtractDays(dateStr: string, n: number): string {
 
 export async function getStreakData(userId: string): Promise<StreakData> {
   try {
-    const { data, error } = await supabase
-      .from('meal_logs')
-      .select('date')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
+    // Fetch dates from both meal_logs and custom_meals
+    const [mealLogsRes, customMealsRes] = await Promise.all([
+      supabase
+        .from('meal_logs')
+        .select('date')
+        .eq('user_id', userId)
+        .order('date', { ascending: false }),
+      supabase
+        .from('custom_meals')
+        .select('date')
+        .eq('user_id', userId)
+        .order('date', { ascending: false }),
+    ]);
 
-    if (error || !data) {
-      return { currentStreak: 0, longestStreak: 0, totalDaysLogged: 0, lastLogDate: null };
-    }
+    const mealDates = (mealLogsRes.data ?? []).map((row: { date: string }) => row.date);
+    const customDates = (customMealsRes.data ?? []).map((row: { date: string }) => row.date);
 
-    // Deduplicate dates
-    const uniqueDates = [...new Set(data.map((row: { date: string }) => row.date))].sort().reverse();
+    // Deduplicate dates from both sources
+    const uniqueDates = [...new Set([...mealDates, ...customDates])].sort().reverse();
 
     if (uniqueDates.length === 0) {
       return { currentStreak: 0, longestStreak: 0, totalDaysLogged: 0, lastLogDate: null };
@@ -190,13 +197,20 @@ export async function getWaterStreak(userId: string): Promise<number> {
 
 export async function getTotalMealsLogged(userId: string): Promise<number> {
   try {
-    const { count, error } = await supabase
-      .from('meal_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId);
+    const [mealLogsRes, customMealsRes] = await Promise.all([
+      supabase
+        .from('meal_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId),
+      supabase
+        .from('custom_meals')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId),
+    ]);
 
-    if (error || count == null) return 0;
-    return count;
+    const mealCount = mealLogsRes.count ?? 0;
+    const customCount = customMealsRes.count ?? 0;
+    return mealCount + customCount;
   } catch {
     return 0;
   }
