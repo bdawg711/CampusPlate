@@ -28,6 +28,7 @@ import ReminderSettings from '@/src/components/ReminderSettings';
 import { Goals, getGoals, saveCustomGoals, recalculateGoals } from '@/src/utils/goals';
 import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged, StreakData, Badge } from '@/src/utils/streaks';
 import StreakBadge from '@/src/components/StreakBadge';
+import { scheduleDailySummary } from '@/src/utils/dailySummaryNotification';
 
 type ColorName = keyof Theme['colors'];
 
@@ -53,6 +54,8 @@ export default function SettingsRestyle() {
   const [weeklyReportVisible, setWeeklyReportVisible] = useState(false);
   const [remindersVisible, setRemindersVisible] = useState(false);
   const [remindersOn, setRemindersOn] = useState(false);
+  const [dailySummaryEnabled, setDailySummaryEnabled] = useState(true);
+  const [dailySummaryTime, setDailySummaryTime] = useState('21:00');
   const [waterGoalModalVisible, setWaterGoalModalVisible] = useState(false);
   const [waterGoalInput, setWaterGoalInput] = useState('');
 
@@ -68,7 +71,7 @@ export default function SettingsRestyle() {
       const userId = await requireUserId();
       const { data } = await supabase
         .from('profiles')
-        .select('name, year, dorm, goal_calories, high_protein, water_goal_oz, reminder_prefs')
+        .select('name, year, dorm, goal_calories, high_protein, water_goal_oz, reminder_prefs, daily_summary_enabled, daily_summary_time')
         .eq('id', userId)
         .single();
       if (data) {
@@ -76,6 +79,9 @@ export default function SettingsRestyle() {
         setWaterGoalOz(data.water_goal_oz ?? 64);
         const prefs = data.reminder_prefs as any[] | null;
         setRemindersOn(Array.isArray(prefs) && prefs.some((r: any) => r?.enabled));
+        // Daily summary — default to true if column doesn't exist yet
+        setDailySummaryEnabled((data as any).daily_summary_enabled ?? true);
+        setDailySummaryTime((data as any).daily_summary_time ?? '21:00');
       }
 
       const goals = await getGoals(userId);
@@ -188,6 +194,18 @@ export default function SettingsRestyle() {
 
   const handleReminders = () => {
     setRemindersVisible(true);
+  };
+
+  const toggleDailySummary = async () => {
+    const newVal = !dailySummaryEnabled;
+    setDailySummaryEnabled(newVal);
+    try {
+      await scheduleDailySummary(newVal, dailySummaryTime);
+      const userId = await requireUserId();
+      await supabase.from('profiles').update({ daily_summary_enabled: newVal }).eq('id', userId);
+    } catch (e) {
+      console.warn('[Settings] Failed to toggle daily summary:', e);
+    }
   };
 
   const handleWeeklyReport = () => {
@@ -397,7 +415,19 @@ export default function SettingsRestyle() {
             }
           />
           <SettingsRow
-            icon="bar-chart-2" iconBg="maroonTint" iconColor="maroon"
+            icon="bar-chart-2" iconBg="proteinTint" iconColor="proteinRing"
+            label="Daily Recap"
+            rightContent={
+              <Switch
+                value={dailySummaryEnabled}
+                onValueChange={toggleDailySummary}
+                trackColor={{ false: theme.colors.silverLight, true: theme.colors.maroon }}
+                thumbColor="#fff"
+              />
+            }
+          />
+          <SettingsRow
+            icon="file-text" iconBg="maroonTint" iconColor="maroon"
             label="Weekly Report" onPress={handleWeeklyReport} isLast
           />
         </Card>

@@ -77,6 +77,7 @@ const theme = createTheme({
     successTint: 'rgba(45,138,78,0.10)',
     warningTint: 'rgba(212,160,36,0.10)',
     errorTint: 'rgba(192,57,43,0.10)',
+    proteinTint: 'rgba(74,127,197,0.10)',
   },
 
   spacing: {
