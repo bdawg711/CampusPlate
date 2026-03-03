@@ -30,6 +30,8 @@ import Confetti from '@/src/components/Confetti';
 import GoalHitBanner from '@/src/components/GoalHitBanner';
 import Skeleton from '@/src/components/Skeleton';
 import ErrorState from '@/src/components/ErrorState';
+import BarcodeScannerModal from '@/src/components/BarcodeScannerModal';
+import AIMealLogModal from '@/src/components/AIMealLogModal';
 
 // Data utilities
 import { requireUserId } from '@/src/utils/auth';
@@ -139,6 +141,8 @@ export default function HomeScreen() {
   const [showHistory, setShowHistory] = useState(false);
   const [showCustomMealModal, setShowCustomMealModal] = useState(false);
   const [editingMeal, setEditingMeal] = useState<EditingMeal | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showDescribe, setShowDescribe] = useState(false);
 
   // ─── Celebration state ───
   const [showConfetti, setShowConfetti] = useState(false);
@@ -739,6 +743,8 @@ export default function HomeScreen() {
               onCustomMealPress={() => setShowCustomMealModal(true)}
               onEditDiningLog={handleEditDiningLog}
               onEditCustomMeal={handleEditCustomMeal}
+              onScanPress={() => setShowScanner(true)}
+              onDescribePress={() => setShowDescribe(true)}
             />
           </Box>
         </StaggeredList>
@@ -790,6 +796,20 @@ export default function HomeScreen() {
           <HistoryScreen />
         </Box>
       </Modal>
+
+      {/* Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        visible={showScanner}
+        onClose={() => setShowScanner(false)}
+        onLogged={() => { setShowScanner(false); loadData(); }}
+      />
+
+      {/* AI Meal Description Modal */}
+      <AIMealLogModal
+        visible={showDescribe}
+        onClose={() => setShowDescribe(false)}
+        onLogged={() => { setShowDescribe(false); loadData(); }}
+      />
     </SafeAreaView>
   );
 }

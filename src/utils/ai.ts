@@ -28,13 +28,39 @@ export interface ChatLogRow {
 }
 
 /**
+ * Fetches the current user's AI usage for today.
+ */
+export async function getAIUsage(userId: string): Promise<{ messageCount: number; dailyLimit: number }> {
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  try {
+    const { data, error } = await supabase
+      .from('ai_usage')
+      .select('message_count')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Failed to fetch AI usage:', error.message);
+      return { messageCount: 0, dailyLimit: 25 };
+    }
+
+    return { messageCount: data?.message_count ?? 0, dailyLimit: 25 };
+  } catch {
+    return { messageCount: 0, dailyLimit: 25 };
+  }
+}
+
+/**
  * Sends a message to the AI chat Edge Function.
  * Returns the assistant's response content and any meal item suggestions.
  */
 export async function sendMessage(
   message: string,
   history: ChatMessage[]
-): Promise<{ content: string; mealItems: MealItem[] | null }> {
+): Promise<{ content: string; mealItems: MealItem[] | null; remaining?: number; dailyLimit?: number }> {
   // Verify we have an active session (JWT) before calling the Edge Function
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData?.session) {
@@ -85,6 +111,72 @@ export async function sendMessage(
   return {
     content: data?.content ?? '',
     mealItems: data?.mealItems ?? null,
+    remaining: data?.remaining,
+    dailyLimit: data?.dailyLimit,
+  };
+}
+
+/**
+ * Estimated meal nutrition response from the AI.
+ */
+export interface EstimatedMeal {
+  name: string;
+  calories: number;
+  protein_g: number;
+  total_carbs_g: number;
+  total_fat_g: number;
+  remaining: number;
+  estimateLimit: number;
+}
+
+/**
+ * Sends a meal description to the AI for nutrition estimation.
+ * Uses a separate daily limit (15/day) tracked as estimate_count.
+ */
+export async function estimateMeal(description: string): Promise<EstimatedMeal> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session) {
+    throw new Error('Your session has expired. Please log in again.');
+  }
+
+  const session = sessionData.session;
+  const supabaseUrl = 'https://kexytkfzoomvhjcotkqs.supabase.co';
+  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtleHl0a2Z6b29tdmhqY290a3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNjk4OTMsImV4cCI6MjA4Njk0NTg5M30.UiXS-ZHAKpS6xrg1D4BEBv0BEv2V1YpU2PR3ynQP3ag';
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': supabaseAnonKey,
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ mode: 'estimate_meal', description }),
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    let errorMsg = `AI error (${response.status})`;
+    try {
+      const parsed = JSON.parse(responseText);
+      if (parsed?.error) errorMsg = parsed.error;
+    } catch { /* use default */ }
+    throw new Error(errorMsg);
+  }
+
+  const data = JSON.parse(responseText);
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return {
+    name: data.name ?? 'Custom Meal',
+    calories: data.calories ?? 0,
+    protein_g: data.protein_g ?? 0,
+    total_carbs_g: data.total_carbs_g ?? 0,
+    total_fat_g: data.total_fat_g ?? 0,
+    remaining: data.remaining ?? 0,
+    estimateLimit: data.estimateLimit ?? 15,
   };
 }
 

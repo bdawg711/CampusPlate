@@ -116,13 +116,14 @@ export default function SpiralRings({
   // Compute raw percentages
   const macros = [calories, protein, carbs, fat];
   const rawPcts = macros.map((m) => (m.goal > 0 ? m.current / m.goal : 0));
-  // At 100%+: slightly overshoot to 1.01 so round linecaps overlap and close the gap.
+  // At 100%+: exact 1.0 with butt linecap → fully closed ring, no gap.
   // At 96-99%: cap at 95% to keep spiral gap. Below 96%: proportional fill.
   const targets = rawPcts.map((p) => {
-    if (p >= 1.0) return 1.01;          // goal hit — overshoot ensures fully closed ring
+    if (p >= 1.0) return 1.0;           // goal hit — exact full circle (butt cap closes it)
     if (p >= 0.96) return MAX_FILL;     // nearly there — cap to show gap
     return p;                            // proportional fill
   });
+  const atOrOverGoal = rawPcts.map((p) => p >= 1.0);
   const overTargets = rawPcts.map((p) => p > 1);
 
   // Smooth spring config — lower stiffness for gentle fill, enough damping to avoid bounce
@@ -281,7 +282,7 @@ export default function SpiralRings({
               fill="none"
               strokeDasharray={circumferences[i]}
               animatedProps={animatedPropsArr[i]}
-              strokeLinecap="round"
+              strokeLinecap={atOrOverGoal[i] ? 'butt' : 'round'}
               transform={`rotate(${ROTATIONS[i]} ${center} ${center})`}
             />
           </React.Fragment>

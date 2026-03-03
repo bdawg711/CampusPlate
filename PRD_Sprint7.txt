@@ -1,0 +1,322 @@
+================================================================================
+CAMPUSPLATE — SPRINT 7 PRD
+================================================================================
+
+SPRINT GOAL: Protect AI from abuse, add barcode scanning + AI meal
+description, fix ring animations, and prepare for App Store submission.
+
+================================================================================
+FEATURE 1 — AI RATE LIMITING & ABUSE PREVENTION
+================================================================================
+
+  PURPOSE:
+  The AI chat assistant uses Claude API calls that cost real money. Without
+  protection, any user (or a competitor) can spam hundreds of messages and
+  drain the API budget. We need rate limiting on the Edge Function and a
+  daily message cap in the app.
+
+  TASK 1.1 — Add rate limiting to the Edge Function
+  -------------------------------------------------------
+  In supabase/functions/ai-chat/index.ts:
+
+    - Before processing any message, query a new table: ai_usage
+    - Schema:
+        CREATE TABLE ai_usage (
+          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          user_id UUID REFERENCES auth.users(id) NOT NULL,
+          date TEXT NOT NULL,
+          message_count INTEGER DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        ALTER TABLE ai_usage ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY "Users can view own usage"
+          ON ai_usage FOR SELECT USING (auth.uid() = user_id);
+        -- Service role handles inserts/updates from Edge Function
+
+    - On each message:
+      1. Fetch ai_usage row for this user_id + today's date
+      2. If no row exists, insert one with message_count = 1
+      3. If row exists and message_count >= DAILY_LIMIT, return 429 error
+         with message: "You've reached your daily AI limit. Resets at midnight."
+      4. If under limit, increment message_count and proceed
+
+    - DAILY_LIMIT = 25 messages per user per day (free tier)
+    - Store DAILY_LIMIT as an environment variable so it can be adjusted:
+        Deno.env.get("AI_DAILY_LIMIT") || "25"
+
+  DONE WHEN: Users get blocked after 25 messages/day, counter resets daily.
+
+  TASK 1.2 — Show remaining messages in the app
+  -------------------------------------------------------
+  In src/components/AIChat.tsx:
+
+    - On mount, query ai_usage for current user + today's date
+    - Display remaining count above the input bar:
+      "15 messages remaining today" (13px, colors.textSecondary)
+    - When count hits 5 or fewer, change color to orange warning
+    - When count hits 0, disable the input and show:
+      "Daily limit reached. Resets at midnight." (centered, muted text)
+    - Update count after each successful message send
+
+  DONE WHEN: Users see their remaining count, input disables at 0.
+
+  TASK 1.3 — Add request validation to Edge Function
+  -------------------------------------------------------
+  Additional abuse prevention in ai-chat/index.ts:
+
+    - Reject messages longer than 1000 characters (return 400)
+    - Reject empty messages (return 400)
+    - Add a 2-second cooldown between messages per user:
+      If last message from this user was < 2 seconds ago, return 429
+      with: "Slow down! Please wait a moment between messages."
+    - Log abuse attempts (messages over limit) to ai_chat_logs with
+      a flag: is_blocked = true
+
+  DONE WHEN: Oversized messages, empty messages, and rapid-fire spam
+  are all rejected before hitting Claude API.
+
+
+================================================================================
+FEATURE 2 — BARCODE SCANNER
+================================================================================
+
+  PURPOSE:
+  Students eat off-campus (convenience stores, grocery items, packaged
+  snacks). Scanning a barcode is faster than manual entry. HokieCals has
+  this — we need it too.
+
+  TASK 2.1 — Install dependencies
+  -------------------------------------------------------
+  Install:
+    npx expo install expo-camera expo-barcode-scanner
+
+  Note: expo-barcode-scanner may be deprecated in newer Expo SDKs.
+  Check if expo-camera includes barcode scanning natively
+  (CameraView with barcodeScannerSettings). Use whichever is current.
+
+  DONE WHEN: Packages installed, no build errors.
+
+  TASK 2.2 — Create src/components/BarcodeScannerModal.tsx
+  -------------------------------------------------------
+  A full-screen modal with live camera preview for scanning barcodes.
+
+  Layout:
+    - Full-screen camera view
+    - Semi-transparent overlay with cutout rectangle in center (scan area)
+    - "Scan a barcode" text above the cutout (16px, white)
+    - Close button (Feather "x") top-right corner
+    - Flash toggle (Feather "zap") top-left corner
+
+  Behavior:
+    - Request camera permission on mount (show permission denied state if no)
+    - On barcode detected:
+      1. Haptic feedback (notificationAsync)
+      2. Pause scanning (prevent duplicate reads)
+      3. Look up barcode via OpenFoodFacts API:
+         https://world.openfoodfacts.org/api/v2/product/{barcode}.json
+      4. If found: extract product name, calories, protein, carbs, fat,
+         serving size. Open a confirmation modal showing the data.
+      5. If not found: show "Product not found. Try manual entry." with
+         button to open CustomMealModal instead.
+    - On confirm: insert into custom_meals table with extracted nutrition
+    - Call onLogged() callback to refresh parent data
+
+  Fallback:
+    - If OpenFoodFacts returns incomplete nutrition (missing calories),
+      show what's available and let user fill in the rest manually
+
+  DONE WHEN: Camera opens, scans barcodes, looks up nutrition, logs meals.
+
+  TASK 2.3 — Add barcode scanner entry points
+  -------------------------------------------------------
+  Add "Scan Barcode" option in two places:
+
+  1. Dashboard — Today's Meals header row:
+     Current: "+ Custom" button
+     New: "+ Custom" and "Scan" buttons side by side
+     "Scan" button: Feather "camera" icon, 13px DMSans_500Medium
+
+  2. AI Chat empty state — add 5th suggestion card:
+     Feather "camera" icon, "Scan Barcode", "Scan any food label"
+
+  Both open BarcodeScannerModal. onLogged refreshes data.
+
+  DONE WHEN: Barcode scanner accessible from Dashboard and AI tab.
+
+
+================================================================================
+FEATURE 3 — AI MEAL DESCRIPTION ("Describe What You Ate")
+================================================================================
+
+  PURPOSE:
+  Instead of manually entering calories/protein/carbs/fat, users can type
+  "I had a chicken burrito with rice and beans" and AI estimates the
+  nutrition. HokieCals has this — we need it, and ours will be better
+  because our AI already knows the user's goals and context.
+
+  TASK 3.1 — Create src/components/AIMealLogModal.tsx
+  -------------------------------------------------------
+  A modal where users describe a meal in natural language and AI estimates
+  the nutrition, then logs it.
+
+  Layout:
+    - Modal, pageSheet presentation
+    - Header: "Describe Your Meal" + close button
+    - Large TextInput (multiline, 3-4 lines, placeholder:
+      "e.g. Chipotle burrito bowl with chicken, rice, beans, cheese, and guac")
+    - "Estimate Nutrition" button (full-width, maroon, disabled until text)
+    - Loading state: pulsing shimmer while AI processes
+    - Result card showing:
+      - AI-estimated: name, calories, protein, carbs, fat
+      - Meal period pills (Breakfast | Lunch | Dinner | Snack)
+      - "Edit" link to adjust any values before saving
+      - "Log Meal" button to confirm and save
+    - All values editable before logging (user can override AI estimates)
+
+  Behavior:
+    - On "Estimate Nutrition": call the AI Edge Function with a special
+      system prompt that returns ONLY a JSON response:
+      {
+        "name": "Chipotle Burrito Bowl",
+        "calories": 850,
+        "protein_g": 45,
+        "total_carbs_g": 78,
+        "total_fat_g": 32
+      }
+    - Parse the JSON response and populate the result card
+    - On "Log Meal": insert into custom_meals table
+    - On error: show "Couldn't estimate. Try being more specific." with
+      option to retry or switch to manual entry
+
+  Edge Function changes:
+    - Add a new mode parameter: { mode: "estimate_meal", description: "..." }
+    - When mode === "estimate_meal", use a focused system prompt:
+      "You are a nutrition estimation tool. The user will describe a meal.
+       Respond with ONLY a JSON object containing: name, calories,
+       protein_g, total_carbs_g, total_fat_g. Be accurate based on
+       typical restaurant/homemade portions. No other text."
+    - This mode does NOT count against the daily chat limit (separate cap
+      of 15 estimates/day tracked in ai_usage as estimate_count)
+
+  DONE WHEN: User describes meal → AI estimates nutrition → user confirms
+  → meal logged to custom_meals.
+
+  TASK 3.2 — Add AI meal description entry points
+  -------------------------------------------------------
+  1. Dashboard — Today's Meals header row:
+     New layout: "+ Custom" | "Scan" | "Describe"
+     "Describe" button: Feather "mic" icon (or "edit-3"), 13px
+
+  2. AI Chat empty state — update suggestion cards:
+     Replace current 4th card or add alongside:
+     Feather "edit-3" icon, "Describe a Meal", "AI estimates nutrition"
+
+  3. Inside CustomMealModal — add link at top:
+     "Or describe your meal with AI →" (tappable text, opens AIMealLogModal)
+
+  DONE WHEN: AI meal description accessible from 3 entry points.
+
+
+================================================================================
+FEATURE 4 — RING ANIMATION FIX
+================================================================================
+
+  PURPOSE:
+  The calorie/macro rings on the Dashboard don't fully close when the
+  user hits 100% of their goal. The ring should complete the full circle.
+
+  TASK 4.1 — Fix ring completion in multi-ring display
+  -------------------------------------------------------
+  In app/(tabs)/index.tsx (or wherever SpiralRings / ring SVG is rendered):
+
+    - Issue: when value >= goal, the ring arc doesn't close to 360 degrees
+    - Root cause is likely one of:
+      a) The percentage is capped at 0.99 instead of 1.0
+      b) The SVG strokeDasharray/strokeDashoffset math doesn't handle 100%
+      c) The animated value never reaches the target due to spring config
+
+    - Fix:
+      1. Ensure percentage calculation allows values >= 1.0:
+         const pct = Math.min(value / goal, 1.0);  // NOT 0.99
+      2. When pct === 1.0, the arc should be a full circle (360 degrees)
+      3. For SVG circle approach:
+         circumference = 2 * Math.PI * radius
+         strokeDashoffset = circumference * (1 - pct)
+         When pct = 1.0, offset = 0 → full circle
+      4. If using arc path (d="M... A..."), ensure the arc endpoint
+         matches the start point when pct >= 1.0. Note: SVG arcs can't
+         draw a full 360° with a single arc — use two semicircular arcs
+         or switch to the circle + dashoffset approach.
+      5. For values OVER 100% (e.g. ate 2500 cal on 2000 goal):
+         Cap the ring at 100% visually, but show the actual number
+
+    - Test cases:
+      - 0% → empty ring
+      - 50% → half ring
+      - 99% → almost closed, visible gap
+      - 100% → fully closed circle, no gap
+      - 120% → fully closed circle, number shows actual value
+
+  DONE WHEN: Rings fully close at 100% with no gap. Visually perfect.
+
+
+================================================================================
+GLOBAL RULES (same as previous sprints)
+================================================================================
+
+  DATES:
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    NEVER use toISOString() for dates.
+
+  COLORS:
+    Always use useTheme() → colors object. Never hardcode hex values.
+    Glass cards: colors.cardGlass bg + colors.cardGlassBorder border.
+
+  FONTS:
+    Headers: Outfit_700Bold or Outfit_800ExtraBold
+    Body: DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold
+    Never use fontWeight with fontFamily — pick the correct font file.
+
+  ICONS:
+    Feather icons from @expo/vector-icons only. No emojis for UI chrome.
+
+  SUPABASE:
+    All queries wrapped in try/catch.
+    Always filter by user_id.
+    nutrition joins return arrays: item.nutrition[0].calories
+    weight_logs column: weight_lbs (not weight)
+
+  ERRORS:
+    User-friendly alerts. Never show raw error messages.
+    Console.warn for non-critical failures.
+
+  TAB BAR:
+    All screens need paddingBottom: 100 for FloatingTabBar clearance.
+
+
+================================================================================
+TASK SUMMARY
+================================================================================
+
+  FEATURE 1 — AI Rate Limiting & Abuse Prevention (3 tasks)
+    1.1  Add rate limiting to Edge Function + ai_usage table
+    1.2  Show remaining messages in AI chat UI
+    1.3  Add request validation (length, cooldown, logging)
+
+  FEATURE 2 — Barcode Scanner (3 tasks)
+    2.1  Install expo-camera / barcode dependencies
+    2.2  Create BarcodeScannerModal.tsx (camera, OpenFoodFacts lookup)
+    2.3  Add entry points on Dashboard + AI tab
+
+  FEATURE 3 — AI Meal Description (2 tasks)
+    3.1  Create AIMealLogModal.tsx + Edge Function estimate mode
+    3.2  Add entry points (Dashboard, AI tab, CustomMealModal)
+
+  FEATURE 4 — Ring Animation Fix (1 task)
+    4.1  Fix rings to fully close at 100%
+
+  TOTAL: 9 tasks
+  ESTIMATED TIME: 6-8 hours
+
+================================================================================

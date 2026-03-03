@@ -5,11 +5,15 @@ import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
 import AIChat from '@/src/components/AIChat';
+import BarcodeScannerModal from '@/src/components/BarcodeScannerModal';
+import AIMealLogModal from '@/src/components/AIMealLogModal';
 import type { MealItem } from '@/src/utils/ai';
 import * as Haptics from 'expo-haptics';
 
 export default function AIScreen() {
   const [, setRefreshKey] = useState(0);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showDescribe, setShowDescribe] = useState(false);
 
   const handleLogItem = useCallback(async (item: MealItem) => {
     try {
@@ -38,7 +42,22 @@ export default function AIScreen() {
 
   return (
     <Box flex={1} backgroundColor="background">
-      <AIChat mode="tab" onLogItem={handleLogItem} />
+      <AIChat
+        mode="tab"
+        onLogItem={handleLogItem}
+        onScanPress={() => setShowScanner(true)}
+        onDescribePress={() => setShowDescribe(true)}
+      />
+      <BarcodeScannerModal
+        visible={showScanner}
+        onClose={() => setShowScanner(false)}
+        onLogged={() => { setShowScanner(false); setRefreshKey((k) => k + 1); }}
+      />
+      <AIMealLogModal
+        visible={showDescribe}
+        onClose={() => setShowDescribe(false)}
+        onLogged={() => { setShowDescribe(false); setRefreshKey((k) => k + 1); }}
+      />
     </Box>
   );
 }
