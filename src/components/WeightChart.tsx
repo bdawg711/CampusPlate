@@ -120,8 +120,8 @@ export default function WeightChart({ entries, trend }: Props) {
       <Svg width={chartWidth} height={CHART_HEIGHT}>
         <Defs>
           <LinearGradient id="trendFillMaroon" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="rgba(134,31,65,0.08)" />
-            <Stop offset="1" stopColor="rgba(134,31,65,0)" />
+            <Stop offset="0" stopColor="#861F41" stopOpacity={0.08} />
+            <Stop offset="1" stopColor="#861F41" stopOpacity={0} />
           </LinearGradient>
         </Defs>
 

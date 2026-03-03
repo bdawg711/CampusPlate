@@ -178,7 +178,11 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
       <Box style={{ gap: 12 }}>
         {CATEGORIES.map((cat) => {
           const entry = breakdown[cat.key];
-          const fillPct = Math.min((entry.points / entry.max) * 100, 100);
+          // Use actual intake ratio for bar fill (pct for macros, count/3 for meals)
+          const intakeRatio = cat.key === 'meals'
+            ? Math.min(((entry as any).count ?? 0) / 3, 1)
+            : Math.min((entry as any).pct ?? 0, 1);
+          const fillPct = Math.min(intakeRatio * 100, 100);
           const isLowest = cat.key === lowestKey;
           const barColor = isLowest ? C.gold : C.maroon;
           const detail = getDetailText(cat.key, detailData, cat.unit);

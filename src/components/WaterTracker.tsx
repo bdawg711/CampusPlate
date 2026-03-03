@@ -107,11 +107,28 @@ function PillButton({ label, onPress, muted }: { label: string; onPress: () => v
   );
 }
 
-// ── SVG Water Bottle ─────────────────────────────────────────────────────
+// ── SVG Water Bottle (Smartwater silhouette) ─────────────────────────────
 
-const BOTTLE_W = 50;
-const BOTTLE_H = 72;
+const BOTTLE_W = 40;
+const BOTTLE_H = 94;
 const WATER_COLOR = '#4A90D9';
+
+// Tall slim Smartwater shape: small cap → narrow neck → smooth shoulder taper → elongated body → rounded bottom
+const BOTTLE_PATH = [
+  'M 17 0 H 23',            // cap top
+  'Q 25 0, 25 2 V 5',       // cap right side (slightly wider)
+  'Q 25 7, 23 7 H 22',      // cap-to-neck taper right
+  'V 20',                    // long narrow neck right
+  'C 22 26, 31 28, 31 32',  // smooth shoulder curve right
+  'V 85',                    // tall body right
+  'Q 31 93, 20 93',          // rounded bottom-right
+  'Q 9 93, 9 85',            // rounded bottom-left
+  'V 32',                    // tall body left
+  'C 9 28, 18 26, 18 20',   // smooth shoulder curve left
+  'V 7 H 17',               // long narrow neck left
+  'Q 15 7, 15 5 V 2',       // cap-to-neck taper left
+  'Q 15 0, 17 0 Z',         // cap left side
+].join(' ');
 
 function WaterBottle({ pct, goalHit }: { pct: number; goalHit: boolean }) {
   const fillHeight = useSharedValue(0);
@@ -123,38 +140,30 @@ function WaterBottle({ pct, goalHit }: { pct: number; goalHit: boolean }) {
     });
   }, [pct]);
 
-  // Body area: y=16 to y=68, height=52
-  const bodyH = 52;
-  const bodyY = 16;
+  // Full bottle: cap top at y=0, body bottom at y=93
+  const bottleBottom = 93;
+  const fullH = 93;
 
   const animatedFillProps = useAnimatedProps(() => {
-    const h = fillHeight.value * bodyH;
+    const h = fillHeight.value * fullH;
     return {
-      y: bodyY + bodyH - h,
+      y: bottleBottom - h,
       height: h,
     };
   });
 
   return (
-    <View style={{ width: 60, height: 80, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 52, height: 100, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={BOTTLE_W} height={BOTTLE_H} viewBox={`0 0 ${BOTTLE_W} ${BOTTLE_H}`}>
         <Defs>
           <ClipPath id="bottleClip">
-            {/* Cap */}
-            <Rect x={18} y={0} width={14} height={6} rx={2} />
-            {/* Neck */}
-            <Rect x={16} y={5} width={18} height={8} rx={3} />
-            {/* Shoulder — slight taper */}
-            <Rect x={10} y={12} width={30} height={6} rx={3} />
-            {/* Body */}
-            <Rect x={6} y={16} width={38} height={52} rx={6} />
+            <Path d={BOTTLE_PATH} />
           </ClipPath>
         </Defs>
 
-        {/* Bottle outline (white fill, light border) */}
+        {/* Bottle fill (white base + animated water) */}
         <G clipPath="url(#bottleClip)">
           <Rect x={0} y={0} width={BOTTLE_W} height={BOTTLE_H} fill="#FFFFFF" />
-          {/* Water fill — animates from bottom */}
           <AnimatedRect
             x={0}
             width={BOTTLE_W}
@@ -164,13 +173,8 @@ function WaterBottle({ pct, goalHit }: { pct: number; goalHit: boolean }) {
           />
         </G>
 
-        {/* Bottle border */}
-        {/* Cap */}
-        <Rect x={18} y={0} width={14} height={6} rx={2} fill="none" stroke="#C8C9CC" strokeWidth={1.2} />
-        {/* Neck */}
-        <Rect x={16} y={5} width={18} height={8} rx={3} fill="none" stroke="#C8C9CC" strokeWidth={1.2} />
-        {/* Body */}
-        <Rect x={6} y={12} width={38} height={56} rx={6} fill="none" stroke="#C8C9CC" strokeWidth={1.2} />
+        {/* Bottle outline */}
+        <Path d={BOTTLE_PATH} fill="none" stroke="#C8C9CC" strokeWidth={1.2} />
       </Svg>
 
       {/* Checkmark overlay at 100% */}
@@ -316,8 +320,8 @@ const styles = StyleSheet.create({
   },
   confettiAnchor: {
     position: 'absolute',
-    left: 30,
-    top: 30,
+    left: 26,
+    top: 45,
     width: 1,
     height: 1,
   },

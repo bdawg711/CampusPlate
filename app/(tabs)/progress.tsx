@@ -208,17 +208,24 @@ export default function ProgressScreen() {
       }
       setMonthDots(mDays);
 
-      // Calculate today's daily score
-      const todayStr = getLocalDate();
-      const todayLog = progressRes.days.find(d => d.date === todayStr);
+      // Calculate daily score based on selected range (period averages)
       if (profileRes.data) {
         const p = profileRes.data;
+        const daysWithData = progressRes.days.filter(d => d.mealsLogged > 0);
+        const dayCount = daysWithData.length || 1;
+
+        const avgCal = Math.round(daysWithData.reduce((s, d) => s + d.calories, 0) / dayCount);
+        const avgPro = Math.round(daysWithData.reduce((s, d) => s + d.protein, 0) / dayCount);
+        const avgCarb = Math.round(daysWithData.reduce((s, d) => s + d.carbs, 0) / dayCount);
+        const avgFat = Math.round(daysWithData.reduce((s, d) => s + d.fat, 0) / dayCount);
+        const avgMeals = Math.round(daysWithData.reduce((s, d) => s + d.mealsLogged, 0) / dayCount);
+
         const score = calculateDailyScore(
           {
-            calories: todayLog?.calories ?? 0,
-            protein: todayLog?.protein ?? 0,
-            carbs: todayLog?.carbs ?? 0,
-            fat: todayLog?.fat ?? 0,
+            calories: avgCal,
+            protein: avgPro,
+            carbs: avgCarb,
+            fat: avgFat,
           },
           {
             calories: p.goal_calories || 2000,
@@ -226,17 +233,17 @@ export default function ProgressScreen() {
             carbs: p.goal_carbs_g || 200,
             fat: p.goal_fat_g || 65,
           },
-          todayLog?.mealsLogged ?? 0,
+          avgMeals,
           waterCount,
           waterGoalOz,
         );
         setDailyScore(score);
         setScoreDetail({
-          calories: { actual: todayLog?.calories ?? 0, goal: p.goal_calories || 2000 },
-          protein: { actual: todayLog?.protein ?? 0, goal: p.goal_protein_g || 150 },
-          carbs: { actual: todayLog?.carbs ?? 0, goal: p.goal_carbs_g || 200 },
-          fat: { actual: todayLog?.fat ?? 0, goal: p.goal_fat_g || 65 },
-          mealsLogged: todayLog?.mealsLogged ?? 0,
+          calories: { actual: avgCal, goal: p.goal_calories || 2000 },
+          protein: { actual: avgPro, goal: p.goal_protein_g || 150 },
+          carbs: { actual: avgCarb, goal: p.goal_carbs_g || 200 },
+          fat: { actual: avgFat, goal: p.goal_fat_g || 65 },
+          mealsLogged: avgMeals,
           water: { actual: waterCount, goal: waterGoalOz },
         });
       }
