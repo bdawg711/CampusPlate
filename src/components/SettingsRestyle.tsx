@@ -73,7 +73,7 @@ export default function SettingsRestyle() {
       const userId = await requireUserId();
       const { data } = await supabase
         .from('profiles')
-        .select('name, year, dorm, goal_calories, high_protein, water_goal_oz, reminder_prefs, daily_summary_enabled, daily_summary_time')
+        .select('name, year, dorm, goal_calories, water_goal_oz, reminder_prefs, daily_summary_enabled, daily_summary_time')
         .eq('id', userId)
         .single();
       if (data) {
@@ -136,37 +136,6 @@ export default function SettingsRestyle() {
   }, []);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
-
-  const toggleHighProtein = async () => {
-    const newVal = !profile?.high_protein;
-    if (__DEV__) console.log('[GymMode] toggling high_protein:', profile?.high_protein, '->', newVal);
-    // Optimistic update so the Switch doesn't snap back while waiting for Supabase
-    setProfile((p: any) => p ? { ...p, high_protein: newVal } : p);
-    try {
-      const userId = await requireUserId();
-      if (__DEV__) console.log('[GymMode] userId:', userId);
-      const { data, error, count } = await supabase
-        .from('profiles')
-        .update({ high_protein: newVal })
-        .eq('id', userId)
-        .select('high_protein')
-        .single();
-      if (__DEV__) console.log('[GymMode] update response:', { data, error: error?.message, count });
-      if (error) {
-        if (__DEV__) console.error('[GymMode] Toggle failed:', error.message, error.details, error.hint);
-        // Revert on failure
-        setProfile((p: any) => p ? { ...p, high_protein: !newVal } : p);
-        Alert.alert('Error', 'Failed to save gym mode. Please try again.');
-      } else if (data) {
-        // Sync the confirmed value from the server
-        setProfile((p: any) => p ? { ...p, high_protein: data.high_protein } : p);
-      }
-    } catch (e: any) {
-      if (__DEV__) console.error('[GymMode] Toggle error:', e?.message);
-      // Revert on failure
-      setProfile((p: any) => p ? { ...p, high_protein: !newVal } : p);
-    }
-  };
 
   const handleWaterGoal = () => {
     setWaterGoalInput(String(waterGoalOz));
@@ -411,19 +380,7 @@ export default function SettingsRestyle() {
           />
           <SettingsRow
             icon="heart" iconBg="successTint" iconColor="success"
-            label="Nutrition Preferences" onPress={() => setNutritionPrefsModalVisible(true)}
-          />
-          <SettingsRow
-            icon="activity" iconBg="goldTint" iconColor="gold"
-            label="Gym Mode" isLast
-            rightContent={
-              <Switch
-                value={!!profile?.high_protein}
-                onValueChange={toggleHighProtein}
-                trackColor={{ false: theme.colors.silverLight, true: theme.colors.maroon }}
-                thumbColor="#fff"
-              />
-            }
+            label="Nutrition Preferences" onPress={() => setNutritionPrefsModalVisible(true)} isLast
           />
         </Card>
 
