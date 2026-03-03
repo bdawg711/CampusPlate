@@ -139,19 +139,30 @@ export default function SettingsRestyle() {
 
   const toggleHighProtein = async () => {
     const newVal = !profile?.high_protein;
+    if (__DEV__) console.log('[GymMode] toggling high_protein:', profile?.high_protein, '->', newVal);
     // Optimistic update so the Switch doesn't snap back while waiting for Supabase
     setProfile((p: any) => p ? { ...p, high_protein: newVal } : p);
     try {
       const userId = await requireUserId();
-      const { error } = await supabase.from('profiles').update({ high_protein: newVal }).eq('id', userId);
+      if (__DEV__) console.log('[GymMode] userId:', userId);
+      const { data, error, count } = await supabase
+        .from('profiles')
+        .update({ high_protein: newVal })
+        .eq('id', userId)
+        .select('high_protein')
+        .single();
+      if (__DEV__) console.log('[GymMode] update response:', { data, error: error?.message, count });
       if (error) {
-        if (__DEV__) console.error('Toggle failed:', error.message);
+        if (__DEV__) console.error('[GymMode] Toggle failed:', error.message, error.details, error.hint);
         // Revert on failure
         setProfile((p: any) => p ? { ...p, high_protein: !newVal } : p);
-        Alert.alert('Error', 'Failed to save. Please try again.');
+        Alert.alert('Error', 'Failed to save gym mode. Please try again.');
+      } else if (data) {
+        // Sync the confirmed value from the server
+        setProfile((p: any) => p ? { ...p, high_protein: data.high_protein } : p);
       }
-    } catch (e) {
-      if (__DEV__) console.error('Toggle error:', e);
+    } catch (e: any) {
+      if (__DEV__) console.error('[GymMode] Toggle error:', e?.message);
       // Revert on failure
       setProfile((p: any) => p ? { ...p, high_protein: !newVal } : p);
     }
@@ -240,31 +251,36 @@ export default function SettingsRestyle() {
     rightContent?: React.ReactNode;
     textColor?: ColorName;
     isLast?: boolean;
-  }) => (
-    <>
-      <TouchableOpacity onPress={onPress} activeOpacity={onPress ? 0.6 : 1}>
-        <Box flexDirection="row" alignItems="center" style={{ paddingVertical: 14 }}>
-          <Box
-            width={34}
-            height={34}
-            backgroundColor={iconBg}
-            justifyContent="center"
-            alignItems="center"
-            style={{ borderRadius: 8, marginRight: 12 }}
-          >
-            <Feather name={icon} size={16} color={theme.colors[iconColor]} />
-          </Box>
-          <Text variant="body" color={textColor || 'text'}>{label}</Text>
-          <Box flex={1} />
-          {rightContent}
-          {!rightContent && textColor !== 'error' && (
-            <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
-          )}
+  }) => {
+    const inner = (
+      <Box flexDirection="row" alignItems="center" style={{ paddingVertical: 14 }}>
+        <Box
+          width={34}
+          height={34}
+          backgroundColor={iconBg}
+          justifyContent="center"
+          alignItems="center"
+          style={{ borderRadius: 8, marginRight: 12 }}
+        >
+          <Feather name={icon} size={16} color={theme.colors[iconColor]} />
         </Box>
-      </TouchableOpacity>
-      {!isLast && <Box height={1} backgroundColor="borderLight" style={{ marginLeft: 46 }} />}
-    </>
-  );
+        <Text variant="body" color={textColor || 'text'}>{label}</Text>
+        <Box flex={1} />
+        {rightContent}
+        {!rightContent && textColor !== 'error' && (
+          <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
+        )}
+      </Box>
+    );
+    return (
+      <>
+        {onPress ? (
+          <TouchableOpacity onPress={onPress} activeOpacity={0.6}>{inner}</TouchableOpacity>
+        ) : inner}
+        {!isLast && <Box height={1} backgroundColor="borderLight" style={{ marginLeft: 46 }} />}
+      </>
+    );
+  };
 
   // ── Loading state ──
   if (loading) {
@@ -402,7 +418,7 @@ export default function SettingsRestyle() {
             label="Gym Mode" isLast
             rightContent={
               <Switch
-                value={profile?.high_protein || false}
+                value={!!profile?.high_protein}
                 onValueChange={toggleHighProtein}
                 trackColor={{ false: theme.colors.silverLight, true: theme.colors.maroon }}
                 thumbColor="#fff"
