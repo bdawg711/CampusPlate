@@ -257,21 +257,62 @@ export default function ProgressScreen() {
     try {
       const userId = await requireUserId();
       const todayStr = getLocalDate();
-      const { error } = await supabase.from('weight_logs').upsert(
-        { user_id: userId, date: todayStr, weight_lbs: w },
-        { onConflict: 'user_id,date' }
-      );
-      if (error) {
-        // Fallback: update profiles weight
-        await supabase.from('profiles').update({ weight: w }).eq('id', userId);
+
+      // Try upsert first (requires unique constraint on user_id,date)
+      const { data: upsertData, error: upsertError } = await supabase
+        .from('weight_logs')
+        .upsert(
+          { user_id: userId, date: todayStr, weight_lbs: w },
+          { onConflict: 'user_id,date' }
+        )
+        .select('id, date, weight_lbs')
+        .single();
+
+      if (__DEV__) console.log('[Weight] upsert result:', { upsertData, error: upsertError?.message });
+
+      if (upsertError) {
+        // Upsert failed — try plain insert (unique constraint may not exist)
+        if (__DEV__) console.log('[Weight] upsert failed, trying insert...');
+        const { data: insertData, error: insertError } = await supabase
+          .from('weight_logs')
+          .insert({ user_id: userId, date: todayStr, weight_lbs: w })
+          .select('id, date, weight_lbs')
+          .single();
+
+        if (__DEV__) console.log('[Weight] insert result:', { insertData, error: insertError?.message });
+
+        if (insertError) {
+          // Insert also failed — check if row already exists for today, then update it
+          if (__DEV__) console.log('[Weight] insert failed, trying update...');
+          const { error: updateError } = await supabase
+            .from('weight_logs')
+            .update({ weight_lbs: w })
+            .eq('user_id', userId)
+            .eq('date', todayStr);
+
+          if (__DEV__) console.log('[Weight] update result:', { error: updateError?.message });
+        }
       }
+
+      // Also update profiles.weight as the latest weight reference
+      await supabase.from('profiles').update({ weight: w }).eq('id', userId);
+
       setLastWeight(w);
       setWeightInput('');
       setShowWeightModal(false);
+
       // Reload weight chart data
-      await loadData();
-    } catch (e) {
-      if (__DEV__) console.error('Weight save error:', e);
+      const daysMap: Record<RangeType, number> = { '1W': 7, '1M': 30, '3M': 90, 'All': 365 };
+      const entries = await getWeightHistory(userId, daysMap[range]);
+      if (__DEV__) console.log('[Weight] reloaded entries:', entries.length, entries);
+      setWeightEntries(entries);
+      if (entries.length >= 2) {
+        setWeightTrend(calculateWeightTrend(entries));
+      } else {
+        setWeightTrend(null);
+      }
+    } catch (e: any) {
+      if (__DEV__) console.error('[Weight] save error:', e?.message);
       Alert.alert('Error', 'Failed to save weight. Please try again.');
     } finally {
       setSavingWeight(false);
@@ -634,6 +675,11 @@ export default function ProgressScreen() {
               </Box>
               {weightEntries.length >= 2 && weightTrend ? (
                 <WeightChart entries={weightEntries} trend={weightTrend} />
+              ) : weightEntries.length === 1 ? (
+                <Box alignItems="center" style={{ paddingVertical: 16, gap: 8 }}>
+                  <Text style={{ fontSize: 24, fontFamily: 'Outfit_700Bold', color: C.text }}>{weightEntries[0].weight} lbs</Text>
+                  <Text variant="muted">Log one more day to see your trend chart</Text>
+                </Box>
               ) : (
                 <Box alignItems="center" style={{ paddingVertical: 16, gap: 8 }}>
                   <Feather name="trending-up" size={28} color={C.silver} />
