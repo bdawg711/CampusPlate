@@ -7,6 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '../theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '../utils/auth';
 import {
   getDailyMicronutrients,
@@ -15,18 +16,11 @@ import {
   type MicronutrientData,
 } from '../utils/micronutrients';
 
-// ─── Direct color constants ─────────────────────────────────────────────────
-const C = {
-  white: '#FFFFFF',
-  offWhite: '#FAFAFA',
+// ─── Accent color constants (theme-independent) ────────────────────────────
+const ACCENT = {
   maroon: '#861F41',
   maroonMuted: 'rgba(134,31,65,0.08)',
   silverLight: '#C8C9CC',
-  text: '#1A1A1A',
-  textMuted: '#6B6B6F',
-  textDim: '#9A9A9E',
-  border: '#E8E8EA',
-  borderLight: '#F0F0F2',
   success: '#2D8A4E',
   warning: '#D4A024',
   error: '#C0392B',
@@ -103,14 +97,25 @@ function subtractDays(dateStr: string, n: number): string {
 }
 
 function getBarColor(pct: number, isTransFat: boolean): string {
-  if (isTransFat) return pct > 0 ? C.error : C.silverLight;
-  if (pct >= 150) return C.error;
-  if (pct >= 100) return C.success;
-  if (pct >= 50) return C.warning;
-  return C.maroon;
+  if (isTransFat) return pct > 0 ? ACCENT.error : ACCENT.silverLight;
+  if (pct >= 150) return ACCENT.error;
+  if (pct >= 100) return ACCENT.success;
+  if (pct >= 50) return ACCENT.warning;
+  return ACCENT.maroon;
 }
 
 export default function MicronutrientScreen({ onClose }: Props) {
+  const { colors } = useTheme();
+  const C = {
+    ...ACCENT,
+    white: colors.card,
+    offWhite: colors.cardAlt,
+    text: colors.text,
+    textMuted: colors.textMuted,
+    textDim: colors.textDim,
+    border: colors.border,
+    borderLight: colors.borderLight,
+  };
   const insets = useSafeAreaInsets();
   const [range, setRange] = useState<RangeKey>('today');
   const [data, setData] = useState<MicronutrientData | null>(null);

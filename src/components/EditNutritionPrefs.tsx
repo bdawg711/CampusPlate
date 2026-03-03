@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 
@@ -31,6 +32,7 @@ const DIETARY_OPTIONS = [
 const MEALS_OPTIONS = [1, 2, 3, 4, 5];
 
 export default function EditNutritionPrefs({ visible, onClose, onSaved }: EditNutritionPrefsProps) {
+  const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dietaryNeeds, setDietaryNeeds] = useState<string[]>([]);
@@ -71,18 +73,18 @@ export default function EditNutritionPrefs({ visible, onClose, onSaved }: EditNu
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         {/* Modal handle */}
         <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 4 }}>
-          <View style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: '#A8A9AD' }} />
+          <View style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: colors.textDim }} />
         </View>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E8E8EA' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <TouchableOpacity onPress={onClose} style={{ width: 64 }} activeOpacity={0.6}>
-            <Text style={{ fontSize: 15, color: '#A8A9AD', fontFamily: 'DMSans_500Medium' }}>Cancel</Text>
+            <Text style={{ fontSize: 15, color: colors.textDim, fontFamily: 'DMSans_500Medium' }}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, color: '#1A1A1A', fontFamily: 'Outfit_700Bold' }}>Nutrition Preferences</Text>
+          <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, color: colors.text, fontFamily: 'Outfit_700Bold' }}>Nutrition Preferences</Text>
           <View style={{ width: 64 }} />
         </View>
 
@@ -94,9 +96,9 @@ export default function EditNutritionPrefs({ visible, onClose, onSaved }: EditNu
           <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
 
             {/* Dietary Needs */}
-            <Text style={{ fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 1.5, color: '#A8A9AD', marginBottom: 8, marginTop: 4 }}>DIETARY NEEDS</Text>
-            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: '#E8E8EA', backgroundColor: '#FFFFFF', padding: 16, marginBottom: 4 }}>
-              <Text style={{ fontSize: 13, lineHeight: 18, marginBottom: 14, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>
+            <Text style={{ fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 1.5, color: colors.textDim, marginBottom: 8, marginTop: 4 }}>DIETARY NEEDS</Text>
+            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 16, marginBottom: 4 }}>
+              <Text style={{ fontSize: 13, lineHeight: 18, marginBottom: 14, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>
                 Select all that apply. These will be highlighted on menus.
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -107,13 +109,13 @@ export default function EditNutritionPrefs({ visible, onClose, onSaved }: EditNu
                       key={opt}
                       style={{
                         paddingHorizontal: 14, paddingVertical: 9, borderRadius: 6, borderWidth: 1,
-                        backgroundColor: selected ? '#861F41' : '#FAFAFA',
-                        borderColor: selected ? '#861F41' : '#E8E8EA',
+                        backgroundColor: selected ? '#861F41' : colors.cardAlt,
+                        borderColor: selected ? '#861F41' : colors.border,
                       }}
                       onPress={() => toggleDietary(opt)}
                       activeOpacity={0.7}
                     >
-                      <Text style={{ fontSize: 13, color: selected ? '#FFFFFF' : '#6B6B6F', fontFamily: 'DMSans_600SemiBold' }}>{opt}</Text>
+                      <Text style={{ fontSize: 13, color: selected ? '#FFFFFF' : colors.textMuted, fontFamily: 'DMSans_600SemiBold' }}>{opt}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -121,21 +123,21 @@ export default function EditNutritionPrefs({ visible, onClose, onSaved }: EditNu
             </View>
 
             {/* High Protein Toggle */}
-            <Text style={{ fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 1.5, color: '#A8A9AD', marginBottom: 8, marginTop: 20 }}>GYM MODE</Text>
-            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: '#E8E8EA', backgroundColor: '#FFFFFF', padding: 16, marginBottom: 4 }}>
+            <Text style={{ fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 1.5, color: colors.textDim, marginBottom: 8, marginTop: 20 }}>GYM MODE</Text>
+            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 16, marginBottom: 4 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, marginBottom: 2, color: '#1A1A1A', fontFamily: 'DMSans_600SemiBold' }}>Prioritize High Protein</Text>
-                  <Text style={{ fontSize: 12, lineHeight: 16, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>Highlights high-protein items in your collections</Text>
+                  <Text style={{ fontSize: 15, marginBottom: 2, color: colors.text, fontFamily: 'DMSans_600SemiBold' }}>Prioritize High Protein</Text>
+                  <Text style={{ fontSize: 12, lineHeight: 16, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>Highlights high-protein items in your collections</Text>
                 </View>
                 <Switch value={highProtein} onValueChange={setHighProtein} trackColor={{ false: '#9A9A9E', true: '#861F41' }} thumbColor="#FFFFFF" />
               </View>
             </View>
 
             {/* Meals Per Day */}
-            <Text style={{ fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 1.5, color: '#A8A9AD', marginBottom: 8, marginTop: 20 }}>MEALS PER DAY</Text>
-            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: '#E8E8EA', backgroundColor: '#FFFFFF', padding: 16, marginBottom: 4 }}>
-              <Text style={{ fontSize: 13, lineHeight: 18, marginBottom: 14, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>
+            <Text style={{ fontSize: 11, fontFamily: 'DMSans_600SemiBold', textTransform: 'uppercase', letterSpacing: 1.5, color: colors.textDim, marginBottom: 8, marginTop: 20 }}>MEALS PER DAY</Text>
+            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 16, marginBottom: 4 }}>
+              <Text style={{ fontSize: 13, lineHeight: 18, marginBottom: 14, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>
                 How many campus meals do you eat daily?
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -144,13 +146,13 @@ export default function EditNutritionPrefs({ visible, onClose, onSaved }: EditNu
                     key={n}
                     style={{
                       flex: 1, paddingVertical: 12, borderRadius: 6, borderWidth: 1, alignItems: 'center',
-                      backgroundColor: mealsPerDay === n ? '#861F41' : '#FAFAFA',
-                      borderColor: mealsPerDay === n ? '#861F41' : '#E8E8EA',
+                      backgroundColor: mealsPerDay === n ? '#861F41' : colors.cardAlt,
+                      borderColor: mealsPerDay === n ? '#861F41' : colors.border,
                     }}
                     onPress={() => setMealsPerDay(n)}
                     activeOpacity={0.7}
                   >
-                    <Text style={{ fontSize: 15, color: mealsPerDay === n ? '#FFFFFF' : '#6B6B6F', fontFamily: 'DMSans_600SemiBold' }}>
+                    <Text style={{ fontSize: 15, color: mealsPerDay === n ? '#FFFFFF' : colors.textMuted, fontFamily: 'DMSans_600SemiBold' }}>
                       {n === 5 ? '5+' : String(n)}
                     </Text>
                   </TouchableOpacity>

@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 
 export interface HelpFAQProps {
   visible: boolean;
@@ -36,6 +37,7 @@ function FAQItem({ question, answer, expanded, onToggle }: {
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { colors } = useTheme();
   const opacity = useSharedValue(expanded ? 1 : 0);
 
   useEffect(() => {
@@ -56,14 +58,14 @@ function FAQItem({ question, answer, expanded, onToggle }: {
         onPress={onToggle}
         activeOpacity={0.7}
       >
-        <Text style={{ fontSize: 14, lineHeight: 20, flex: 1, color: '#1A1A1A', fontFamily: 'DMSans_600SemiBold' }}>
+        <Text style={{ fontSize: 14, lineHeight: 20, flex: 1, color: colors.text, fontFamily: 'DMSans_600SemiBold' }}>
           {question}
         </Text>
-        <Feather name={expanded ? 'chevron-down' : 'chevron-right'} size={16} color="#A8A9AD" />
+        <Feather name={expanded ? 'chevron-down' : 'chevron-right'} size={16} color={colors.textDim} />
       </TouchableOpacity>
       {expanded && (
         <Animated.View style={[{ paddingHorizontal: 16, paddingBottom: 16 }, animStyle]}>
-          <Text style={{ fontSize: 13, lineHeight: 20, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>
+          <Text style={{ fontSize: 13, lineHeight: 20, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>
             {answer}
           </Text>
         </Animated.View>
@@ -73,29 +75,30 @@ function FAQItem({ question, answer, expanded, onToggle }: {
 }
 
 export default function HelpFAQ({ visible, onClose }: HelpFAQProps) {
+  const { colors } = useTheme();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const toggle = (i: number) => setExpandedIndex((prev) => (prev === i ? null : i));
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         {/* Modal handle */}
         <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 4 }}>
-          <View style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: '#A8A9AD' }} />
+          <View style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: colors.textDim }} />
         </View>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E8E8EA' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <TouchableOpacity onPress={onClose} style={{ width: 64 }} activeOpacity={0.6}>
-            <Text style={{ fontSize: 15, color: '#A8A9AD', fontFamily: 'DMSans_500Medium' }}>Close</Text>
+            <Text style={{ fontSize: 15, color: colors.textDim, fontFamily: 'DMSans_500Medium' }}>Close</Text>
           </TouchableOpacity>
-          <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, color: '#1A1A1A', fontFamily: 'Outfit_700Bold' }}>Help & FAQ</Text>
+          <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, color: colors.text, fontFamily: 'Outfit_700Bold' }}>Help & FAQ</Text>
           <View style={{ width: 64 }} />
         </View>
 
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
-          <View style={{ borderRadius: 12, borderWidth: 1, borderColor: '#E8E8EA', backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+          <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
             {FAQ_ITEMS.map((item, i) => (
               <View key={i}>
                 <FAQItem
@@ -105,13 +108,13 @@ export default function HelpFAQ({ visible, onClose }: HelpFAQProps) {
                   onToggle={() => toggle(i)}
                 />
                 {i < FAQ_ITEMS.length - 1 && (
-                  <View style={{ height: 1, marginHorizontal: 16, backgroundColor: '#F0F0F2' }} />
+                  <View style={{ height: 1, marginHorizontal: 16, backgroundColor: colors.borderLight }} />
                 )}
               </View>
             ))}
           </View>
 
-          <Text style={{ textAlign: 'center', fontSize: 12, opacity: 0.4, marginTop: 24, color: '#A8A9AD', fontFamily: 'DMSans_400Regular' }}>
+          <Text style={{ textAlign: 'center', fontSize: 12, opacity: 0.4, marginTop: 24, color: colors.textDim, fontFamily: 'DMSans_400Regular' }}>
             CampusPlate v2.5 · Built for Hokies, by Hokies
           </Text>
         </ScrollView>

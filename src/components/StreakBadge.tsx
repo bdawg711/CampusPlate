@@ -3,18 +3,9 @@ import { View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '../theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import MetallicShimmer from './MetallicShimmer';
 import type { Badge } from '../utils/streaks';
-
-// ─── Direct color constants ─────────────────────────────────────────────────
-const C = {
-  silver: '#A8A9AD',
-  silverLight: '#C8C9CC',
-  textDim: '#9A9A9E',
-  textMuted: '#6B6B6F',
-  text: '#1A1A1A',
-  offWhite: '#FAFAFA',
-};
 
 // Gold metallic gradient stops
 const GOLD_GRADIENT: readonly [string, string, string, string, string] = [
@@ -30,6 +21,15 @@ interface Props {
 }
 
 export default function StreakBadge({ badge, size = 'small' }: Props) {
+  const { colors } = useTheme();
+  const C = {
+    silver: '#A8A9AD',
+    silverLight: '#C8C9CC',
+    textDim: colors.textDim,
+    textMuted: colors.textMuted,
+    text: colors.text,
+    offWhite: colors.cardAlt,
+  };
   const isLarge = size === 'large';
   const circleSize = isLarge ? 64 : 44;
   const emojiSize = isLarge ? 28 : 20;

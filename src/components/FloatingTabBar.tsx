@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { triggerHaptic } from '@/src/utils/haptics';
 import { Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const TAB_CONFIG: {
@@ -39,11 +40,13 @@ function TabItem({
   isFocused,
   onPress,
   onLongPress,
+  tabBarBg,
 }: {
   config: (typeof TAB_CONFIG)[number];
   isFocused: boolean;
   onPress: () => void;
   onLongPress: () => void;
+  tabBarBg: string;
 }) {
   const scale = useSharedValue(1);
   const labelOpacity = useSharedValue(isFocused ? 1 : 0.5);
@@ -166,6 +169,7 @@ export default function FloatingTabBar({
   navigation,
 }: BottomTabBarProps) {
   const screenWidth = Dimensions.get('window').width;
+  const { colors } = useTheme();
 
   return (
     <View
@@ -179,9 +183,9 @@ export default function FloatingTabBar({
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.tabBarBg,
         borderTopWidth: 1,
-        borderTopColor: '#E8E8EA',
+        borderTopColor: colors.border,
         overflow: 'visible',
         ...Platform.select({
           ios: {
@@ -229,6 +233,7 @@ export default function FloatingTabBar({
             isFocused={isFocused}
             onPress={onPress}
             onLongPress={onLongPress}
+            tabBarBg={colors.tabBarBg}
           />
         );
       })}

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import {
   MealReminders,
@@ -36,6 +37,7 @@ interface ReminderSettingsProps {
 }
 
 export default function ReminderSettings({ visible, onClose }: ReminderSettingsProps) {
+  const { colors } = useTheme();
   const [reminders, setReminders] = useState<MealReminders>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -114,18 +116,18 @@ export default function ReminderSettings({ visible, onClose }: ReminderSettingsP
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         {/* Modal handle */}
         <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 4 }}>
-          <View style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: '#A8A9AD' }} />
+          <View style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: colors.textDim }} />
         </View>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E8E8EA' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <TouchableOpacity onPress={onClose} style={{ width: 64 }} activeOpacity={0.6}>
-            <Text style={{ fontSize: 15, color: '#A8A9AD', fontFamily: 'DMSans_500Medium' }}>Cancel</Text>
+            <Text style={{ fontSize: 15, color: colors.textDim, fontFamily: 'DMSans_500Medium' }}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, color: '#1A1A1A', fontFamily: 'Outfit_700Bold' }}>Reminders</Text>
+          <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, color: colors.text, fontFamily: 'Outfit_700Bold' }}>Reminders</Text>
           <View style={{ width: 64 }} />
         </View>
 
@@ -136,10 +138,10 @@ export default function ReminderSettings({ visible, onClose }: ReminderSettingsP
         ) : (
           <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: '#E8E8EA', backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' }}>
               {reminders.map((reminder, index) => (
                 <React.Fragment key={reminder.meal}>
-                  {index > 0 && <View style={{ height: 1, marginLeft: 60, backgroundColor: '#F0F0F2' }} />}
+                  {index > 0 && <View style={{ height: 1, marginLeft: 60, backgroundColor: colors.borderLight }} />}
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}>
                     <Switch
@@ -149,16 +151,16 @@ export default function ReminderSettings({ visible, onClose }: ReminderSettingsP
                       thumbColor="#FFFFFF"
                     />
                     <View style={{ marginLeft: 12 }}>
-                      <Feather name={MEAL_ICONS[reminder.meal] || 'clock'} size={20} color="#A8A9AD" />
+                      <Feather name={MEAL_ICONS[reminder.meal] || 'clock'} size={20} color={colors.textDim} />
                     </View>
-                    <Text style={{ fontSize: 15, marginLeft: 10, color: '#1A1A1A', fontFamily: 'DMSans_600SemiBold' }}>{reminder.meal}</Text>
+                    <Text style={{ fontSize: 15, marginLeft: 10, color: colors.text, fontFamily: 'DMSans_600SemiBold' }}>{reminder.meal}</Text>
                     <View style={{ flex: 1 }} />
                     <TouchableOpacity
-                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#FAFAFA' }}
+                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.cardAlt }}
                       onPress={() => setEditingMeal(editingMeal === reminder.meal ? null : reminder.meal)}
                       activeOpacity={0.7}
                     >
-                      <Text style={{ fontSize: 13, color: reminder.enabled ? '#1A1A1A' : '#6B6B6F', fontFamily: 'DMSans_600SemiBold' }}>
+                      <Text style={{ fontSize: 13, color: reminder.enabled ? colors.text : colors.textMuted, fontFamily: 'DMSans_600SemiBold' }}>
                         {formatTime(reminder.hour, reminder.minute)}
                       </Text>
                     </TouchableOpacity>
@@ -166,35 +168,35 @@ export default function ReminderSettings({ visible, onClose }: ReminderSettingsP
 
                   {/* Inline time editor */}
                   {editingMeal === reminder.meal && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 20, marginHorizontal: 16, marginBottom: 12, borderRadius: 8, gap: 12, backgroundColor: '#FAFAFA' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 20, marginHorizontal: 16, marginBottom: 12, borderRadius: 8, gap: 12, backgroundColor: colors.cardAlt }}>
                       {/* Hour */}
                       <View style={{ alignItems: 'center' }}>
-                        <TouchableOpacity onPress={() => adjustTime(reminder.meal, 'hour', 1)} style={{ width: 40, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }} activeOpacity={0.6}>
-                          <Feather name="chevron-up" size={16} color="#1A1A1A" />
+                        <TouchableOpacity onPress={() => adjustTime(reminder.meal, 'hour', 1)} style={{ width: 40, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.card }} activeOpacity={0.6}>
+                          <Feather name="chevron-up" size={16} color={colors.text} />
                         </TouchableOpacity>
-                        <Text style={{ fontSize: 28, marginVertical: 4, color: '#1A1A1A', fontFamily: 'Outfit_700Bold' }}>
+                        <Text style={{ fontSize: 28, marginVertical: 4, color: colors.text, fontFamily: 'Outfit_700Bold' }}>
                           {String(reminder.hour % 12 || 12).padStart(2, '0')}
                         </Text>
-                        <TouchableOpacity onPress={() => adjustTime(reminder.meal, 'hour', -1)} style={{ width: 40, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }} activeOpacity={0.6}>
-                          <Feather name="chevron-down" size={16} color="#1A1A1A" />
+                        <TouchableOpacity onPress={() => adjustTime(reminder.meal, 'hour', -1)} style={{ width: 40, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.card }} activeOpacity={0.6}>
+                          <Feather name="chevron-down" size={16} color={colors.text} />
                         </TouchableOpacity>
-                        <Text style={{ fontSize: 10, marginTop: 4, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>Hour</Text>
+                        <Text style={{ fontSize: 10, marginTop: 4, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>Hour</Text>
                       </View>
 
-                      <Text style={{ fontSize: 28, marginBottom: 24, color: '#1A1A1A', fontFamily: 'Outfit_700Bold' }}>:</Text>
+                      <Text style={{ fontSize: 28, marginBottom: 24, color: colors.text, fontFamily: 'Outfit_700Bold' }}>:</Text>
 
                       {/* Minute */}
                       <View style={{ alignItems: 'center' }}>
-                        <TouchableOpacity onPress={() => adjustTime(reminder.meal, 'minute', 15)} style={{ width: 40, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }} activeOpacity={0.6}>
-                          <Feather name="chevron-up" size={16} color="#1A1A1A" />
+                        <TouchableOpacity onPress={() => adjustTime(reminder.meal, 'minute', 15)} style={{ width: 40, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.card }} activeOpacity={0.6}>
+                          <Feather name="chevron-up" size={16} color={colors.text} />
                         </TouchableOpacity>
-                        <Text style={{ fontSize: 28, marginVertical: 4, color: '#1A1A1A', fontFamily: 'Outfit_700Bold' }}>
+                        <Text style={{ fontSize: 28, marginVertical: 4, color: colors.text, fontFamily: 'Outfit_700Bold' }}>
                           {String(reminder.minute).padStart(2, '0')}
                         </Text>
-                        <TouchableOpacity onPress={() => adjustTime(reminder.meal, 'minute', -15)} style={{ width: 40, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }} activeOpacity={0.6}>
-                          <Feather name="chevron-down" size={16} color="#1A1A1A" />
+                        <TouchableOpacity onPress={() => adjustTime(reminder.meal, 'minute', -15)} style={{ width: 40, height: 32, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.card }} activeOpacity={0.6}>
+                          <Feather name="chevron-down" size={16} color={colors.text} />
                         </TouchableOpacity>
-                        <Text style={{ fontSize: 10, marginTop: 4, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>Min</Text>
+                        <Text style={{ fontSize: 10, marginTop: 4, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>Min</Text>
                       </View>
 
                       {/* AM/PM toggle */}
@@ -213,7 +215,7 @@ export default function ReminderSettings({ visible, onClose }: ReminderSettingsP
               ))}
             </View>
 
-            <Text style={{ fontSize: 12, lineHeight: 18, marginTop: 16, marginBottom: 20, textAlign: 'center', color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>
+            <Text style={{ fontSize: 12, lineHeight: 18, marginTop: 16, marginBottom: 20, textAlign: 'center', color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>
               Make sure notifications are enabled in your device settings. Reminders repeat daily at the times you set.
             </Text>
 

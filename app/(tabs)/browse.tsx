@@ -26,6 +26,7 @@ import ReanimatedAnimated, {
 
 // Restyle primitives
 import { Box, Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import AnimatedCard from '@/src/components/AnimatedCard';
 import Skeleton from '@/src/components/Skeleton';
 import ErrorState from '@/src/components/ErrorState';
@@ -44,30 +45,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-// ─── Colors (direct refs for non-Restyle elements) ─────────────────────────
-const C = {
-  white: '#FFFFFF',
-  offWhite: '#FAFAFA',
-  maroon: '#861F41',
-  maroonDark: '#6B1835',
-  maroonMuted: 'rgba(134,31,65,0.08)',
-  gold: '#C5A55A',
-  goldMuted: 'rgba(197,165,90,0.12)',
-  silver: '#A8A9AD',
-  silverLight: '#C8C9CC',
-  text: '#1A1A1A',
-  textMuted: '#6B6B6F',
-  textDim: '#9A9A9E',
-  border: '#E8E8EA',
-  borderLight: '#F0F0F2',
-  inputBg: '#F5F5F7',
-  success: '#34C759',
-  successTint: 'rgba(52,199,89,0.10)',
-  warning: '#C5A55A',
-  error: '#FF453A',
-  errorTint: 'rgba(255,69,58,0.10)',
-  blue: '#4A7FC5',
-};
+// Colors: derived from useTheme() inside the component — see `C` alias below
 
 function getLocalDate() {
   const d = new Date();
@@ -133,6 +111,20 @@ function PressScaleButton({ onPress, disabled, children, style }: {
 type ViewState = 'halls' | 'stations' | 'items' | 'detail';
 
 export default function BrowseScreen() {
+  const { colors: themeColors } = useTheme();
+  // Alias theme colors to C for backward compat with existing JSX
+  const C = {
+    ...themeColors,
+    white: themeColors.card,
+    offWhite: themeColors.cardAlt,
+    success: themeColors.green,
+    successTint: themeColors.successTint,
+    warning: themeColors.gold,
+    error: themeColors.red,
+    errorTint: themeColors.errorTint,
+    goldMuted: themeColors.goldTint,
+    maroonMuted: themeColors.maroonTint,
+  };
   const params = useLocalSearchParams<{ filter?: string; meal?: string; itemId?: string }>();
   const [view, setView] = useState<ViewState>('halls');
   const [meal, setMeal] = useState(params.meal && ['Breakfast', 'Lunch', 'Dinner'].includes(params.meal) ? params.meal : autoMeal);

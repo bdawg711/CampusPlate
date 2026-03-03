@@ -2,6 +2,7 @@ import React from 'react';
 import { TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '../theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 
 interface ErrorStateProps {
   message?: string;
@@ -12,6 +13,7 @@ function ErrorState({
   message = "Couldn't load data",
   onRetry,
 }: ErrorStateProps) {
+  const { colors } = useTheme();
   return (
     <Box alignItems="center" paddingVertical="xl" paddingHorizontal="l" style={{ gap: 12 }}>
       <Feather name="alert-circle" size={36} color="#A8A9AD" accessibilityElementsHidden />
@@ -34,8 +36,8 @@ function ErrorState({
             justifyContent: 'center',
             borderRadius: 8,
             borderWidth: 1,
-            borderColor: '#E8E8EA',
-            backgroundColor: '#FFFFFF',
+            borderColor: colors.border,
+            backgroundColor: colors.card,
             marginTop: 4,
           }}
         >

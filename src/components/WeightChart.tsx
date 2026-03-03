@@ -8,21 +8,8 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 import { Box, Text } from '../theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import type { WeightEntry, WeightTrend } from '../utils/weightData';
-
-// ─── Direct color constants ─────────────────────────────────────────────────
-const C = {
-  maroon: '#861F41',
-  silver: '#A8A9AD',
-  silverLight: '#C8C9CC',
-  text: '#1A1A1A',
-  textMuted: '#6B6B6F',
-  textDim: '#9A9A9E',
-  success: '#2D8A4E',
-  error: '#C0392B',
-  border: '#E8E8EA',
-  offWhite: '#FAFAFA',
-};
 
 interface Props {
   entries: WeightEntry[];
@@ -39,6 +26,19 @@ function buildPath(points: { x: number; y: number }[]): string {
 }
 
 export default function WeightChart({ entries, trend }: Props) {
+  const { colors } = useTheme();
+  const C = {
+    maroon: '#861F41',
+    silver: '#A8A9AD',
+    silverLight: '#C8C9CC',
+    text: colors.text,
+    textMuted: colors.textMuted,
+    textDim: colors.textDim,
+    success: '#2D8A4E',
+    error: '#C0392B',
+    border: colors.border,
+    offWhite: colors.cardAlt,
+  };
   const { width: screenWidth } = useWindowDimensions();
   const chartWidth = screenWidth - 72;
 

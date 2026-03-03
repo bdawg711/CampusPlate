@@ -66,9 +66,9 @@ export default function EditGoals({
     fontSize: 20,
     textAlign: 'center' as const,
     fontFamily: 'Outfit_700Bold',
-    backgroundColor: isEditable ? '#F5F5F7' : '#FAFAFA',
-    borderColor: isEditable ? accent : '#E8E8EA',
-    color: isEditable ? '#1A1A1A' : '#6B6B6F',
+    backgroundColor: isEditable ? colors.inputBg : colors.cardAlt,
+    borderColor: isEditable ? accent : colors.border,
+    color: isEditable ? colors.text : colors.textMuted,
   });
 
   const handleSave = async () => {
@@ -114,18 +114,18 @@ export default function EditGoals({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         {/* Modal handle */}
         <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 4 }}>
-          <View style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: '#A8A9AD' }} />
+          <View style={{ width: 36, height: 4, borderRadius: 9999, backgroundColor: colors.textDim }} />
         </View>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E8E8EA' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <TouchableOpacity onPress={onClose} style={{ width: 64 }} activeOpacity={0.6}>
-            <Text style={{ fontSize: 15, color: '#A8A9AD', fontFamily: 'DMSans_500Medium' }}>Cancel</Text>
+            <Text style={{ fontSize: 15, color: colors.textDim, fontFamily: 'DMSans_500Medium' }}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, color: '#1A1A1A', fontFamily: 'Outfit_700Bold' }}>
+          <Text style={{ flex: 1, textAlign: 'center', fontSize: 17, color: colors.text, fontFamily: 'Outfit_700Bold' }}>
             Nutrition Goals
           </Text>
           <View style={{ width: 64 }} />
@@ -138,13 +138,13 @@ export default function EditGoals({
             showsVerticalScrollIndicator={false}
           >
             {/* Mode toggle */}
-            <View style={{ flexDirection: 'row', borderRadius: 6, borderWidth: 1, borderColor: '#E8E8EA', backgroundColor: '#FAFAFA', padding: 4, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', borderRadius: 6, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt, padding: 4, marginBottom: 16 }}>
               <TouchableOpacity
                 style={{ flex: 1, paddingVertical: 9, borderRadius: 6, alignItems: 'center', backgroundColor: mode === 'custom' ? '#861F41' : 'transparent' }}
                 onPress={() => setMode('custom')}
                 activeOpacity={0.7}
               >
-                <Text style={{ fontSize: 14, color: mode === 'custom' ? '#FFFFFF' : '#6B6B6F', fontFamily: 'DMSans_600SemiBold' }}>
+                <Text style={{ fontSize: 14, color: mode === 'custom' ? '#FFFFFF' : colors.textMuted, fontFamily: 'DMSans_600SemiBold' }}>
                   Custom
                 </Text>
               </TouchableOpacity>
@@ -153,24 +153,24 @@ export default function EditGoals({
                 onPress={() => setMode('calculated')}
                 activeOpacity={0.7}
               >
-                <Text style={{ fontSize: 14, color: mode === 'calculated' ? '#FFFFFF' : '#6B6B6F', fontFamily: 'DMSans_600SemiBold' }}>
+                <Text style={{ fontSize: 14, color: mode === 'calculated' ? '#FFFFFF' : colors.textMuted, fontFamily: 'DMSans_600SemiBold' }}>
                   Calculated
                 </Text>
               </TouchableOpacity>
             </View>
 
             {mode === 'calculated' && (
-              <Text style={{ fontSize: 12, lineHeight: 18, marginTop: -8, marginBottom: 16, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>
+              <Text style={{ fontSize: 12, lineHeight: 18, marginTop: -8, marginBottom: 16, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>
                 Goals are computed from your body stats and fitness goal. Tap "Recalculate" below to refresh, then Save.
               </Text>
             )}
 
             {/* Goal fields */}
-            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: '#E8E8EA', backgroundColor: '#FFFFFF', overflow: 'hidden', marginBottom: 12 }}>
+            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden', marginBottom: 12 }}>
               {/* Calories */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#861F41' }} />
-                <Text style={{ width: 72, fontSize: 14, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Calories</Text>
+                <Text style={{ width: 72, fontSize: 14, color: colors.text, fontFamily: 'DMSans_500Medium' }}>Calories</Text>
                 <TextInput
                   style={getInputStyle('#861F41')}
                   value={calories}
@@ -181,15 +181,15 @@ export default function EditGoals({
                   maxLength={5}
                   selectTextOnFocus
                 />
-                <Text style={{ width: 36, fontSize: 13, textAlign: 'right', color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>kcal</Text>
+                <Text style={{ width: 36, fontSize: 13, textAlign: 'right', color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>kcal</Text>
               </View>
 
-              <View style={{ height: 1, marginLeft: 38, backgroundColor: '#F0F0F2' }} />
+              <View style={{ height: 1, marginLeft: 38, backgroundColor: colors.borderLight }} />
 
               {/* Protein */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#4A7FC5' }} />
-                <Text style={{ width: 72, fontSize: 14, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Protein</Text>
+                <Text style={{ width: 72, fontSize: 14, color: colors.text, fontFamily: 'DMSans_500Medium' }}>Protein</Text>
                 <TextInput
                   style={getInputStyle('#4A7FC5')}
                   value={protein}
@@ -200,15 +200,15 @@ export default function EditGoals({
                   maxLength={4}
                   selectTextOnFocus
                 />
-                <Text style={{ width: 36, fontSize: 13, textAlign: 'right', color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>g</Text>
+                <Text style={{ width: 36, fontSize: 13, textAlign: 'right', color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>g</Text>
               </View>
 
-              <View style={{ height: 1, marginLeft: 38, backgroundColor: '#F0F0F2' }} />
+              <View style={{ height: 1, marginLeft: 38, backgroundColor: colors.borderLight }} />
 
               {/* Carbs */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#C5A55A' }} />
-                <Text style={{ width: 72, fontSize: 14, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Carbs</Text>
+                <Text style={{ width: 72, fontSize: 14, color: colors.text, fontFamily: 'DMSans_500Medium' }}>Carbs</Text>
                 <TextInput
                   style={getInputStyle('#C5A55A')}
                   value={carbs}
@@ -219,15 +219,15 @@ export default function EditGoals({
                   maxLength={4}
                   selectTextOnFocus
                 />
-                <Text style={{ width: 36, fontSize: 13, textAlign: 'right', color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>g</Text>
+                <Text style={{ width: 36, fontSize: 13, textAlign: 'right', color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>g</Text>
               </View>
 
-              <View style={{ height: 1, marginLeft: 38, backgroundColor: '#F0F0F2' }} />
+              <View style={{ height: 1, marginLeft: 38, backgroundColor: colors.borderLight }} />
 
               {/* Fat */}
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#A8A9AD' }} />
-                <Text style={{ width: 72, fontSize: 14, color: '#1A1A1A', fontFamily: 'DMSans_500Medium' }}>Fat</Text>
+                <Text style={{ width: 72, fontSize: 14, color: colors.text, fontFamily: 'DMSans_500Medium' }}>Fat</Text>
                 <TextInput
                   style={getInputStyle('#A8A9AD')}
                   value={fat}
@@ -238,7 +238,7 @@ export default function EditGoals({
                   maxLength={4}
                   selectTextOnFocus
                 />
-                <Text style={{ width: 36, fontSize: 13, textAlign: 'right', color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>g</Text>
+                <Text style={{ width: 36, fontSize: 13, textAlign: 'right', color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>g</Text>
               </View>
             </View>
 
@@ -256,9 +256,9 @@ export default function EditGoals({
                 <Text style={{ fontSize: 13, color: '#A8A9AD', fontFamily: 'Outfit_700Bold' }}>{fCal}</Text>
                 <Text style={{ fontSize: 10, marginTop: 2, opacity: 0.8, color: '#A8A9AD', fontFamily: 'DMSans_400Regular' }}>F kcal</Text>
               </View>
-              <View style={{ flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center', backgroundColor: '#FAFAFA' }}>
-                <Text style={{ fontSize: 13, color: '#6B6B6F', fontFamily: 'Outfit_700Bold' }}>{totalMacroCal}</Text>
-                <Text style={{ fontSize: 10, marginTop: 2, opacity: 0.8, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>total</Text>
+              <View style={{ flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center', backgroundColor: colors.cardAlt }}>
+                <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'Outfit_700Bold' }}>{totalMacroCal}</Text>
+                <Text style={{ fontSize: 10, marginTop: 2, opacity: 0.8, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>total</Text>
               </View>
             </View>
 

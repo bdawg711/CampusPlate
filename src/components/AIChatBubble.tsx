@@ -8,18 +8,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import type { MealItem } from '@/src/utils/ai';
-
-const C = {
-  maroon: '#861F41',
-  text: '#1A1A1A',
-  textMuted: '#6B6B6F',
-  textDim: '#9A9A9E',
-  border: '#E8E8EA',
-  borderLight: '#F0F0F2',
-  cardBg: '#F8F8FA',
-  white: '#FFFFFF',
-};
 
 interface AIChatBubbleProps {
   role: 'user' | 'assistant';
@@ -132,6 +122,17 @@ function FormattedContent({ content, color }: { content: string; color: string }
 }
 
 export default function AIChatBubble({ role, content, mealItems, onLogItem }: AIChatBubbleProps) {
+  const { colors } = useTheme();
+  const C = {
+    maroon: '#861F41',
+    text: colors.text,
+    textMuted: colors.textMuted,
+    textDim: colors.textDim,
+    border: colors.border,
+    borderLight: colors.borderLight,
+    cardBg: colors.cardAlt,
+    white: colors.card,
+  };
   const isUser = role === 'user';
 
   // Entrance animation: slide-in from bottom with fade
@@ -192,7 +193,7 @@ export default function AIChatBubble({ role, content, mealItems, onLogItem }: AI
         {/* Formatted text content */}
         <FormattedContent
           content={content}
-          color={isUser ? C.white : C.text}
+          color={isUser ? '#FFFFFF' : C.text}
         />
 
         {/* Meal item cards with visual separator */}
@@ -258,8 +259,8 @@ export default function AIChatBubble({ role, content, mealItems, onLogItem }: AI
                           gap: 4,
                         }}
                       >
-                        <Feather name="plus" size={12} color={C.white} />
-                        <Text style={{ color: C.white, fontSize: 12, fontFamily: 'DMSans_600SemiBold' }}>
+                        <Feather name="plus" size={12} color="#FFFFFF" />
+                        <Text style={{ color: '#FFFFFF', fontSize: 12, fontFamily: 'DMSans_600SemiBold' }}>
                           Log
                         </Text>
                       </View>

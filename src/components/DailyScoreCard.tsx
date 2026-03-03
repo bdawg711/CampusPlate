@@ -7,21 +7,17 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Box, Text } from '../theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import AnimatedNumber from './AnimatedNumber';
 import GradientText from './GradientText';
 import MetallicShimmer from './MetallicShimmer';
 import type { ScoreBreakdown } from '../utils/dailyScore';
 
-// ─── Direct color constants ─────────────────────────────────────────────────
-const C = {
-  white: '#FFFFFF',
+// ─── Accent color constants (theme-independent) ────────────────────────────
+const ACCENT = {
   maroon: '#861F41',
   gold: '#C5A55A',
   silverLight: '#C8C9CC',
-  text: '#1A1A1A',
-  textMuted: '#6B6B6F',
-  textDim: '#9A9A9E',
-  border: '#E8E8EA',
   success: '#2D8A4E',
   warning: '#D4A024',
   maroonLight: '#A8325A',
@@ -70,9 +66,9 @@ const TIPS: Record<string, string> = {
 
 // Score percentage color: maroon <50%, gold 50-79%, green 80%+
 function getScoreColor(score: number): string {
-  if (score >= 80) return C.success;
-  if (score >= 50) return C.gold;
-  return C.maroon;
+  if (score >= 80) return ACCENT.success;
+  if (score >= 50) return ACCENT.gold;
+  return ACCENT.maroon;
 }
 
 function isHighScore(score: number): boolean {
@@ -95,6 +91,15 @@ function getDetailText(key: string, detail: ScoreDetailData | undefined, unit: s
 }
 
 export default function DailyScoreCard({ score, grade, gradeColor, breakdown, compact = false, detailData }: Props) {
+  const { colors } = useTheme();
+  const C = {
+    ...ACCENT,
+    text: colors.text,
+    textMuted: colors.textMuted,
+    textDim: colors.textDim,
+    border: colors.border,
+  };
+
   if (compact) {
     return <CompactView score={score} grade={grade} />;
   }

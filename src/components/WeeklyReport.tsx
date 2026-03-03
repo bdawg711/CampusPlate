@@ -12,6 +12,7 @@ import {
 import Svg, { Circle as SvgCircle, Line, Polyline, Rect } from 'react-native-svg';
 import { Feather } from '@expo/vector-icons';
 import { Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import { requireUserId } from '@/src/utils/auth';
 import {
   getWeeklyReport,
@@ -52,24 +53,24 @@ function getDayLabel(dateStr: string): string {
   return DAY_LABELS[d.getDay() === 0 ? 6 : d.getDay() - 1];
 }
 
-// Colors
-const C = {
-  white: '#FFFFFF',
-  offWhite: '#FAFAFA',
-  maroon: '#861F41',
-  text: '#1A1A1A',
-  textMuted: '#6B6B6F',
-  textDim: '#9A9A9E',
-  border: '#E8E8EA',
-  borderLight: '#F0F0F2',
-  silver: '#A8A9AD',
-  blue: '#4A7FC5',
-  gold: '#C5A55A',
-  success: '#2D8A4E',
-  error: '#C0392B',
-};
-
 export default function WeeklyReport({ visible, onClose, initialEndDate }: WeeklyReportProps) {
+  const { colors } = useTheme();
+  const C = {
+    white: colors.card,
+    offWhite: colors.cardAlt,
+    maroon: '#861F41',
+    text: colors.text,
+    textMuted: colors.textMuted,
+    textDim: colors.textDim,
+    border: colors.border,
+    borderLight: colors.borderLight,
+    silver: '#A8A9AD',
+    blue: '#4A7FC5',
+    gold: '#C5A55A',
+    success: '#2D8A4E',
+    error: '#C0392B',
+  };
+
   const screenWidth = Dimensions.get('window').width;
 
   const [data, setData] = useState<WeeklyReportData | null>(null);
@@ -414,12 +415,13 @@ export default function WeeklyReport({ visible, onClose, initialEndDate }: Weekl
 function SummaryCard({ label, value, unit, pct, color }: {
   label: string; value: string; unit: string; pct: number; color: string;
 }) {
+  const { colors } = useTheme();
   return (
-    <View style={{ width: '48%' as any, flexGrow: 1, borderRadius: 12, borderWidth: 1, padding: 14, borderColor: '#E8E8EA', backgroundColor: '#FFFFFF' }}>
+    <View style={{ width: '48%' as any, flexGrow: 1, borderRadius: 12, borderWidth: 1, padding: 14, borderColor: colors.border, backgroundColor: colors.card }}>
       <Text style={{ fontSize: 24, color, fontFamily: 'Outfit_700Bold' }}>
         {value}{unit ? <Text style={{ fontSize: 14 }}> {unit}</Text> : null}
       </Text>
-      <Text style={{ fontSize: 12, marginTop: 2, color: '#6B6B6F', fontFamily: 'DMSans_400Regular' }}>{label}</Text>
+      <Text style={{ fontSize: 12, marginTop: 2, color: colors.textMuted, fontFamily: 'DMSans_400Regular' }}>{label}</Text>
       <Text style={{ fontSize: 12, marginTop: 4, fontFamily: 'DMSans_600SemiBold', color: pct >= 85 && pct <= 115 ? '#2D8A4E' : pct > 115 ? '#C0392B' : '#861F41' }}>
         {pct}% of goal
       </Text>

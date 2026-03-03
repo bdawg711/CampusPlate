@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import { getCurrentUserId } from '@/src/utils/auth';
 import {
   sendMessage as sendAIMessage,
@@ -101,6 +102,7 @@ function getLocalDate(d = new Date()) {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function AIChat({ mode = 'tab', visible = true, onClose, onLogItem }: AIChatProps) {
+  const { colors } = useTheme();
   const isTab = mode === 'tab';
   const insets = useSafeAreaInsets();
 
@@ -272,7 +274,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
         ) : (
           <>
             <TouchableOpacity onPress={onClose} style={{ width: 64 }} activeOpacity={0.6}>
-              <Text variant="muted" style={{ fontSize: 15, fontFamily: 'DMSans_500Medium', color: '#6B6B6F' }}>
+              <Text variant="muted" style={{ fontSize: 15, fontFamily: 'DMSans_500Medium', color: colors.textMuted }}>
                 Close
               </Text>
             </TouchableOpacity>
@@ -326,7 +328,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
             ListHeaderComponent={
               showChips ? (
                 <Box alignItems="center" style={{ paddingTop: 60, paddingBottom: 16 }} paddingHorizontal="l">
-                  <Feather name="zap" size={64} color="#9A9A9E" style={{ opacity: 0.15 }} />
+                  <Feather name="zap" size={64} color={colors.textDim} style={{ opacity: 0.15 }} />
                   <Text
                     variant="cardTitle"
                     style={{ fontSize: 20, fontFamily: 'Outfit_600SemiBold', marginTop: 16 }}
@@ -376,8 +378,8 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
                           paddingVertical: 8,
                           borderRadius: 6,
                           borderWidth: 1,
-                          borderColor: '#E8E8EA',
-                          backgroundColor: '#FFFFFF',
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
                         }}
                       >
                         <Text variant="body" style={{ color: '#861F41', fontFamily: 'DMSans_600SemiBold' }}>
@@ -399,7 +401,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
           paddingHorizontal="s"
           style={{
             paddingVertical: 10,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: colors.card,
             paddingBottom: isTab ? Math.max(insets.bottom, 10) + 100 : Math.max(insets.bottom, 10),
           }}
         >
@@ -408,7 +410,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
             alignItems="flex-end"
             borderRadius="s"
             style={{
-              backgroundColor: '#F5F5F7',
+              backgroundColor: colors.inputBg,
               paddingHorizontal: 14,
               paddingVertical: 6,
               gap: 4,
@@ -427,13 +429,13 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
                 maxHeight: 100,
                 paddingTop: 8,
                 paddingBottom: 8,
-                color: '#1A1A1A',
+                color: colors.text,
                 fontFamily: 'DMSans_400Regular',
               }}
               value={input}
               onChangeText={setInput}
               placeholder={getPlaceholder()}
-              placeholderTextColor="#9A9A9E"
+              placeholderTextColor={colors.textDim}
               multiline
               maxLength={500}
               returnKeyType="default"
@@ -496,6 +498,7 @@ function SuggestionCard({
   subtitle: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   const scale = useSharedValue(1);
 
   const animStyle = useAnimatedStyle(() => ({
@@ -529,7 +532,7 @@ function SuggestionCard({
           padding="m"
           style={{ gap: 12 }}
         >
-          <Feather name={icon} size={16} color="#6B6B6F" />
+          <Feather name={icon} size={16} color={colors.textMuted} />
           <Box flex={1}>
             <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold' }}>{title}</Text>
             <Text variant="dim" style={{ marginTop: 1 }}>{subtitle}</Text>

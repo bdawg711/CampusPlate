@@ -24,6 +24,7 @@ import * as Sharing from 'expo-sharing';
 
 // Restyle primitives
 import { Box, Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 import StaggeredList from '@/src/components/StaggeredList';
 
 import Skeleton from '@/src/components/Skeleton';
@@ -46,28 +47,7 @@ import ShareCard from '@/src/components/ShareCard';
 import WeeklyReport from '@/src/components/WeeklyReport';
 import { triggerHaptic } from '@/src/utils/haptics';
 
-// ─── Direct color constants for non-Restyle elements ────────────────────────
-const C = {
-  white: '#FFFFFF',
-  offWhite: '#FAFAFA',
-  maroon: '#861F41',
-  maroonDark: '#6B1835',
-  gold: '#C5A55A',
-  goldMuted: 'rgba(197,165,90,0.12)',
-  silver: '#A8A9AD',
-  silverLight: '#C8C9CC',
-  silverMuted: 'rgba(168,169,173,0.10)',
-  text: '#1A1A1A',
-  textMuted: '#6B6B6F',
-  textDim: '#9A9A9E',
-  border: '#E8E8EA',
-  borderLight: '#F0F0F2',
-  inputBg: '#F5F5F7',
-  success: '#34C759',
-  warning: '#C5A55A',
-  error: '#FF453A',
-  blue: '#4A7FC5',
-};
+// Colors: derived from useTheme() inside the component — see `C` alias below
 
 function getLocalDate(offset = 0) {
   const d = new Date();
@@ -91,13 +71,14 @@ type RangeType = '1W' | '1M' | '3M' | 'All';
 
 // ─── Section Header — silver uppercase with divider ─────────────────────────
 function SectionHeader({ title, isFirst = false }: { title: string; isFirst?: boolean }) {
+  const { colors } = useTheme();
   return (
     <View style={{ marginTop: isFirst ? 0 : 28 }}>
       {!isFirst && (
         <View
           style={{
             height: 1,
-            backgroundColor: C.borderLight,
+            backgroundColor: colors.borderLight,
             marginHorizontal: 0,
             marginBottom: 16,
           }}
@@ -107,7 +88,7 @@ function SectionHeader({ title, isFirst = false }: { title: string; isFirst?: bo
         style={{
           fontSize: 12,
           fontFamily: 'DMSans_700Bold',
-          color: C.silver,
+          color: colors.textDim,
           letterSpacing: 1.5,
           textTransform: 'uppercase',
           marginBottom: 14,
@@ -120,6 +101,15 @@ function SectionHeader({ title, isFirst = false }: { title: string; isFirst?: bo
 }
 
 export default function ProgressScreen() {
+  const { colors: themeColors } = useTheme();
+  const C = {
+    ...themeColors,
+    white: themeColors.card,
+    offWhite: themeColors.cardAlt,
+    success: themeColors.green,
+    warning: themeColors.gold,
+    error: themeColors.red,
+  };
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -323,7 +313,7 @@ export default function ProgressScreen() {
           <Skeleton width={80} height={10} borderRadius={4} style={{ marginBottom: 14 }} />
           {/* Daily Score card */}
           <Box
-            style={{ backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E8E8EA', padding: 16, marginBottom: 16 }}
+            style={{ backgroundColor: C.white, borderRadius: 10, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 16 }}
           >
             <Skeleton width={100} height={12} borderRadius={6} style={{ marginBottom: 12 }} />
             <Box alignItems="center" marginBottom="s">
@@ -336,7 +326,7 @@ export default function ProgressScreen() {
           </Box>
           {/* Streak card */}
           <Box
-            style={{ backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E8E8EA', padding: 16, marginBottom: 16 }}
+            style={{ backgroundColor: C.white, borderRadius: 10, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 16 }}
           >
             <Skeleton width={80} height={12} borderRadius={6} style={{ marginBottom: 12 }} />
             <Box flexDirection="row" alignItems="center" style={{ gap: 12 }}>
@@ -349,7 +339,7 @@ export default function ProgressScreen() {
           </Box>
           {/* Calorie Trend card */}
           <Box
-            style={{ backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E8E8EA', padding: 16, marginBottom: 16 }}
+            style={{ backgroundColor: C.white, borderRadius: 10, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 16 }}
           >
             <Skeleton width={120} height={12} borderRadius={6} style={{ marginBottom: 16 }} />
             <Skeleton width={'100%' as any} height={140} borderRadius={8} />

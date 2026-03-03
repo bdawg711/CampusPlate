@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons';
 
 // Restyle primitives
 import { Box, Text } from '@/src/theme/restyleTheme';
+import { useTheme } from '@/src/context/ThemeContext';
 
 // Sprint 5 components
 import SpiralRings from '@/src/components/SpiralRings';
@@ -115,6 +116,7 @@ interface OpenHall {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [logs, setLogs] = useState<MealLog[]>([]);
@@ -551,7 +553,7 @@ export default function HomeScreen() {
 
   if (loading && showSkeleton) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.cardAlt }}>
         <Box padding="m" paddingBottom="xxl">
           <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="m">
             <Box>
@@ -581,13 +583,13 @@ export default function HomeScreen() {
 
   // Still loading but within 300ms window — show nothing (prevents skeleton flash)
   if (loading) {
-    return <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }} />;
+    return <SafeAreaView style={{ flex: 1, backgroundColor: colors.cardAlt }} />;
   }
 
   // Error state — show retry card
   if (loadError && !profile) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.cardAlt }}>
         <Box flex={1} justifyContent="center">
           <ErrorState
             message="Couldn't load your dashboard. Check your connection and try again."
@@ -601,7 +603,7 @@ export default function HomeScreen() {
   // ─── Main render ───
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.cardAlt }}>
       <Confetti visible={showConfetti} onComplete={() => setShowConfetti(false)} />
       <GoalHitBanner
         visible={bannerVisible}
@@ -681,7 +683,7 @@ export default function HomeScreen() {
           </Box>
 
           {/* Divider between WaterTracker and For You */}
-          <Box style={{ height: 1, backgroundColor: '#E5E5E5', marginHorizontal: -4, marginBottom: 24 }} />
+          <Box style={{ height: 1, backgroundColor: colors.border, marginHorizontal: -4, marginBottom: 24 }} />
 
           {/* 6. ForYouSection — 40px gap + divider below before Today's Meals */}
           <Box style={{ marginBottom: 40 }}>
@@ -722,7 +724,7 @@ export default function HomeScreen() {
           </Box>
 
           {/* Divider between For You and Today's Meals */}
-          <Box style={{ height: 1, backgroundColor: '#E5E5E5', marginHorizontal: -4, marginBottom: 24 }} />
+          <Box style={{ height: 1, backgroundColor: colors.border, marginHorizontal: -4, marginBottom: 24 }} />
 
           {/* 7. MealLogSection */}
           <Box marginBottom="xxl">
@@ -773,7 +775,7 @@ export default function HomeScreen() {
             justifyContent="space-between"
             alignItems="center"
             paddingHorizontal="m"
-            style={{ paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E8E8EA' }}
+            style={{ paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}
           >
             <Text variant="pageTitle">History</Text>
             <TouchableOpacity
@@ -782,7 +784,7 @@ export default function HomeScreen() {
               accessibilityRole="button"
               style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}
             >
-              <Feather name="x" size={24} color="#1A1A1A" />
+              <Feather name="x" size={24} color={colors.text} />
             </TouchableOpacity>
           </Box>
           <HistoryScreen />
