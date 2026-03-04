@@ -107,27 +107,27 @@ function PillButton({ label, onPress, muted }: { label: string; onPress: () => v
   );
 }
 
-// ── SVG Water Bottle (Smartwater silhouette) ─────────────────────────────
+// ── SVG Water Bottle (Deer Park silhouette) ──────────────────────────────
 
-const BOTTLE_W = 40;
-const BOTTLE_H = 94;
+const BOTTLE_W = 60;
+const BOTTLE_H = 100;
 const WATER_COLOR = '#4A90D9';
 
-// Tall slim Smartwater shape: small cap → narrow neck → smooth shoulder taper → elongated body → rounded bottom
+// Deer Park shape: small cap → narrow neck → tapered shoulder → wide body → flat base
 const BOTTLE_PATH = [
-  'M 17 0 H 23',            // cap top
-  'Q 25 0, 25 2 V 5',       // cap right side (slightly wider)
-  'Q 25 7, 23 7 H 22',      // cap-to-neck taper right
-  'V 20',                    // long narrow neck right
-  'C 22 26, 31 28, 31 32',  // smooth shoulder curve right
-  'V 85',                    // tall body right
-  'Q 31 93, 20 93',          // rounded bottom-right
-  'Q 9 93, 9 85',            // rounded bottom-left
-  'V 32',                    // tall body left
-  'C 9 28, 18 26, 18 20',   // smooth shoulder curve left
-  'V 7 H 17',               // long narrow neck left
-  'Q 15 7, 15 5 V 2',       // cap-to-neck taper left
-  'Q 15 0, 17 0 Z',         // cap left side
+  'M 25 0 H 35',              // cap top
+  'Q 37 0, 37 2 V 5',         // cap right side
+  'Q 37 7, 35 7',             // cap-to-neck transition right
+  'V 16',                     // neck right
+  'C 35 22, 54 26, 54 32',   // shoulder curve right
+  'V 90',                     // body right
+  'Q 54 97, 30 97',           // rounded bottom-right
+  'Q 6 97, 6 90',             // rounded bottom-left
+  'V 32',                     // body left
+  'C 6 26, 25 22, 25 16',    // shoulder curve left
+  'V 7',                      // neck left
+  'Q 23 7, 23 5 V 2',        // cap-to-neck transition left
+  'Q 23 0, 25 0 Z',          // cap left side
 ].join(' ');
 
 function WaterBottle({ pct, goalHit }: { pct: number; goalHit: boolean }) {
@@ -140,9 +140,9 @@ function WaterBottle({ pct, goalHit }: { pct: number; goalHit: boolean }) {
     });
   }, [pct]);
 
-  // Full bottle: cap top at y=0, body bottom at y=93
-  const bottleBottom = 93;
-  const fullH = 93;
+  // Full bottle: cap top at y=0, base bottom at y=97
+  const bottleBottom = 97;
+  const fullH = 97;
 
   const animatedFillProps = useAnimatedProps(() => {
     const h = fillHeight.value * fullH;
@@ -153,7 +153,7 @@ function WaterBottle({ pct, goalHit }: { pct: number; goalHit: boolean }) {
   });
 
   return (
-    <View style={{ width: 52, height: 100, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 66, height: 100, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={BOTTLE_W} height={BOTTLE_H} viewBox={`0 0 ${BOTTLE_W} ${BOTTLE_H}`}>
         <Defs>
           <ClipPath id="bottleClip">
@@ -320,8 +320,8 @@ const styles = StyleSheet.create({
   },
   confettiAnchor: {
     position: 'absolute',
-    left: 26,
-    top: 45,
+    left: 33,
+    top: 50,
     width: 1,
     height: 1,
   },

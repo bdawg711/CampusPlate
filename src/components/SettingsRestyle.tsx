@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   RefreshControl,
   ScrollView,
@@ -25,17 +26,21 @@ import EditNutritionPrefs from '@/src/components/EditNutritionPrefs';
 import HelpFAQ from '@/src/components/HelpFAQ';
 import WeeklyReport from '@/src/components/WeeklyReport';
 import ReminderSettings from '@/src/components/ReminderSettings';
+import PaywallModal from '@/src/components/PaywallModal';
 import { Goals, getGoals, saveCustomGoals, recalculateGoals } from '@/src/utils/goals';
 import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged, StreakData, Badge } from '@/src/utils/streaks';
 import StreakBadge from '@/src/components/StreakBadge';
 import { scheduleDailySummary } from '@/src/utils/dailySummaryNotification';
 import { useTheme as useAppTheme } from '@/src/context/ThemeContext';
+import { useSubscription } from '@/src/context/SubscriptionContext';
+import { fetchAndParseCalendar } from '@/src/utils/calendar';
 
 type ColorName = keyof Theme['colors'];
 
 export default function SettingsRestyle() {
   const theme = useRestyleTheme<Theme>();
   const { mode: themeMode, toggleTheme } = useAppTheme();
+  const { isPremium } = useSubscription();
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +66,13 @@ export default function SettingsRestyle() {
   const [waterGoalModalVisible, setWaterGoalModalVisible] = useState(false);
   const [waterGoalInput, setWaterGoalInput] = useState('');
 
+  // Canvas Calendar
+  const [canvasModalVisible, setCanvasModalVisible] = useState(false);
+  const [canvasUrl, setCanvasUrl] = useState('');
+  const [canvasUrlInput, setCanvasUrlInput] = useState('');
+  const [canvasConnecting, setCanvasConnecting] = useState(false);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+
   const [currentGoals, setCurrentGoals] = useState<Goals>({
     goalCalories: 2000,
     goalProtein: 150,
@@ -73,7 +85,7 @@ export default function SettingsRestyle() {
       const userId = await requireUserId();
       const { data } = await supabase
         .from('profiles')
-        .select('name, year, dorm, goal_calories, water_goal_oz, reminder_prefs, daily_summary_enabled, daily_summary_time')
+        .select('name, year, dorm, goal_calories, water_goal_oz, reminder_prefs, daily_summary_enabled, daily_summary_time, canvas_ical_url')
         .eq('id', userId)
         .single();
       if (data) {
@@ -84,6 +96,8 @@ export default function SettingsRestyle() {
         // Daily summary — default to true if column doesn't exist yet
         setDailySummaryEnabled((data as any).daily_summary_enabled ?? true);
         setDailySummaryTime((data as any).daily_summary_time ?? '21:00');
+        // Canvas calendar URL
+        setCanvasUrl((data as any).canvas_ical_url ?? '');
       }
 
       const goals = await getGoals(userId);
@@ -196,6 +210,62 @@ export default function SettingsRestyle() {
     } catch (e) {
       console.warn('[Settings] Failed to toggle daily summary:', e);
     }
+  };
+
+  const handleCanvasRow = () => {
+    if (!isPremium) {
+      setPaywallVisible(true);
+      return;
+    }
+    setCanvasUrlInput(canvasUrl);
+    setCanvasModalVisible(true);
+  };
+
+  const handleCanvasConnect = async () => {
+    const url = canvasUrlInput.trim();
+    if (!url.startsWith('https://') || (!url.includes('.ics') && !url.includes('calendar'))) {
+      Alert.alert('Invalid URL', 'Please paste a valid Canvas calendar URL. It should start with https:// and contain your calendar feed.');
+      return;
+    }
+    setCanvasConnecting(true);
+    try {
+      // Validate by fetching and parsing
+      await fetchAndParseCalendar(url);
+      const userId = await requireUserId();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ canvas_ical_url: url })
+        .eq('id', userId);
+      if (error) throw error;
+      setCanvasUrl(url);
+      setCanvasModalVisible(false);
+      Alert.alert('Connected!', 'Your Canvas calendar has been linked successfully.');
+    } catch (e: any) {
+      Alert.alert('Connection Failed', 'Could not fetch your calendar. Please check the URL and try again.');
+      if (__DEV__) console.error('[Canvas] Connect error:', e?.message);
+    } finally {
+      setCanvasConnecting(false);
+    }
+  };
+
+  const handleCanvasDisconnect = async () => {
+    Alert.alert('Disconnect Canvas?', 'Your class schedule will no longer appear on the dashboard.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Disconnect',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const userId = await requireUserId();
+            await supabase.from('profiles').update({ canvas_ical_url: null }).eq('id', userId);
+            setCanvasUrl('');
+            setCanvasModalVisible(false);
+          } catch (e) {
+            if (__DEV__) console.error('[Canvas] Disconnect error:', e);
+          }
+        },
+      },
+    ]);
   };
 
   const handleWeeklyReport = () => {
@@ -427,6 +497,29 @@ export default function SettingsRestyle() {
           />
         </Card>
 
+        {/* ── INTEGRATIONS section ── */}
+        <Text variant="sectionHeader" style={{ paddingHorizontal: 20, marginTop: 20, marginBottom: 6 }}>INTEGRATIONS</Text>
+        <Card borderRadius="l" marginHorizontal="m" style={{ paddingHorizontal: 18, paddingVertical: 2 }}>
+          <SettingsRow
+            icon="calendar" iconBg="proteinTint" iconColor="proteinRing"
+            label="Canvas Calendar"
+            onPress={handleCanvasRow}
+            rightContent={
+              isPremium ? (
+                <>
+                  <Text variant="bodySmall" style={{ color: canvasUrl ? theme.colors.success : theme.colors.textDim, marginRight: 8 }}>
+                    {canvasUrl ? 'Connected' : 'Not Connected'}
+                  </Text>
+                  <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
+                </>
+              ) : (
+                <Feather name="lock" size={16} color={theme.colors.textDim} />
+              )
+            }
+            isLast
+          />
+        </Card>
+
         {/* ── ABOUT section ── */}
         <Text variant="sectionHeader" style={{ paddingHorizontal: 20, marginTop: 20, marginBottom: 6 }}>ABOUT</Text>
         <Card borderRadius="l" marginHorizontal="m" style={{ paddingHorizontal: 18, paddingVertical: 2 }}>
@@ -461,6 +554,11 @@ export default function SettingsRestyle() {
 
         {/* ── Footer ── */}
         <Box alignItems="center" style={{ marginTop: 24, paddingBottom: 8 }}>
+          <Image
+            source={require('@/assets/images/logo-simplified-small.png')}
+            style={{ width: 48, height: 48, marginBottom: 8 }}
+            resizeMode="contain"
+          />
           <Text variant="muted" color="silver" style={{ fontSize: 13 }}>CampusPlate v2.5</Text>
           <Text variant="dim" color="silver" style={{ opacity: 0.5, marginTop: 4 }}>Built for Hokies, by Hokies</Text>
         </Box>
@@ -501,6 +599,120 @@ export default function SettingsRestyle() {
         visible={remindersVisible}
         onClose={() => { setRemindersVisible(false); loadData(); }}
       />
+
+      {/* Canvas Calendar Setup Modal */}
+      <Modal
+        visible={canvasModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCanvasModalVisible(false)}
+      >
+        <Box flex={1} backgroundColor="background" style={{ paddingTop: 16 }}>
+          {/* Header */}
+          <Box flexDirection="row" justifyContent="space-between" alignItems="center" style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 }}>
+            <Text style={{ fontSize: 20, fontFamily: 'Outfit_700Bold' }} color="text">
+              Connect Canvas Calendar
+            </Text>
+            <TouchableOpacity onPress={() => setCanvasModalVisible(false)}>
+              <Feather name="x" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </Box>
+
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+            {/* Instructions */}
+            <Box style={{ marginBottom: 24 }}>
+              <Text variant="muted" style={{ marginBottom: 16, lineHeight: 20 }}>
+                Follow these steps to get your Canvas calendar URL:
+              </Text>
+              {[
+                { step: '1', text: 'Open Canvas in your browser' },
+                { step: '2', text: 'Go to Account \u2192 Settings' },
+                { step: '3', text: 'Scroll to Calendar \u2192 Click "Calendar Feed"' },
+                { step: '4', text: 'Copy the URL that appears' },
+              ].map((item) => (
+                <Box key={item.step} flexDirection="row" alignItems="center" style={{ marginBottom: 12 }}>
+                  <Box
+                    width={28}
+                    height={28}
+                    borderRadius="full"
+                    backgroundColor="maroonTint"
+                    justifyContent="center"
+                    alignItems="center"
+                    style={{ marginRight: 12 }}
+                  >
+                    <Text style={{ fontSize: 13, fontFamily: 'DMSans_700Bold', color: theme.colors.maroon }}>
+                      {item.step}
+                    </Text>
+                  </Box>
+                  <Text variant="body" color="text" style={{ flex: 1 }}>{item.text}</Text>
+                </Box>
+              ))}
+            </Box>
+
+            {/* URL Input */}
+            <TextInput
+              style={{
+                backgroundColor: theme.colors.inputBg,
+                borderColor: theme.colors.inputBorder,
+                color: theme.colors.text,
+                fontFamily: 'DMSans_400Regular',
+                borderRadius: 10,
+                padding: 14,
+                fontSize: 15,
+                borderWidth: 1,
+                marginBottom: 16,
+              }}
+              placeholder="Paste your Canvas calendar URL here"
+              placeholderTextColor={theme.colors.textDim}
+              value={canvasUrlInput}
+              onChangeText={setCanvasUrlInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+
+            {/* Connect button */}
+            <TouchableOpacity
+              onPress={handleCanvasConnect}
+              disabled={canvasConnecting || !canvasUrlInput.trim()}
+              activeOpacity={0.8}
+            >
+              <Box
+                backgroundColor="maroon"
+                alignItems="center"
+                justifyContent="center"
+                style={{ padding: 16, borderRadius: 14, opacity: canvasConnecting || !canvasUrlInput.trim() ? 0.5 : 1 }}
+              >
+                {canvasConnecting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'DMSans_700Bold' }}>
+                    {canvasUrl ? 'Update' : 'Connect'}
+                  </Text>
+                )}
+              </Box>
+            </TouchableOpacity>
+
+            {/* Connected state — show disconnect */}
+            {!!canvasUrl && (
+              <Box style={{ marginTop: 24, alignItems: 'center' }}>
+                <Box flexDirection="row" alignItems="center" style={{ marginBottom: 16 }}>
+                  <Feather name="check-circle" size={18} color={theme.colors.success} style={{ marginRight: 8 }} />
+                  <Text variant="body" style={{ color: theme.colors.success }}>Calendar Connected</Text>
+                </Box>
+                <TouchableOpacity onPress={handleCanvasDisconnect}>
+                  <Text style={{ fontSize: 14, fontFamily: 'DMSans_500Medium', color: theme.colors.error }}>
+                    Disconnect Calendar
+                  </Text>
+                </TouchableOpacity>
+              </Box>
+            )}
+          </ScrollView>
+        </Box>
+      </Modal>
+
+      {/* Paywall Modal */}
+      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
 
       <Modal
         visible={waterGoalModalVisible}

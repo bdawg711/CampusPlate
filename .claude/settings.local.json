@@ -46,11 +46,8 @@
       "Bash(python:*)",
       "Bash(npx expo config:*)",
       "Bash(git -C /c/Users/cfarr/CampusPlate log --all --grep=\"ai-chat\" --oneline)",
-<<<<<<< Updated upstream
-      "WebFetch(domain:raw.githubusercontent.com)"
-=======
+"WebFetch(domain:raw.githubusercontent.com)",
       "Bash(git status -u)"
->>>>>>> Stashed changes
     ]
   }
 }

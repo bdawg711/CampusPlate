@@ -180,6 +180,90 @@ export async function estimateMeal(description: string): Promise<EstimatedMeal> 
   };
 }
 
+// ── Meal Plan types ──────────────────────────────────────────────────────────
+
+export interface MealPlanItem {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface MealPlanMeal {
+  type: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+  time: string;
+  location: string;
+  items: MealPlanItem[];
+  totalCalories: number;
+  note: string;
+}
+
+export interface MealPlanResponse {
+  meals: MealPlanMeal[];
+  dailyTotal: { calories: number; protein: number; carbs: number; fat: number };
+  tip: string;
+  remaining: number;
+  planLimit: number;
+}
+
+/**
+ * Requests a daily meal plan from the AI Edge Function.
+ */
+export async function requestMealPlan(
+  schedule: { name: string; start: string; end: string; location?: string }[],
+  goals: { calories: number; protein: number; carbs: number; fat: number },
+  preferences: { dietary: string[]; allergies: string[] },
+): Promise<MealPlanResponse> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session) {
+    throw new Error('Your session has expired. Please log in again.');
+  }
+
+  const session = sessionData.session;
+  const supabaseUrl = 'https://kexytkfzoomvhjcotkqs.supabase.co';
+  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtleHl0a2Z6b29tdmhqY290a3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNjk4OTMsImV4cCI6MjA4Njk0NTg5M30.UiXS-ZHAKpS6xrg1D4BEBv0BEv2V1YpU2PR3ynQP3ag';
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': supabaseAnonKey,
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      mode: 'meal_plan',
+      schedule,
+      goals,
+      preferences,
+    }),
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    let errorMsg = `AI error (${response.status})`;
+    try {
+      const parsed = JSON.parse(responseText);
+      if (parsed?.error) errorMsg = parsed.error;
+    } catch { /* use default */ }
+    throw new Error(errorMsg);
+  }
+
+  const data = JSON.parse(responseText);
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return {
+    meals: data.meals ?? [],
+    dailyTotal: data.dailyTotal ?? { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    tip: data.tip ?? '',
+    remaining: data.remaining ?? 0,
+    planLimit: data.planLimit ?? 3,
+  };
+}
+
 /**
  * Fetches the full chat history for a user, ordered oldest-first.
  */

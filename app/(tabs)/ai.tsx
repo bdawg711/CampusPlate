@@ -1,19 +1,20 @@
 import React, { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import { ActivityIndicator, Alert } from 'react-native';
 import { Box } from '@/src/theme/restyleTheme';
 import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
 import AIChat from '@/src/components/AIChat';
-import BarcodeScannerModal from '@/src/components/BarcodeScannerModal';
-import AIMealLogModal from '@/src/components/AIMealLogModal';
 import type { MealItem } from '@/src/utils/ai';
 import * as Haptics from 'expo-haptics';
+import { useSubscription } from '@/src/context/SubscriptionContext';
+import { useTheme } from '@/src/context/ThemeContext';
+import PaywallModal from '@/src/components/PaywallModal';
 
 export default function AIScreen() {
+  const { isPremium, loading: subLoading } = useSubscription();
+  const { colors } = useTheme();
   const [, setRefreshKey] = useState(0);
-  const [showScanner, setShowScanner] = useState(false);
-  const [showDescribe, setShowDescribe] = useState(false);
 
   const handleLogItem = useCallback(async (item: MealItem) => {
     try {
@@ -40,23 +41,29 @@ export default function AIScreen() {
     }
   }, []);
 
+  // Show loading while checking subscription status
+  if (subLoading) {
+    return (
+      <Box flex={1} backgroundColor="background" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.maroon} />
+      </Box>
+    );
+  }
+
+  // Gate: show paywall for free users — no chat UI rendered
+  if (!isPremium) {
+    return (
+      <Box flex={1} backgroundColor="background">
+        <PaywallModal visible={true} onClose={() => {}} />
+      </Box>
+    );
+  }
+
   return (
     <Box flex={1} backgroundColor="background">
       <AIChat
         mode="tab"
         onLogItem={handleLogItem}
-        onScanPress={() => setShowScanner(true)}
-        onDescribePress={() => setShowDescribe(true)}
-      />
-      <BarcodeScannerModal
-        visible={showScanner}
-        onClose={() => setShowScanner(false)}
-        onLogged={() => { setShowScanner(false); setRefreshKey((k) => k + 1); }}
-      />
-      <AIMealLogModal
-        visible={showDescribe}
-        onClose={() => setShowDescribe(false)}
-        onLogged={() => { setShowDescribe(false); setRefreshKey((k) => k + 1); }}
       />
     </Box>
   );

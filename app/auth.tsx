@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -129,7 +130,11 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <Feather name="coffee" size={48} color="#861F41" />
+          <Image
+            source={require('@/assets/images/logo-simplified.png')}
+            style={{ width: 180, height: 180, marginBottom: 8 }}
+            resizeMode="contain"
+          />
           <Text style={{ fontSize: 32, color: colors.text, fontFamily: 'Outfit_800ExtraBold' }}>
             CampusPlate
           </Text>

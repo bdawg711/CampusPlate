@@ -1,0 +1,40 @@
+================================================================================
+CAMPUSPLATE — SPRINT 8 PROGRESS
+================================================================================
+
+FEATURE 1 — Logo Implementation
+[ ] 1.1  Add logo assets + update app.json
+[ ] 1.2  Find and replace all logo instances
+
+FEATURE 2 — Fix AI Chat
+[ ] 2.1  Remove "coming soon" placeholder, restore chat flow
+
+FEATURE 3 — RevenueCat Paywall ($10/month)
+[ ] 3.1  Install RevenueCat + purchase utility
+[ ] 3.2  Create SubscriptionContext provider
+[ ] 3.3  Create PaywallModal UI
+[ ] 3.4  Gate premium features (AI chat, Canvas, meal planning)
+
+FEATURE 4 — Canvas Calendar Integration
+[ ] 4.1  Canvas iCal URL setup in Settings
+[ ] 4.2  iCal parser utility
+[ ] 4.3  "Today's Schedule" card on Dashboard
+
+FEATURE 5 — AI Meal Planning
+[ ] 5.1  Meal plan Edge Function mode
+[ ] 5.2  Meal plan UI + one-tap logging
+
+FEATURE 6 — Floating Action Button
+[ ] 6.1  Create FloatingAddButton (FAB)
+[ ] 6.2  Remove old entry points
+
+FEATURE 7 — Water Bottle Redesign
+[ ] 7.1  Deer Park style SVG + full fill
+
+SQL TO RUN FIRST:
+[ ] ALTER TABLE profiles ADD COLUMN IF NOT EXISTS canvas_ical_url TEXT;
+[ ] ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS plan_count INTEGER DEFAULT 0;
+
+================================================================================
+TOTAL: 0 / 15 complete
+================================================================================

@@ -27,7 +27,6 @@ import {
   sendMessage as sendAIMessage,
   getChatHistory,
   clearChatHistory,
-  getAIUsage,
   type ChatMessage,
   type MealItem,
 } from '@/src/utils/ai';
@@ -49,8 +48,6 @@ interface AIChatProps {
   visible?: boolean;
   onClose?: () => void;
   onLogItem?: (item: MealItem) => void;
-  onScanPress?: () => void;
-  onDescribePress?: () => void;
 }
 
 // ── Time-aware helpers ───────────────────────────────────────────────────────
@@ -104,7 +101,7 @@ function getLocalDate(d = new Date()) {
 
 // ── Component ───────────────────────────────────────────────────────────────
 
-export default function AIChat({ mode = 'tab', visible = true, onClose, onLogItem, onScanPress, onDescribePress }: AIChatProps) {
+export default function AIChat({ mode = 'tab', visible = true, onClose, onLogItem }: AIChatProps) {
   const { colors } = useTheme();
   const isTab = mode === 'tab';
   const insets = useSafeAreaInsets();
@@ -116,8 +113,6 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
   const [showCustomMealModal, setShowCustomMealModal] = useState(false);
-  const [remaining, setRemaining] = useState<number>(25);
-  const [dailyLimit, setDailyLimit] = useState<number>(25);
 
   const flatListRef = useRef<FlatList<DisplayMessage>>(null);
   const historyRef = useRef<ChatMessage[]>([]);
@@ -133,10 +128,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
         const userId = await getCurrentUserId();
         if (!userId || cancelled) return;
 
-        const [rows, usage] = await Promise.all([
-          getChatHistory(userId),
-          getAIUsage(userId),
-        ]);
+        const rows = await getChatHistory(userId);
         const mapped: DisplayMessage[] = rows.map((r) => ({
           id: String(r.id),
           role: r.role,
@@ -149,8 +141,6 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
           content: r.content,
           meal_items: r.meal_items,
         }));
-        setDailyLimit(usage.dailyLimit);
-        setRemaining(usage.dailyLimit - usage.messageCount);
       } catch (err) {
         if (__DEV__) console.error('Failed to load chat history:', (err as Error).message);
       } finally {
@@ -214,13 +204,6 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
         { role: 'assistant', content: response.content, meal_items: response.mealItems },
       ];
 
-      // Update remaining count from server response
-      if (response.remaining !== undefined) {
-        setRemaining(response.remaining);
-      }
-      if (response.dailyLimit !== undefined) {
-        setDailyLimit(response.dailyLimit);
-      }
     } catch (err) {
       const errMessage = (err as Error).message || 'Something went wrong. Please try again.';
       setErrorMsg(errMessage);
@@ -375,22 +358,6 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
                       subtitle="Track food from outside campus"
                       onPress={() => setShowCustomMealModal(true)}
                     />
-                    {onDescribePress && (
-                      <SuggestionCard
-                        icon="edit-3"
-                        title="Describe a Meal"
-                        subtitle="AI estimates nutrition"
-                        onPress={onDescribePress}
-                      />
-                    )}
-                    {onScanPress && (
-                      <SuggestionCard
-                        icon="camera"
-                        title="Scan Barcode"
-                        subtitle="Scan any food label"
-                        onPress={onScanPress}
-                      />
-                    )}
                   </Box>
                 </Box>
               ) : null
@@ -439,31 +406,6 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
             paddingBottom: isTab ? Math.max(insets.bottom, 10) + 100 : Math.max(insets.bottom, 10),
           }}
         >
-          {/* Remaining messages indicator */}
-          {remaining <= 0 ? (
-            <Box alignItems="center" style={{ paddingVertical: 12 }}>
-              <Text
-                variant="muted"
-                style={{ fontSize: 13, fontFamily: 'DMSans_500Medium', textAlign: 'center' }}
-              >
-                Daily limit reached. Resets at midnight.
-              </Text>
-            </Box>
-          ) : (
-            <Box alignItems="center" style={{ paddingBottom: 6 }}>
-              <Text
-                variant="muted"
-                style={{
-                  fontSize: 13,
-                  fontFamily: 'DMSans_400Regular',
-                  color: remaining <= 5 ? '#E87722' : '#6B6B6F',
-                }}
-              >
-                {remaining} message{remaining !== 1 ? 's' : ''} remaining today
-              </Text>
-            </Box>
-          )}
-
           <Box
             flexDirection="row"
             alignItems="flex-end"
@@ -473,7 +415,6 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
               paddingHorizontal: 14,
               paddingVertical: 6,
               gap: 4,
-              opacity: remaining <= 0 ? 0.5 : 1,
             }}
           >
             <Feather
@@ -494,16 +435,16 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
               }}
               value={input}
               onChangeText={setInput}
-              placeholder={remaining <= 0 ? 'Limit reached' : getPlaceholder()}
+              placeholder={getPlaceholder()}
               placeholderTextColor={colors.textDim}
               multiline
               maxLength={1000}
               returnKeyType="default"
-              editable={!loading && remaining > 0}
+              editable={!loading}
             />
             <Pressable
               onPress={() => handleSend()}
-              disabled={!input.trim() || loading || remaining <= 0}
+              disabled={!input.trim() || loading}
               style={{
                 width: 36,
                 height: 36,
@@ -511,7 +452,7 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
                 backgroundColor: '#861F41',
                 justifyContent: 'center',
                 alignItems: 'center',
-                opacity: input.trim() && !loading && remaining > 0 ? 1 : 0.4,
+                opacity: input.trim() && !loading ? 1 : 0.4,
               }}
             >
               <Feather name="arrow-up" size={18} color="#FFFFFF" />

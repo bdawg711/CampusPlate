@@ -24,6 +24,7 @@ import { getSession, onAuthChange } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { loadMealReminders, scheduleMealReminders } from '@/src/utils/notifications';
 import { ThemeProvider, useTheme } from '@/src/context/ThemeContext';
+import { SubscriptionProvider } from '@/src/context/SubscriptionContext';
 import { RestyleProvider } from '@/src/theme/RestyleProvider';
 import AuthScreen from './auth';
 import OnboardingScreen from './onboarding';
@@ -191,9 +192,11 @@ function RootContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <RestyleProvider>
-        <RootContent />
-      </RestyleProvider>
+      <SubscriptionProvider>
+        <RestyleProvider>
+          <RootContent />
+        </RestyleProvider>
+      </SubscriptionProvider>
     </ThemeProvider>
   );
 }

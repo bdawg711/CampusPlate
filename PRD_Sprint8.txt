@@ -1,0 +1,561 @@
+================================================================================
+CAMPUSPLATE — SPRINT 8 PRD
+================================================================================
+
+SPRINT GOAL: Implement app branding, fix AI chat, add subscription
+paywall with RevenuCat, build Canvas calendar integration for paid
+users, add AI meal planning, redesign meal logging entry points,
+and fix the water bottle SVG.
+
+================================================================================
+FEATURE 1 — LOGO IMPLEMENTATION
+================================================================================
+
+  PURPOSE:
+  Replace all placeholder logos/branding with the final maroon
+  CampusPlate app icon. Use the simplified version (rings + fork/knife,
+  no rounded corners) for in-app usage.
+
+  TASK 1.1 — Add logo assets to the project
+  -------------------------------------------------------
+  Two versions of the logo are in the project root:
+    - CampusPlate_AppIcon_1024_square.png → full icon for App Store
+    - Simplified version (rings + fork/knife only, transparent bg)
+      → needs to be created from the square version by cropping out
+      the background, keeping only the rings and fork/knife
+
+  Create these assets in assets/images/:
+    - logo-full.png (1024x1024, square with maroon bg — for app icon)
+    - logo-simplified.png (transparent bg, just rings + fork/knife)
+    - logo-simplified-small.png (128x128 version for headers)
+
+  Update app.json:
+    - Set "icon" to point to the full square icon
+    - Set splash screen background color to maroon (#861F41)
+
+  DONE WHEN: All logo assets in assets/images/, app.json icon updated.
+
+  TASK 1.2 — Find and replace all logo instances
+  -------------------------------------------------------
+  Search the entire codebase for current logo/branding usage:
+    - Search for: logo, Logo, brand, splash, icon, AppIcon
+    - Check: login/signup screens, onboarding screens, splash screen,
+      Settings screen, any headers that show a logo
+
+  Replace with the simplified logo (rings + fork/knife):
+    - Login/Signup screen: centered logo above the form, ~180px wide
+    - Onboarding first screen: centered logo, ~120px wide
+    - Settings screen: small logo in header or about section, ~48px
+
+  DONE WHEN: Logo appears on login, onboarding, and settings. No
+  placeholder or old branding remains anywhere in the app.
+
+
+================================================================================
+FEATURE 2 — FIX AI CHAT EDGE FUNCTION
+================================================================================
+
+  PURPOSE:
+  After Sprint 7, the AI chat returns "AI meal planner is coming soon!
+  Stay tuned." instead of actual responses. The rate limiting code
+  likely has a fallback/else branch that returns this placeholder
+  instead of calling Claude. This must be fixed.
+
+  TASK 2.1 — Debug and fix the Edge Function
+  -------------------------------------------------------
+  In supabase/functions/ai-chat/index.ts:
+
+    - Find the "coming soon" or "stay tuned" string
+    - This is likely in a conditional branch that was meant to be the
+      paywall check but is currently blocking ALL users
+    - Remove or bypass this check for now (paywall will be implemented
+      properly in Feature 3)
+    - Ensure the normal chat flow works:
+      1. Validate message (length, empty check)
+      2. Check rate limit (ai_usage table)
+      3. Build system prompt with today's menus + user goals
+      4. Call Claude API
+      5. Return response with remaining message count
+    - Test with a real message to confirm AI responds
+
+  DONE WHEN: AI chat returns real Claude responses for all users.
+  Rate limiting (25/day) still works.
+
+
+================================================================================
+FEATURE 3 — REVENUECAT SUBSCRIPTION PAYWALL ($10/month)
+================================================================================
+
+  PURPOSE:
+  Gate premium features (AI chat, Canvas integration, meal planning)
+  behind a $10/month subscription. Free users get everything else
+  including barcode scanning, AI meal description, and all tracking.
+
+  FREE TIER (no subscription):
+    - All 12 dining hall menus with nutrition
+    - One-tap meal logging from menus
+    - Custom meal logging (manual entry)
+    - Barcode scanner
+    - AI meal description ("Describe what you ate")
+    - Calorie, macro, and micronutrient tracking
+    - Water tracking
+    - Weight logging + trend chart
+    - Daily score, streaks, badges
+    - Weekly reports
+    - Share cards
+    - Hall ratings and reviews
+    - Dark/light mode
+    - Progress tab with all charts
+
+  PREMIUM TIER ($10/month):
+    - Everything in free tier PLUS:
+    - AI Chat assistant (unlimited messages)
+    - Canvas calendar integration
+    - AI-powered meal planning (daily plans based on schedule + goals)
+
+  TASK 3.1 — Install and configure RevenueCat
+  -------------------------------------------------------
+  Install:
+    npx expo install react-native-purchases
+
+  Create src/utils/purchases.ts:
+    - Initialize RevenueCat with API key on app startup
+    - RevenueCat API keys (to be created at app.revenuecat.com):
+      - Apple API key: set as env var REVENUECAT_APPLE_KEY
+      - Identify user with Supabase auth user ID
+    - Export functions:
+      - initializePurchases(): call on app mount
+      - checkSubscription(): returns { isPremium: boolean, expiresAt: Date | null }
+      - purchaseMonthly(): triggers purchase flow
+      - restorePurchases(): restore previous purchases
+
+  RevenueCat dashboard setup (manual, not code):
+    - Create project "CampusPlate"
+    - Add Apple App Store app
+    - Create Entitlement: "premium"
+    - Create Product: "campusplate_monthly" ($10/month)
+    - Create Offering: "default" with the monthly package
+
+  DONE WHEN: RevenueCat SDK initialized, purchase functions exported.
+
+  TASK 3.2 — Create subscription context
+  -------------------------------------------------------
+  Create src/contexts/SubscriptionContext.tsx:
+
+    - React context that checks subscription status on mount
+    - Provides: { isPremium, loading, purchase, restore }
+    - Caches status to avoid checking on every render
+    - Re-checks on app foreground (user might subscribe externally)
+    - Wrap the app's root layout with <SubscriptionProvider>
+
+  DONE WHEN: Any component can call useSubscription() to check status.
+
+  TASK 3.3 — Create paywall screen
+  -------------------------------------------------------
+  Create src/components/PaywallModal.tsx:
+
+  Layout (full-screen modal, pageSheet):
+    - Maroon gradient header with the CampusPlate logo
+    - "Upgrade to Premium" title (28px, Outfit_700Bold, white)
+    - Three feature cards showing what you unlock:
+      1. AI Chat icon + "Unlimited AI Chat" + "Get personalized meal
+         advice and recommendations"
+      2. Calendar icon + "Canvas Integration" + "Sync your class schedule
+         for smarter meal planning"
+      3. Brain icon + "AI Meal Plans" + "Daily meal plans built around
+         your schedule and nutrition goals"
+    - Price: "$10/month" (large, centered)
+    - "Subscribe" button (full-width, white bg, maroon text)
+    - "Restore Purchases" link below (14px, muted)
+    - Terms/privacy links at bottom (12px, muted)
+    - Close button (X) top-right
+
+  Behavior:
+    - "Subscribe" calls purchaseMonthly() from SubscriptionContext
+    - Show loading spinner during purchase
+    - On success: dismiss modal, show success toast
+    - On cancel: stay on modal
+    - On error: show error alert
+
+  DONE WHEN: Paywall modal shows features, handles purchase flow.
+
+  TASK 3.4 — Gate premium features
+  -------------------------------------------------------
+  AI Chat tab (app/(tabs)/ai.tsx or similar):
+    - If !isPremium: show the PaywallModal instead of the chat
+    - Do NOT show the chat input or any messages
+    - The AI tab icon and label still appear in the tab bar
+    - When user taps the tab, they see the paywall
+
+  Canvas integration (Feature 4):
+    - Only accessible from Settings if isPremium
+    - If not premium, tapping "Connect Canvas" shows PaywallModal
+
+  AI Meal Planning (Feature 5):
+    - Only accessible if isPremium
+    - If not premium, shows PaywallModal
+
+  Edge Function:
+    - Add a check: if the user has no active subscription and tries
+      to use mode "chat" (not "estimate_meal"), return 403 with
+      message: "AI Chat requires a CampusPlate Premium subscription."
+    - mode "estimate_meal" remains free (no subscription check)
+    - To check subscription server-side: add a "premium" boolean column
+      to user profiles, updated via RevenueCat webhook or client-side
+      sync after purchase
+
+  DONE WHEN: Free users see paywall on AI tab. Premium users access
+  chat normally. Barcode + describe remain free for everyone.
+
+
+================================================================================
+FEATURE 4 — CANVAS CALENDAR INTEGRATION (PREMIUM)
+================================================================================
+
+  PURPOSE:
+  Let premium users paste their Canvas iCal URL so the AI can build
+  meal plans around their class schedule. No OAuth needed — Canvas
+  lets every student export their calendar as an iCal feed URL from
+  Canvas Settings → Calendar.
+
+  TASK 4.1 — Canvas setup flow in Settings
+  -------------------------------------------------------
+  In the Settings screen, add a new section: "Integrations"
+
+  If not premium:
+    - Show "Canvas Calendar" row with lock icon
+    - Tapping opens PaywallModal
+
+  If premium:
+    - Show "Canvas Calendar" row with status (Connected / Not Connected)
+    - Tapping opens a modal/screen:
+      - Header: "Connect Canvas Calendar"
+      - Instructions (step by step):
+        1. "Open Canvas in your browser"
+        2. "Go to Account → Settings"
+        3. "Scroll to Calendar → Click Calendar Feed"
+        4. "Copy the URL that appears"
+      - TextInput for pasting the iCal URL
+        - Placeholder: "Paste your Canvas calendar URL here"
+        - Validate: must start with "https://" and contain ".ics" or
+          "calendar" in the URL
+      - "Connect" button
+      - If already connected: show "Connected ✓" with option to
+        disconnect or update URL
+
+  On connect:
+    - Fetch the iCal URL to validate it returns valid iCalendar data
+    - Parse with a simple iCal parser to extract events
+    - Store the URL in Supabase profiles table:
+      ALTER TABLE profiles ADD COLUMN IF NOT EXISTS
+        canvas_ical_url TEXT;
+    - Show success state
+
+  DONE WHEN: Premium users can paste iCal URL, it validates and
+  stores in their profile.
+
+  TASK 4.2 — iCal parser utility
+  -------------------------------------------------------
+  Create src/utils/calendar.ts:
+
+    - fetchAndParseCalendar(icalUrl: string): CalendarEvent[]
+    - Parse iCalendar format (VEVENT blocks):
+      - SUMMARY → event name (class name)
+      - DTSTART / DTEND → start/end times
+      - RRULE → recurrence (weekly classes)
+      - LOCATION → building/room
+    - Filter to only include events for the current week
+    - Return sorted array of events with:
+      { name, dayOfWeek, startTime, endTime, location }
+    - Handle timezone conversion (Canvas uses UTC, convert to ET)
+
+  DONE WHEN: Given an iCal URL, returns parsed class schedule.
+
+  TASK 4.3 — Show schedule in the app
+  -------------------------------------------------------
+  Add a "Today's Schedule" card on the Dashboard (above Today's Meals)
+  that only appears if the user has connected Canvas:
+
+    - Shows today's classes in a compact timeline view
+    - Each class: time range + class name + location
+    - Example: "9:30 - 10:45 AM  •  CS 2104  •  McBryde 120"
+    - Tappable gaps between classes labeled "Meal window" in muted text
+    - Glass card styling matching other Dashboard cards
+    - If no classes today: "No classes today — flexible meal schedule"
+
+  DONE WHEN: Connected users see their class schedule on Dashboard.
+
+
+================================================================================
+FEATURE 5 — AI MEAL PLANNING (PREMIUM)
+================================================================================
+
+  PURPOSE:
+  Use the AI to generate a full day's meal plan based on the user's
+  nutrition goals, today's dining hall menus, and (if connected)
+  their class schedule. This is the killer premium feature.
+
+  TASK 5.1 — Meal Plan generation via Edge Function
+  -------------------------------------------------------
+  Add a new mode to the Edge Function: mode: "meal_plan"
+
+  Input:
+    {
+      mode: "meal_plan",
+      schedule: [
+        { name: "CS 2104", start: "09:30", end: "10:45", location: "McBryde" },
+        { name: "COMM 1016", start: "14:00", end: "15:15", location: "Shanks" }
+      ],  // optional, empty array if no Canvas connected
+      goals: { calories: 2500, protein: 100, carbs: 100, fat: 94 },
+      preferences: { dietary: ["vegetarian"], allergies: [] }
+    }
+
+  System prompt:
+    "You are a campus meal planning assistant for Virginia Tech.
+     Generate a complete daily meal plan using ONLY items from today's
+     dining hall menus (provided below). The plan must:
+     1. Fit within the user's calorie and macro goals
+     2. Schedule meals around their class times (if provided)
+     3. Respect dietary preferences and allergies
+     4. Suggest specific dining halls and items
+     5. Include estimated nutrition totals per meal and daily total
+
+     Respond with ONLY a JSON object:
+     {
+       meals: [
+         {
+           type: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack',
+           time: '8:00 AM',
+           location: 'D2',
+           items: [{ name: 'Scrambled Eggs', calories: 180, protein: 12, carbs: 2, fat: 14 }],
+           totalCalories: 450,
+           note: 'Before your 9:30 CS class'
+         }
+       ],
+       dailyTotal: { calories: 2480, protein: 98, carbs: 105, fat: 90 },
+       tip: 'You have a 2-hour gap at noon — perfect time for a bigger lunch at Owen's.'
+     }"
+
+  Rate limit: 3 meal plans per day (tracked in ai_usage as plan_count)
+  Add column: ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS plan_count INTEGER DEFAULT 0;
+
+  DONE WHEN: Edge Function generates structured meal plans from menus.
+
+  TASK 5.2 — Meal Plan UI
+  -------------------------------------------------------
+  Create src/components/MealPlanView.tsx:
+
+  Accessible from:
+    - A "Plan My Day" button on the Dashboard (prominent, below greeting)
+    - Only visible to premium users
+
+  Layout:
+    - Header: "Today's Meal Plan" with date
+    - If user has Canvas connected, show schedule context:
+      "Built around your 3 classes today"
+    - Timeline of meals, each as a glass card:
+      - Meal type pill (Breakfast/Lunch/Dinner/Snack)
+      - Suggested time + dining hall
+      - List of items with calories
+      - Note from AI (schedule context)
+      - "Log These Items" button → logs all items in one tap
+    - Daily total summary card at bottom:
+      - Calories, protein, carbs, fat vs goals
+      - Ring visualization showing how the plan fits goals
+    - "Regenerate" button (uses 1 of 3 daily plans)
+    - Remaining plans count: "2 plans remaining today"
+
+  Loading state:
+    - Pulsing shimmer cards while AI generates
+
+  Error state:
+    - "Couldn't generate plan. Try again." with retry button
+
+  DONE WHEN: Premium users can generate and view daily meal plans,
+  log meals from the plan in one tap.
+
+
+================================================================================
+FEATURE 6 — FLOATING ACTION BUTTON FOR MEAL LOGGING
+================================================================================
+
+  PURPOSE:
+  The current entry points for logging meals (barcode scan, describe
+  meal, custom meal) are hidden at the bottom of the Dashboard and
+  inside the AI tab. Free users especially need an obvious, always-
+  visible way to access these. A floating action button (FAB) solves
+  this.
+
+  TASK 6.1 — Create FloatingAddButton component
+  -------------------------------------------------------
+  Create src/components/FloatingAddButton.tsx:
+
+  A floating circular button that sits above the tab bar on the
+  Home tab only.
+
+  Closed state:
+    - Circular button, 56px diameter
+    - Maroon background (colors.maroon)
+    - White "+" icon (Feather "plus", 28px)
+    - Position: bottom-right, 20px from right edge, 110px from bottom
+      (clears the FloatingTabBar)
+    - Subtle shadow for elevation
+
+  Expanded state (on tap):
+    - The "+" rotates 45° to become an "×"
+    - Three action buttons fan out above it with labels:
+      1. "Scan Barcode" (Feather "camera" icon) — opens BarcodeScannerModal
+      2. "Describe Meal" (Feather "edit-3" icon) — opens AIMealLogModal
+      3. "Custom Meal" (Feather "plus-circle" icon) — opens CustomMealModal
+    - Each action button: 44px circle, maroon bg, white icon
+    - Label to the left of each button (13px, DMSans_500Medium)
+    - Semi-transparent backdrop behind (tap to close)
+    - Animated with spring (React Native Animated or Reanimated)
+
+  Behavior:
+    - Only visible on the Home tab
+    - Tapping an action: closes the FAB, opens the respective modal
+    - Tapping backdrop: closes FAB
+    - Scrolling: FAB stays fixed in position
+
+  DONE WHEN: FAB visible on Home tab, expands to 3 actions, each
+  opens the correct modal.
+
+  TASK 6.2 — Remove old entry points
+  -------------------------------------------------------
+  Remove the Scan/Describe/Custom buttons from:
+    - MealLogSection header row on the Dashboard (keep "History →" only)
+    - AI Chat empty state suggestion cards (remove Scan Barcode,
+      Describe a Meal, and Custom Meal cards)
+    - The AI tab is now premium-only, so free users won't see it anyway
+
+  Keep the "+ Custom" button inside the Browse menu item detail screen
+  if it exists there (contextual entry point for custom logging).
+
+  DONE WHEN: Old buttons removed, FAB is the primary entry point
+  for all meal logging actions.
+
+
+================================================================================
+FEATURE 7 — WATER BOTTLE REDESIGN (DEER PARK STYLE)
+================================================================================
+
+  PURPOSE:
+  The current water bottle SVG is too narrow/skinny and doesn't look
+  good. Redesign it to look like a Deer Park water bottle shape —
+  wider body, tapered shoulder, narrow neck, small cap.
+
+  TASK 7.1 — Redesign WaterTracker SVG
+  -------------------------------------------------------
+  In src/components/WaterTracker.tsx:
+
+  New bottle shape (approximate Deer Park proportions):
+    - Small rectangular cap at top (narrow, ~20% of body width)
+    - Short narrow neck below cap (~25% of body width)
+    - Tapered shoulder widening from neck to body
+    - Wide cylindrical body (main area, ~60% of total height)
+    - Slight taper at bottom, flat base
+
+  SVG path approach — use a single path for the bottle outline:
+    viewBox="0 0 60 100"
+
+    Cap:    rectangle, x: 22-38, y: 0-6
+    Neck:   narrow, x: 20-40, y: 6-15
+    Shoulder: curves widening, y: 15-25
+    Body:   wide rectangle, x: 8-52, y: 25-90
+    Base:   flat, slightly rounded corners, y: 90-95
+
+  Fill animation:
+    - Use a clipPath matching the bottle shape
+    - Inside the clip: a rectangle that grows from bottom to top
+    - At 0%: rect top is at the bottom (no fill visible)
+    - At 100%: rect top is at y=0 (entire bottle filled, including
+      neck and cap — the FULL bottle is blue)
+    - Fill color: colors.accent or a nice water blue
+    - Animated with React Native Animated or Reanimated
+
+  Keep existing functionality:
+    - Tap to add water (same increment)
+    - Display oz count and goal
+    - Same position on Dashboard
+
+  DONE WHEN: Water bottle looks like a Deer Park bottle, fills
+  completely from bottom to top including through the neck and cap.
+
+
+================================================================================
+GLOBAL RULES (same as previous sprints)
+================================================================================
+
+  DATES:
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    NEVER use toISOString() for dates.
+
+  COLORS:
+    Always use useTheme() → colors object. Never hardcode hex values.
+    Glass cards: colors.cardGlass bg + colors.cardGlassBorder border.
+
+  FONTS:
+    Headers: Outfit_700Bold or Outfit_800ExtraBold
+    Body: DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold
+    Never use fontWeight with fontFamily — pick the correct font file.
+
+  ICONS:
+    Feather icons from @expo/vector-icons only. No emojis for UI chrome.
+
+  SUPABASE:
+    All queries wrapped in try/catch.
+    Always filter by user_id.
+    nutrition joins return arrays: item.nutrition[0].calories
+    weight_logs column: weight_lbs (not weight)
+
+  ERRORS:
+    User-friendly alerts. Never show raw error messages.
+    Console.warn for non-critical failures.
+
+  TAB BAR:
+    All screens need paddingBottom: 100 for FloatingTabBar clearance.
+
+
+================================================================================
+TASK SUMMARY
+================================================================================
+
+  FEATURE 1 — Logo Implementation (2 tasks)
+    1.1  Add logo assets + update app.json
+    1.2  Find and replace all logo instances (login, onboarding, settings)
+
+  FEATURE 2 — Fix AI Chat (1 task)
+    2.1  Remove "coming soon" placeholder, restore normal chat flow
+
+  FEATURE 3 — RevenueCat Paywall (4 tasks)
+    3.1  Install RevenueCat + create purchase utility functions
+    3.2  Create SubscriptionContext provider
+    3.3  Create PaywallModal UI
+    3.4  Gate AI chat, Canvas, and meal planning behind paywall
+
+  FEATURE 4 — Canvas Calendar Integration (3 tasks)
+    4.1  Canvas iCal URL setup flow in Settings
+    4.2  iCal parser utility (fetch + parse + filter events)
+    4.3  "Today's Schedule" card on Dashboard
+
+  FEATURE 5 — AI Meal Planning (2 tasks)
+    5.1  Meal plan generation mode in Edge Function
+    5.2  Meal plan UI with timeline, one-tap logging, regenerate
+
+  FEATURE 6 — Floating Action Button (2 tasks)
+    6.1  Create FloatingAddButton (FAB with 3 expandable actions)
+    6.2  Remove old entry points from Dashboard header + AI tab
+
+  FEATURE 7 — Water Bottle Redesign (1 task)
+    7.1  Redesign SVG to Deer Park bottle shape, fill to 100%
+
+  TOTAL: 15 tasks
+  ESTIMATED TIME: 12-16 hours
+
+  SQL TO RUN IN SUPABASE BEFORE STARTING:
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS canvas_ical_url TEXT;
+    ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS plan_count INTEGER DEFAULT 0;
+
+================================================================================

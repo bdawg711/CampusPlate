@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -286,7 +287,11 @@ export default function OnboardingScreen({ onComplete }: Props) {
       case 0:
         return (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Feather name="coffee" size={64} color="#861F41" style={{ marginBottom: 16 }} />
+            <Image
+              source={require('@/assets/images/logo-simplified.png')}
+              style={{ width: 120, height: 120, marginBottom: 16 }}
+              resizeMode="contain"
+            />
             <Text style={{ fontSize: 28, color: colors.text, fontFamily: 'Outfit_700Bold', textAlign: 'center' }}>
               Welcome to CampusPlate
             </Text>

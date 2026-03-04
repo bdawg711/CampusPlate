@@ -190,6 +190,167 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── meal_plan mode ──────────────────────────────────────────────────
+    if (mode === "meal_plan") {
+      const schedule: { name: string; start: string; end: string; location?: string }[] = body.schedule ?? [];
+      const goals = body.goals ?? { calories: 2000, protein: 100, carbs: 250, fat: 65 };
+      const preferences = body.preferences ?? { dietary: [], allergies: [] };
+
+      // Rate limit: 3 meal plans per day via plan_count
+      const PLAN_LIMIT = 3;
+      const d = new Date();
+      const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+      const { data: usageRow, error: usageError } = await adminClient
+        .from("ai_usage")
+        .select("id, plan_count")
+        .eq("user_id", userId)
+        .eq("date", todayStr)
+        .maybeSingle();
+
+      if (usageError) {
+        console.error("Plan usage check failed:", usageError.message);
+        return jsonResponse({ error: "Unable to verify rate limit." }, 500);
+      }
+
+      const currentPlans = usageRow?.plan_count ?? 0;
+      if (currentPlans >= PLAN_LIMIT) {
+        return jsonResponse(
+          { error: "You've used all 3 meal plans for today. Resets at midnight." },
+          429
+        );
+      }
+
+      // Increment plan_count
+      if (usageRow) {
+        await adminClient
+          .from("ai_usage")
+          .update({ plan_count: currentPlans + 1 })
+          .eq("id", usageRow.id);
+      } else {
+        await adminClient.from("ai_usage").insert({
+          user_id: userId,
+          date: todayStr,
+          message_count: 0,
+          estimate_count: 0,
+          plan_count: 1,
+        });
+      }
+
+      // Fetch today's full menu for the plan
+      const { data: menuData } = await adminClient
+        .from("menu_items")
+        .select("id, name, station, dining_halls(name), meal, nutrition(calories, protein_g, total_carbs_g, total_fat_g)")
+        .eq("date", todayStr);
+
+      let menuJson = JSON.stringify(menuData ?? []);
+      if (menuJson.length > 60000) {
+        let truncated = menuData ?? [];
+        while (JSON.stringify(truncated).length > 60000 && truncated.length > 0) {
+          truncated = truncated.slice(0, Math.floor(truncated.length * 0.75));
+        }
+        menuJson = JSON.stringify(truncated);
+      }
+
+      const scheduleBlock = schedule.length > 0
+        ? `\n## User's Class Schedule Today\n${schedule.map((c) => `- ${c.start} - ${c.end}: ${c.name}${c.location ? ` (${c.location})` : ""}`).join("\n")}`
+        : "\nNo class schedule provided — suggest meals at typical times (8 AM, 12 PM, 6 PM).";
+
+      const dietaryBlock = preferences.dietary?.length > 0
+        ? `Dietary preferences: ${preferences.dietary.join(", ")}`
+        : "No specific dietary preferences";
+
+      const allergyBlock = preferences.allergies?.length > 0
+        ? `Allergies: ${preferences.allergies.join(", ")}`
+        : "No known allergies";
+
+      const planSystemPrompt = `You are a campus meal planning assistant for Virginia Tech.
+Generate a complete daily meal plan using ONLY items from today's dining hall menus (provided below). The plan must:
+1. Fit within the user's calorie and macro goals
+2. Schedule meals around their class times (if provided)
+3. Respect dietary preferences and allergies
+4. Suggest specific dining halls and items
+5. Include estimated nutrition totals per meal and daily total
+
+## User Goals
+- Calories: ${goals.calories} kcal
+- Protein: ${goals.protein}g
+- Carbs: ${goals.carbs}g
+- Fat: ${goals.fat}g
+- ${dietaryBlock}
+- ${allergyBlock}
+${scheduleBlock}
+
+## Today's Dining Hall Menus
+${menuJson}
+
+Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation):
+{
+  "meals": [
+    {
+      "type": "Breakfast",
+      "time": "8:00 AM",
+      "location": "D2",
+      "items": [{ "name": "Scrambled Eggs", "calories": 180, "protein": 12, "carbs": 2, "fat": 14 }],
+      "totalCalories": 450,
+      "note": "Before your 9:30 CS class"
+    }
+  ],
+  "dailyTotal": { "calories": 2480, "protein": 98, "carbs": 105, "fat": 90 },
+  "tip": "You have a 2-hour gap at noon — perfect time for a bigger lunch at Owen's."
+}`;
+
+      const claudeApiKey = Deno.env.get("CLAUDE_API_KEY");
+      if (!claudeApiKey) {
+        return jsonResponse({ error: "AI is temporarily unavailable." }, 503);
+      }
+
+      const claudeResponse = await fetch(
+        "https://api.anthropic.com/v1/messages",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": claudeApiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 3000,
+            system: planSystemPrompt,
+            messages: [{ role: "user", content: "Generate my meal plan for today." }],
+          }),
+        }
+      );
+
+      if (!claudeResponse.ok) {
+        const errBody = await claudeResponse.text();
+        console.error(`Claude API error ${claudeResponse.status}: ${errBody}`);
+        return jsonResponse({ error: "AI meal planning failed. Please try again." }, 502);
+      }
+
+      const claudeData = await claudeResponse.json();
+      const rawText = claudeData?.content?.[0]?.text ?? "";
+
+      try {
+        // Strip any accidental markdown fencing
+        const cleanedText = rawText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        const parsed = JSON.parse(cleanedText);
+        const remaining = PLAN_LIMIT - (currentPlans + 1);
+        return jsonResponse({
+          ...parsed,
+          remaining,
+          planLimit: PLAN_LIMIT,
+        });
+      } catch {
+        console.error("Failed to parse meal plan JSON:", rawText);
+        return jsonResponse(
+          { error: "Couldn't generate meal plan. Please try again." },
+          422
+        );
+      }
+    }
+
     // ── Standard chat mode ────────────────────────────────────────────────
 
     if (!rawMessage || !date) {
@@ -216,79 +377,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ALLOWLIST — removed; all authenticated users can use AI chat now
-    // const allowedUsers = (Deno.env.get("AI_ALLOWED_USERS") || "").split(",").map((s) => s.trim()).filter(Boolean);
-    // if (allowedUsers.length > 0 && !allowedUsers.includes(userId)) {
-    //   return jsonResponse(
-    //     { error: "AI Meal Planner is coming soon! Stay tuned." },
-    //     403
-    //   );
-    // }
-
-    // ── 1. Rate limiting via ai_usage ────────────────────────────────────
-    const DAILY_LIMIT = parseInt(Deno.env.get("AI_DAILY_LIMIT") || "25", 10);
-    const d = new Date();
-    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-    const { data: usageRow, error: usageError } = await adminClient
-      .from("ai_usage")
-      .select("id, message_count, last_message_at")
-      .eq("user_id", userId)
-      .eq("date", todayStr)
-      .maybeSingle();
-
-    if (usageError) {
-      console.error("Usage check failed:", usageError.message);
-      return jsonResponse({ error: "Unable to verify rate limit." }, 500);
-    }
-
-    // Cooldown: 2 seconds between messages
-    if (usageRow?.last_message_at) {
-      const elapsed = Date.now() - new Date(usageRow.last_message_at).getTime();
-      if (elapsed < 2000) {
-        return jsonResponse(
-          { error: "Slow down! Please wait a moment between messages." },
-          429
-        );
-      }
-    }
-
-    // Daily limit check
-    const currentCount = usageRow?.message_count ?? 0;
-    if (currentCount >= DAILY_LIMIT) {
-      await adminClient.from("ai_chat_logs").insert({
-        user_id: userId,
-        role: "user",
-        content: message,
-        is_blocked: true,
-      });
-      return jsonResponse(
-        { error: "You've reached your daily AI limit. Resets at midnight." },
-        429
-      );
-    }
-
-    // Increment usage
-    if (usageRow) {
-      await adminClient
-        .from("ai_usage")
-        .update({
-          message_count: currentCount + 1,
-          last_message_at: new Date().toISOString(),
-        })
-        .eq("id", usageRow.id);
-    } else {
-      await adminClient.from("ai_usage").insert({
-        user_id: userId,
-        date: todayStr,
-        message_count: 1,
-        last_message_at: new Date().toISOString(),
-      });
-    }
-
-    const remaining = DAILY_LIMIT - (currentCount + 1);
-
-    // ── 2. Get AI context via RPC ───────────────────────────────────────
+    // ── Get AI context via RPC ─────────────────────────────────────────
     const { data: context, error: rpcError } = await adminClient.rpc(
       "get_ai_context",
       { p_user_id: userId, p_date: date }
@@ -306,7 +395,7 @@ Deno.serve(async (req) => {
     const consumed = context?.consumed_today;
     const fullMenu: Record<string, unknown>[] = context?.todays_menu ?? [];
 
-    // ── 3. Build system prompt ──────────────────────────────────────────
+    // ── Build system prompt ────────────────────────────────────────────
     const goalCal = profile?.goal_calories ?? 2000;
     const goalP = profile?.goal_protein_g ?? 150;
     const goalC = profile?.goal_carbs_g ?? 250;
@@ -367,7 +456,7 @@ ${menuJson}
    - For general recommendations, describe the food with nutrition info in your text response WITHOUT [MEAL_ITEM] blocks.
    - Only use [MEAL_ITEM] blocks when the user wants to actually log something they ate.`;
 
-    // ── 4. Call Claude API ──────────────────────────────────────────────
+    // ── Call Claude API ────────────────────────────────────────────────
     const claudeApiKey = Deno.env.get("CLAUDE_API_KEY");
     if (!claudeApiKey) {
       console.error("CLAUDE_API_KEY not set");
@@ -455,10 +544,10 @@ ${menuJson}
     const assistantRaw =
       claudeData?.content?.[0]?.text ?? "Sorry, I couldn't generate a response.";
 
-    // ── 5. Parse meal item blocks ───────────────────────────────────────
+    // ── Parse meal item blocks ─────────────────────────────────────────
     const { cleaned: assistantText, mealItems } = parseMealItems(assistantRaw);
 
-    // ── 6. Save to ai_chat_logs ─────────────────────────────────────────
+    // ── Save to ai_chat_logs ───────────────────────────────────────────
     const { error: insertErr } = await adminClient.from("ai_chat_logs").insert([
       {
         user_id: userId,
@@ -479,12 +568,10 @@ ${menuJson}
       // Non-fatal — still return the response to the user
     }
 
-    // ── 7. Return response ──────────────────────────────────────────────
+    // ── Return response ────────────────────────────────────────────────
     return jsonResponse({
       content: assistantText,
       mealItems: mealItems.length > 0 ? mealItems : [],
-      remaining,
-      dailyLimit: DAILY_LIMIT,
     });
   } catch (err) {
     const errMsg = (err as Error).message ?? String(err);

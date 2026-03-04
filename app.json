@@ -4,14 +4,14 @@
     "slug": "CampusPlate",
     "version": "2.5.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo-full.png",
     "scheme": "campusplate",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#861F41"
     },
     "ios": {
       "supportsTablet": true

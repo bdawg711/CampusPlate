@@ -43,12 +43,9 @@ interface MealLogSectionProps {
   onDeleteLog: (logId: string) => void;
   logBelongsToMealGroup: (logMeal: string, group: string) => boolean;
   onBrowseMeal?: (meal: string) => void;
-  onCustomMealPress?: () => void;
   onDeleteCustomMeal?: (id: string) => void;
   onEditDiningLog?: (log: MealLog) => void;
   onEditCustomMeal?: (meal: CustomMeal) => void;
-  onScanPress?: () => void;
-  onDescribePress?: () => void;
 }
 
 // ── Meal groups config ──────────────────────────────────────────────────────
@@ -94,12 +91,9 @@ export default function MealLogSection({
   onDeleteLog,
   logBelongsToMealGroup,
   onBrowseMeal,
-  onCustomMealPress,
   onDeleteCustomMeal,
   onEditDiningLog,
   onEditCustomMeal,
-  onScanPress,
-  onDescribePress,
 }: MealLogSectionProps) {
   // Filter out Snack group if there are no custom snack meals
   const hasSnackCustom = customMeals.some((m) => m.meal_period === 'Snack');
@@ -117,60 +111,14 @@ export default function MealLogSection({
         marginBottom="m"
       >
         <Text variant="cardTitle">Today's Meals</Text>
-        <Box flexDirection="row" alignItems="center" style={{ gap: 12 }}>
-          {onCustomMealPress && (
-            <Text
-              variant="bodySmall"
-              color="maroon"
-              style={{ fontFamily: 'DMSans_500Medium', fontSize: 13 }}
-              onPress={onCustomMealPress}
-            >
-              + Custom
-            </Text>
-          )}
-          {onDescribePress && (
-            <TouchableOpacity
-              onPress={onDescribePress}
-              activeOpacity={0.7}
-              style={{ flexDirection: 'row', alignItems: 'center' }}
-              accessibilityLabel="Describe a meal"
-              accessibilityRole="button"
-            >
-              <Feather name="edit-3" size={14} color="#861F41" style={{ marginRight: 4 }} />
-              <Text
-                variant="muted"
-                style={{ color: '#861F41', fontFamily: 'DMSans_500Medium', fontSize: 13 }}
-              >
-                Describe
-              </Text>
-            </TouchableOpacity>
-          )}
-          {onScanPress && (
-            <TouchableOpacity
-              onPress={onScanPress}
-              activeOpacity={0.7}
-              style={{ flexDirection: 'row', alignItems: 'center' }}
-              accessibilityLabel="Scan barcode"
-              accessibilityRole="button"
-            >
-              <Feather name="camera" size={14} color="#861F41" style={{ marginRight: 4 }} />
-              <Text
-                variant="muted"
-                style={{ color: '#861F41', fontFamily: 'DMSans_500Medium', fontSize: 13 }}
-              >
-                Scan
-              </Text>
-            </TouchableOpacity>
-          )}
-          <Text
-            variant="bodySmall"
-            color="maroon"
-            style={{ fontFamily: 'DMSans_600SemiBold' }}
-            onPress={onHistoryPress}
-          >
-            History →
-          </Text>
-        </Box>
+        <Text
+          variant="bodySmall"
+          color="maroon"
+          style={{ fontFamily: 'DMSans_600SemiBold' }}
+          onPress={onHistoryPress}
+        >
+          History →
+        </Text>
       </Box>
 
       {/* Meal groups */}
