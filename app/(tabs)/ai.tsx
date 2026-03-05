@@ -5,16 +5,20 @@ import { requireUserId } from '@/src/utils/auth';
 import { supabase } from '@/src/utils/supabase';
 import { getCurrentMealPeriod, getEffectiveMenuDate } from '@/src/utils/meals';
 import AIChat from '@/src/components/AIChat';
+import MealPlanView from '@/src/components/MealPlanView';
 import type { MealItem } from '@/src/utils/ai';
 import * as Haptics from 'expo-haptics';
 import { useSubscription } from '@/src/context/SubscriptionContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import PaywallModal from '@/src/components/PaywallModal';
+import { useRouter } from 'expo-router';
 
 export default function AIScreen() {
   const { isPremium, loading: subLoading } = useSubscription();
   const { colors } = useTheme();
+  const router = useRouter();
   const [, setRefreshKey] = useState(0);
+  const [showMealPlan, setShowMealPlan] = useState(false);
 
   const handleLogItem = useCallback(async (item: MealItem) => {
     try {
@@ -54,7 +58,13 @@ export default function AIScreen() {
   if (!isPremium) {
     return (
       <Box flex={1} backgroundColor="background">
-        <PaywallModal visible={true} onClose={() => {}} />
+        <PaywallModal
+          visible={true}
+          onClose={() => {
+            console.log('[AIScreen] PaywallModal onClose fired, navigating to home tab');
+            router.replace('/(tabs)/');
+          }}
+        />
       </Box>
     );
   }
@@ -64,6 +74,12 @@ export default function AIScreen() {
       <AIChat
         mode="tab"
         onLogItem={handleLogItem}
+        onPlanMyDay={() => setShowMealPlan(true)}
+      />
+      <MealPlanView
+        visible={showMealPlan}
+        onClose={() => setShowMealPlan(false)}
+        onLogged={() => setShowMealPlan(false)}
       />
     </Box>
   );

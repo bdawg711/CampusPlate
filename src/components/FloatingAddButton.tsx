@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   interpolate,
   Easing,
@@ -11,6 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { Text } from '../theme/restyleTheme';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface FloatingAddButtonProps {
   onScanPress: () => void;
@@ -41,7 +42,7 @@ export default function FloatingAddButton({
       progress.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.quad) });
       isOpen.value = false;
     } else {
-      progress.value = withSpring(1, { damping: 14, stiffness: 160 });
+      progress.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.quad) });
       isOpen.value = true;
     }
   }, []);
@@ -122,15 +123,19 @@ function ActionButton({
   const offset = (index + 1) * 56;
 
   const animStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 0.4, 1], [0, 0, 1]),
+    opacity: interpolate(progress.value, [0, 0.3, 1], [0, 0.5, 1]),
     transform: [
       { translateY: interpolate(progress.value, [0, 1], [0, -offset]) },
-      { scale: interpolate(progress.value, [0, 0.5, 1], [0.3, 0.8, 1]) },
+      { scale: interpolate(progress.value, [0, 1], [0.8, 1]) },
     ],
   }));
 
   return (
-    <Animated.View style={[styles.actionRow, animStyle]}>
+    <AnimatedPressable
+      onPress={onPress}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      style={[styles.actionRow, animStyle]}
+    >
       <View style={styles.labelContainer}>
         <Text
           variant="bodySmall"
@@ -139,10 +144,10 @@ function ActionButton({
           {label}
         </Text>
       </View>
-      <Pressable onPress={onPress} style={styles.actionButton}>
+      <View style={styles.actionButton}>
         <Feather name={icon} size={20} color="#FFFFFF" />
-      </Pressable>
-    </Animated.View>
+      </View>
+    </AnimatedPressable>
   );
 }
 
@@ -155,11 +160,14 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: 110,
-    right: 20,
+    left: 0,
+    right: 0,
     alignItems: 'flex-end',
+    paddingRight: 20,
     zIndex: 100,
   },
   fab: {
+    marginTop: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -177,7 +185,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'absolute',
     bottom: 0,
-    right: 0,
+    right: 20,
   },
   labelContainer: {
     marginRight: 12,
@@ -193,6 +201,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#861F41',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 6,
+    marginRight: 6, // align with main FAB center
   },
 });

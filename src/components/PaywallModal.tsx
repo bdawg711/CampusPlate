@@ -4,12 +4,13 @@ import {
   Alert,
   Image,
   Modal,
+  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/src/context/ThemeContext';
@@ -29,8 +30,8 @@ const FEATURES = [
   },
   {
     icon: 'calendar' as const,
-    title: 'Canvas Integration',
-    description: 'Sync your class schedule for smarter meal planning',
+    title: 'Smart Meal Planning',
+    description: 'AI builds your daily meal plan around your class schedule and nutrition goals',
   },
   {
     icon: 'cpu' as const,
@@ -42,6 +43,7 @@ const FEATURES = [
 export default function PaywallModal({ visible, onClose, onSuccess }: PaywallModalProps) {
   const { colors, mode } = useTheme();
   const { purchase, restore } = useSubscription();
+  const insets = useSafeAreaInsets();
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
@@ -94,32 +96,35 @@ export default function PaywallModal({ visible, onClose, onSuccess }: PaywallMod
       onRequestClose={onClose}
     >
       <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {/* Close button */}
+        <Pressable
+          onPress={() => {
+            console.log('[PaywallModal] X button pressed, calling onClose');
+            onClose();
+          }}
+          disabled={isLoading}
+          style={{
+            position: 'absolute',
+            top: insets.top + 16,
+            right: 20,
+            zIndex: 50,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Feather name="x" size={20} color="#fff" />
+        </Pressable>
+
         <LinearGradient
           colors={gradientColors}
           style={{ paddingTop: 16 }}
         >
           <SafeAreaView edges={['top']} style={{ paddingBottom: 0 }}>
-            {/* Close button */}
-            <TouchableOpacity
-              onPress={onClose}
-              disabled={isLoading}
-              style={{
-                position: 'absolute',
-                top: 16,
-                right: 20,
-                zIndex: 10,
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                backgroundColor: 'rgba(255,255,255,0.15)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Feather name="x" size={18} color="#fff" />
-            </TouchableOpacity>
-
             {/* Logo + Title */}
             <View style={{ alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 }}>
               <Image

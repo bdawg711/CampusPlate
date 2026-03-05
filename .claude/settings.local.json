@@ -46,8 +46,9 @@
       "Bash(python:*)",
       "Bash(npx expo config:*)",
       "Bash(git -C /c/Users/cfarr/CampusPlate log --all --grep=\"ai-chat\" --oneline)",
-"WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(git status -u)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git status -u)",
+      "Bash(npx supabase:*)"
     ]
   }
 }

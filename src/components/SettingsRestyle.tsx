@@ -27,6 +27,7 @@ import HelpFAQ from '@/src/components/HelpFAQ';
 import WeeklyReport from '@/src/components/WeeklyReport';
 import ReminderSettings from '@/src/components/ReminderSettings';
 import PaywallModal from '@/src/components/PaywallModal';
+import ScheduleEditor from '@/src/components/ScheduleEditor';
 import { Goals, getGoals, saveCustomGoals, recalculateGoals } from '@/src/utils/goals';
 import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged, StreakData, Badge } from '@/src/utils/streaks';
 import StreakBadge from '@/src/components/StreakBadge';
@@ -72,6 +73,7 @@ export default function SettingsRestyle() {
   const [canvasUrlInput, setCanvasUrlInput] = useState('');
   const [canvasConnecting, setCanvasConnecting] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [scheduleEditorVisible, setScheduleEditorVisible] = useState(false);
 
   const [currentGoals, setCurrentGoals] = useState<Goals>({
     goalCalories: 2000,
@@ -83,11 +85,13 @@ export default function SettingsRestyle() {
   const loadData = useCallback(async () => {
     try {
       const userId = await requireUserId();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('name, year, dorm, goal_calories, water_goal_oz, reminder_prefs, daily_summary_enabled, daily_summary_time, canvas_ical_url')
         .eq('id', userId)
         .single();
+      console.log('[Settings] profile fetch result:', JSON.stringify(data));
+      console.log('[Settings] profile fetch error:', JSON.stringify(error));
       if (data) {
         setProfile(data);
         setWaterGoalOz(data.water_goal_oz ?? 64);
@@ -502,19 +506,13 @@ export default function SettingsRestyle() {
         <Card borderRadius="l" marginHorizontal="m" style={{ paddingHorizontal: 18, paddingVertical: 2 }}>
           <SettingsRow
             icon="calendar" iconBg="proteinTint" iconColor="proteinRing"
-            label="Canvas Calendar"
-            onPress={handleCanvasRow}
+            label="Class Schedule"
+            onPress={() => setScheduleEditorVisible(true)}
             rightContent={
-              isPremium ? (
-                <>
-                  <Text variant="bodySmall" style={{ color: canvasUrl ? theme.colors.success : theme.colors.textDim, marginRight: 8 }}>
-                    {canvasUrl ? 'Connected' : 'Not Connected'}
-                  </Text>
-                  <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
-                </>
-              ) : (
-                <Feather name="lock" size={16} color={theme.colors.textDim} />
-              )
+              <>
+                <Text variant="bodySmall" color="textDim" marginRight="s">Manage your weekly classes</Text>
+                <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
+              </>
             }
             isLast
           />
@@ -713,6 +711,8 @@ export default function SettingsRestyle() {
 
       {/* Paywall Modal */}
       <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+
+      <ScheduleEditor visible={scheduleEditorVisible} onClose={() => setScheduleEditorVisible(false)} />
 
       <Modal
         visible={waterGoalModalVisible}

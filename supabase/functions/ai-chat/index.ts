@@ -14,13 +14,145 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+// ── Minimal iCal parser for class schedules ───────────────────────────────
+
+const ASSIGNMENT_KEYWORDS = /\b(due|quiz|exam|midterm|final|assignment|homework|test|submission|paper)\b/i;
+const RRULE_DAY_MAP: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+
+/** Check if ET is in EDT at the given UTC moment (US DST rules) */
+function isEDTEdge(d: Date): boolean {
+  const year = d.getUTCFullYear();
+  const mar1Day = new Date(Date.UTC(year, 2, 1)).getUTCDay();
+  const secondSun = 8 + ((7 - mar1Day) % 7);
+  const dstStart = Date.UTC(year, 2, secondSun, 7, 0, 0);
+  const nov1Day = new Date(Date.UTC(year, 10, 1)).getUTCDay();
+  const firstSun = 1 + ((7 - nov1Day) % 7);
+  const dstEnd = Date.UTC(year, 10, firstSun, 6, 0, 0);
+  return d.getTime() >= dstStart && d.getTime() < dstEnd;
+}
+
+/** Get ET date/time components from a UTC Date (server-safe, no device timezone dependency) */
+function toETComponents(d: Date): { year: number; month: number; day: number; hour: number; minute: number; dayOfWeek: number } {
+  const offsetH = isEDTEdge(d) ? -4 : -5;
+  const etMs = d.getTime() + offsetH * 3600000;
+  const et = new Date(etMs);
+  return {
+    year: et.getUTCFullYear(),
+    month: et.getUTCMonth(),
+    day: et.getUTCDate(),
+    hour: et.getUTCHours(),
+    minute: et.getUTCMinutes(),
+    dayOfWeek: et.getUTCDay(),
+  };
+}
+
+function parseICalDateEdge(val: string): Date {
+  // Strip TZID prefix if present (e.g. "TZID=America/New_York:20240115T093000")
+  const colonIdx = val.lastIndexOf(':');
+  const hasTZID = val.includes('TZID');
+  const dateStr = colonIdx >= 0 && hasTZID ? val.substring(colonIdx + 1) : val;
+  const clean = dateStr.replace(/[^0-9TZ]/g, "");
+  const year = parseInt(clean.substring(0, 4), 10);
+  const month = parseInt(clean.substring(4, 6), 10) - 1;
+  const day = parseInt(clean.substring(6, 8), 10);
+  const hour = parseInt(clean.substring(9, 11), 10) || 0;
+  const min = parseInt(clean.substring(11, 13), 10) || 0;
+  if (clean.endsWith("Z")) return new Date(Date.UTC(year, month, day, hour, min));
+  // TZID or bare local time — treat as America/New_York, convert to proper UTC
+  const estGuess = new Date(Date.UTC(year, month, day, hour + 5, min));
+  const offset = isEDTEdge(estGuess) ? 4 : 5;
+  return new Date(Date.UTC(year, month, day, hour + offset, min));
+}
+
+function formatTimeEdge(d: Date): string {
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+interface ClassInfo { name: string; start: string; end: string; location: string }
+
+function parseTodayClasses(icalText: string): ClassInfo[] {
+  const now = new Date();
+  // Use ET for "today" — server may be in UTC
+  const etNow = toETComponents(now);
+  const todayDow = etNow.dayOfWeek;
+  const todayDate = `${etNow.year}-${String(etNow.month + 1).padStart(2, "0")}-${String(etNow.day).padStart(2, "0")}`;
+
+  const unfolded = icalText.replace(/\r?\n[ \t]/g, "");
+  const blocks = unfolded.split("BEGIN:VEVENT");
+  const classes: ClassInfo[] = [];
+
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i].split("END:VEVENT")[0];
+    if (!block) continue;
+    const lines = block.split(/\r?\n/);
+    let summary = "", dtstart = "", dtend = "", location = "", rrule = "";
+
+    for (const line of lines) {
+      if (line.startsWith("SUMMARY")) summary = line.substring(line.indexOf(":") + 1).trim();
+      else if (line.startsWith("DTSTART")) {
+        dtstart = line.substring(line.indexOf(":") + 1).trim();
+        if (line.includes("TZID")) dtstart = line.substring(line.indexOf(";") + 1).trim();
+      } else if (line.startsWith("DTEND")) {
+        dtend = line.substring(line.indexOf(":") + 1).trim();
+        if (line.includes("TZID")) dtend = line.substring(line.indexOf(";") + 1).trim();
+      } else if (line.startsWith("LOCATION")) location = line.substring(line.indexOf(":") + 1).trim();
+      else if (line.startsWith("RRULE")) rrule = line.substring(line.indexOf(":") + 1).trim();
+    }
+
+    if (!summary || !dtstart || !dtend) continue;
+    if (ASSIGNMENT_KEYWORDS.test(summary)) continue;
+
+    const start = parseICalDateEdge(dtstart);
+    const end = parseICalDateEdge(dtend);
+    const durMin = (end.getTime() - start.getTime()) / 60000;
+    if (durMin < 20 || durMin > 240) continue;
+
+    // Get ET components for display and comparison
+    const etStart = toETComponents(start);
+    const etEnd = toETComponents(end);
+
+    // Check if this event occurs today
+    if (rrule.includes("FREQ=WEEKLY")) {
+      const byDayMatch = rrule.match(/BYDAY=([A-Z,]+)/);
+      const untilMatch = rrule.match(/UNTIL=([0-9TZ]+)/);
+      if (untilMatch) {
+        const until = parseICalDateEdge(untilMatch[1]);
+        if (until < now) continue;
+      }
+      let days: number[] = [];
+      if (byDayMatch) {
+        days = byDayMatch[1].split(",").map((d) => RRULE_DAY_MAP[d]).filter((d) => d !== undefined);
+      } else {
+        days = [etStart.dayOfWeek];
+      }
+      if (!days.includes(todayDow)) continue;
+      // Format display times using ET components (dummy Date for formatTimeEdge)
+      const displayStart = new Date(2000, 0, 1, etStart.hour, etStart.minute);
+      const displayEnd = new Date(2000, 0, 1, etEnd.hour, etEnd.minute);
+      classes.push({ name: summary, start: formatTimeEdge(displayStart), end: formatTimeEdge(displayEnd), location });
+    } else {
+      // Non-recurring: check if it's today in ET
+      const evDate = `${etStart.year}-${String(etStart.month + 1).padStart(2, "0")}-${String(etStart.day).padStart(2, "0")}`;
+      if (evDate !== todayDate) continue;
+      const displayStart = new Date(2000, 0, 1, etStart.hour, etStart.minute);
+      const displayEnd = new Date(2000, 0, 1, etEnd.hour, etEnd.minute);
+      classes.push({ name: summary, start: formatTimeEdge(displayStart), end: formatTimeEdge(displayEnd), location });
+    }
+  }
+
+  classes.sort((a, b) => a.start.localeCompare(b.start));
+  return classes;
+}
+
 /** Determine which meal periods to include based on the current hour (ET). */
 function getRelevantMealPeriods(): string[] {
-  // Convert UTC to approximate Eastern Time (UTC-5)
   const now = new Date();
-  const etHour =
-    now.getUTCHours() - 5 + (now.getUTCHours() < 5 ? 24 : 0);
-  const etMinutes = etHour * 60 + now.getUTCMinutes();
+  const et = toETComponents(now);
+  const etMinutes = et.hour * 60 + et.minute;
 
   if (etMinutes < 630) {
     // Before 10:30 AM
@@ -194,12 +326,24 @@ Deno.serve(async (req) => {
     if (mode === "meal_plan") {
       const schedule: { name: string; start: string; end: string; location?: string }[] = body.schedule ?? [];
       const goals = body.goals ?? { calories: 2000, protein: 100, carbs: 250, fat: 65 };
-      const preferences = body.preferences ?? { dietary: [], allergies: [] };
+      const rawPrefs = body.preferences ?? {};
+
+      // Defensive: dietary/allergies could be string, array, or null
+      const normArr = (val: unknown): string[] => {
+        if (Array.isArray(val)) return val.filter(Boolean);
+        if (typeof val === "string" && val.trim()) return val.split(",").map((s: string) => s.trim()).filter(Boolean);
+        return [];
+      };
+      const preferences = {
+        dietary: normArr(rawPrefs.dietary),
+        allergies: normArr(rawPrefs.allergies),
+      };
 
       // Rate limit: 3 meal plans per day via plan_count
       const PLAN_LIMIT = 3;
       const d = new Date();
-      const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const etComponents = toETComponents(d);
+      const todayStr = `${etComponents.year}-${String(etComponents.month + 1).padStart(2, "0")}-${String(etComponents.day).padStart(2, "0")}`;
 
       const { data: usageRow, error: usageError } = await adminClient
         .from("ai_usage")
@@ -237,6 +381,30 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Fetch class schedule from DB for today's ET day of week
+      const etNow = toETComponents(new Date());
+      let classScheduleStr = "No classes scheduled today";
+      try {
+        const { data: classRows } = await adminClient
+          .from("class_schedules")
+          .select("class_name, start_time, end_time")
+          .eq("user_id", userId)
+          .eq("day_of_week", etNow.dayOfWeek);
+        if (classRows && classRows.length > 0) {
+          const sorted = classRows.sort(
+            (a: { start_time: string | null }, b: { start_time: string | null }) =>
+              timeToMinutes(a.start_time) - timeToMinutes(b.start_time)
+          );
+          classScheduleStr = "Today's classes: " + sorted
+            .map((c: { class_name: string; start_time: string | null; end_time: string | null }) =>
+              `${c.class_name} (${c.start_time || "?"} - ${c.end_time || "?"})`
+            )
+            .join(", ");
+        }
+      } catch {
+        // Non-critical — continue without DB class schedule
+      }
+
       // Fetch today's full menu for the plan
       const { data: menuData } = await adminClient
         .from("menu_items")
@@ -254,7 +422,7 @@ Deno.serve(async (req) => {
 
       const scheduleBlock = schedule.length > 0
         ? `\n## User's Class Schedule Today\n${schedule.map((c) => `- ${c.start} - ${c.end}: ${c.name}${c.location ? ` (${c.location})` : ""}`).join("\n")}`
-        : "\nNo class schedule provided — suggest meals at typical times (8 AM, 12 PM, 6 PM).";
+        : `\n## User's Class Schedule Today\n${classScheduleStr}`;
 
       const dietaryBlock = preferences.dietary?.length > 0
         ? `Dietary preferences: ${preferences.dietary.join(", ")}`
@@ -421,6 +589,29 @@ Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation
       menuJson = JSON.stringify(truncated);
     }
 
+    // ── Fetch Canvas schedule for context ─────────────────────────────
+    let scheduleBlock = "";
+    try {
+      const { data: profileRow } = await adminClient
+        .from("profiles")
+        .select("canvas_ical_url")
+        .eq("id", userId)
+        .single();
+      const icalUrl = profileRow?.canvas_ical_url;
+      if (icalUrl) {
+        const icalResp = await fetch(icalUrl);
+        if (icalResp.ok) {
+          const icalText = await icalResp.text();
+          const todayClasses = parseTodayClasses(icalText);
+          if (todayClasses.length > 0) {
+            scheduleBlock = `\n## Today's Class Schedule\n${todayClasses.map((c) => `- ${c.start} - ${c.end}: ${c.name}${c.location ? ` (${c.location})` : ""}`).join("\n")}\n`;
+          }
+        }
+      }
+    } catch {
+      // Non-critical — continue without schedule
+    }
+
     const dietaryNeeds = profile?.dietary_needs ?? "none specified";
     const bodyGoal = profile?.goal ?? "not specified";
     const highProtein = profile?.high_protein ? "Yes — prioritize protein." : "";
@@ -436,7 +627,7 @@ ${highProtein ? `- High protein preference: ${highProtein}` : ""}
 ## Today's Progress
 - Consumed: ${consumed?.calories ?? 0} cal | ${consumed?.protein ?? 0}g P | ${consumed?.carbs ?? 0}g C | ${consumed?.fat ?? 0}g F
 - Remaining: ${remainCal} cal | ${remainP}g P | ${remainC}g C | ${remainF}g F
-
+${scheduleBlock}
 ## Available Menu Items (${relevantPeriods.join(" & ")})
 ${menuJson}
 

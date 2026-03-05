@@ -132,11 +132,14 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
         fat: profile?.goal_fat_g ?? 65,
       };
 
-      // Parse dietary needs string into arrays
-      const dietaryRaw: string = profile?.dietary_needs ?? '';
-      const dietary = dietaryRaw
-        ? dietaryRaw.split(',').map((s: string) => s.trim()).filter(Boolean)
-        : [];
+      // Parse dietary needs — handle string, array, or null
+      const dietaryRaw = profile?.dietary_needs;
+      let dietary: string[] = [];
+      if (Array.isArray(dietaryRaw)) {
+        dietary = dietaryRaw.filter(Boolean);
+      } else if (typeof dietaryRaw === 'string' && dietaryRaw.trim()) {
+        dietary = dietaryRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
 
       const preferences = { dietary, allergies: [] as string[] };
 

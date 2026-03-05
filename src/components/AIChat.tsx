@@ -48,6 +48,7 @@ interface AIChatProps {
   visible?: boolean;
   onClose?: () => void;
   onLogItem?: (item: MealItem) => void;
+  onPlanMyDay?: () => void;
 }
 
 // ── Time-aware helpers ───────────────────────────────────────────────────────
@@ -101,7 +102,7 @@ function getLocalDate(d = new Date()) {
 
 // ── Component ───────────────────────────────────────────────────────────────
 
-export default function AIChat({ mode = 'tab', visible = true, onClose, onLogItem }: AIChatProps) {
+export default function AIChat({ mode = 'tab', visible = true, onClose, onLogItem, onPlanMyDay }: AIChatProps) {
   const { colors } = useTheme();
   const isTab = mode === 'tab';
   const insets = useSafeAreaInsets();
@@ -343,6 +344,14 @@ export default function AIChat({ mode = 'tab', visible = true, onClose, onLogIte
                     I know today's menus, your goals, and what's open right now.
                   </Text>
                   <Box width="100%" style={{ marginTop: 32, gap: 8 }}>
+                    {onPlanMyDay && (
+                      <SuggestionCard
+                        icon="zap"
+                        title="Plan My Day"
+                        subtitle="AI-powered meal plan around your schedule"
+                        onPress={onPlanMyDay}
+                      />
+                    )}
                     {getTimeSuggestions().map((s) => (
                       <SuggestionCard
                         key={s.title}

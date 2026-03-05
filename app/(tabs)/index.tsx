@@ -33,8 +33,6 @@ import ErrorState from '@/src/components/ErrorState';
 import BarcodeScannerModal from '@/src/components/BarcodeScannerModal';
 import AIMealLogModal from '@/src/components/AIMealLogModal';
 import FloatingAddButton from '@/src/components/FloatingAddButton';
-import MealPlanView from '@/src/components/MealPlanView';
-import { useSubscription } from '@/src/context/SubscriptionContext';
 
 // Data utilities
 import { requireUserId } from '@/src/utils/auth';
@@ -45,7 +43,6 @@ import { logBelongsToMealGroup, getCurrentMealPeriod, getEffectiveMenuDate } fro
 import { getTodayWater, addWater, getWaterGoal } from '@/src/utils/water';
 import { getAllHallStatuses } from '@/src/utils/hours';
 import { triggerHaptic } from '@/src/utils/haptics';
-import { fetchAndParseCalendar, getTodayEvents, getMealWindows, CalendarEvent } from '@/src/utils/calendar';
 import {
   getFavoritesToday,
   getFitsYourMacros,
@@ -124,8 +121,6 @@ interface OpenHall {
 export default function HomeScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { isPremium } = useSubscription();
-  const [showMealPlan, setShowMealPlan] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [logs, setLogs] = useState<MealLog[]>([]);
   const [customMeals, setCustomMeals] = useState<CustomMeal[]>([]);
@@ -149,8 +144,7 @@ export default function HomeScreen() {
   const [editingMeal, setEditingMeal] = useState<EditingMeal | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showDescribe, setShowDescribe] = useState(false);
-  const [todayClasses, setTodayClasses] = useState<CalendarEvent[]>([]);
-  const [hasCanvasLinked, setHasCanvasLinked] = useState(false);
+  const [classSchedule, setClassSchedule] = useState<{ id: string; class_name: string; start_time: string; end_time: string }[]>([]);
 
   // ─── Celebration state ───
   const [showConfetti, setShowConfetti] = useState(false);
@@ -190,7 +184,9 @@ export default function HomeScreen() {
         const cached = JSON.parse(raw);
         const today = getLocalDate();
         if (cached.date !== today) return; // stale cache from different day
-        if (cached.profile) setProfile(cached.profile);
+        if (cached.profile) {
+          setProfile(cached.profile);
+        }
         if (cached.logs) setLogs(cached.logs);
         if (cached.customMeals) setCustomMeals(cached.customMeals);
         if (cached.waterOz != null) setWaterOz(cached.waterOz);
@@ -284,7 +280,7 @@ export default function HomeScreen() {
       const menuDate = await getEffectiveMenuDate();
 
       const [profileRes, logsRes, , waterCount, waterGoalRes, hallStatusMap, streakResult, customMealsRes] = await Promise.all([
-        supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g, canvas_ical_url').eq('id', userId).single(),
+        supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g').eq('id', userId).single(),
         supabase
           .from('meal_logs')
           .select('id, servings, meal, created_at, menu_items(id, name, station, nutrition(calories, protein_g, total_carbs_g, total_fat_g))')
@@ -312,20 +308,18 @@ export default function HomeScreen() {
       if (hallStatusMap) setOpenHalls(hallStatusMap);
       if (streakResult) setStreakData(streakResult);
 
-      // Canvas Calendar — load today's classes if linked
-      const icalUrl = (profileRes.data as any)?.canvas_ical_url;
-      if (icalUrl) {
-        setHasCanvasLinked(true);
-        try {
-          const weekEvents = await fetchAndParseCalendar(icalUrl);
-          setTodayClasses(getTodayEvents(weekEvents));
-        } catch (e) {
-          if (__DEV__) console.warn('[Canvas] Failed to load calendar:', e);
-          setTodayClasses([]);
-        }
-      } else {
-        setHasCanvasLinked(false);
-        setTodayClasses([]);
+      // Load today's class schedule from Supabase
+      try {
+        const dayOfWeek = new Date().getDay(); // 0=Sun through 6=Sat
+        const { data: scheduleData } = await supabase
+          .from('class_schedules')
+          .select('id, class_name, start_time, end_time')
+          .eq('user_id', userId)
+          .eq('day_of_week', dayOfWeek)
+          .order('start_time', { ascending: true });
+        setClassSchedule(scheduleData ?? []);
+      } catch {
+        setClassSchedule([]);
       }
 
       // Save dashboard snapshot to AsyncStorage for instant next load
@@ -667,29 +661,6 @@ export default function HomeScreen() {
           </Box>
         </Box>
 
-        {/* Plan My Day button — premium only */}
-        {isPremium && (
-          <TouchableOpacity
-            onPress={() => setShowMealPlan(true)}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.maroon,
-              paddingVertical: 12,
-              paddingHorizontal: 20,
-              borderRadius: 14,
-              marginBottom: 16,
-            }}
-          >
-            <Feather name="zap" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={{ fontSize: 15, fontFamily: 'DMSans_600SemiBold', color: '#FFFFFF' }}>
-              Plan My Day
-            </Text>
-          </TouchableOpacity>
-        )}
-
         {/* 2. SpiralRings hero (has its own animation — NOT in StaggeredList) */}
         <Box alignItems="center" style={{ paddingTop: 16 }} marginBottom="s">
           <SpiralRings
@@ -736,121 +707,60 @@ export default function HomeScreen() {
           {/* Divider between WaterTracker and For You */}
           <Box style={{ height: 1, backgroundColor: colors.border, marginHorizontal: -4, marginBottom: 24 }} />
 
-          {/* Today's Schedule — only if Canvas linked */}
-          {hasCanvasLinked && (
-            <>
-              <Box
-                style={{
-                  marginBottom: 24,
-                  borderRadius: 14,
-                  backgroundColor: colors.cardGlass,
-                  borderColor: colors.cardGlassBorder,
-                  borderWidth: 1,
-                  padding: 16,
-                }}
-              >
-                {/* Header */}
-                <Box flexDirection="row" alignItems="center" style={{ marginBottom: 14 }}>
-                  <Feather name="calendar" size={16} color={colors.maroon} style={{ marginRight: 8 }} />
-                  <Text
-                    style={{ fontSize: 16, fontFamily: 'Outfit_700Bold', color: colors.text }}
-                  >
-                    Today's Schedule
-                  </Text>
-                </Box>
+          {/* Today's Schedule */}
+          <Box
+            style={{
+              marginBottom: 24,
+              borderRadius: 14,
+              backgroundColor: colors.cardGlass,
+              borderColor: colors.cardGlassBorder,
+              borderWidth: 1,
+              padding: 16,
+            }}
+          >
+            {/* Header */}
+            <Box flexDirection="row" alignItems="center" style={{ marginBottom: 14 }}>
+              <Feather name="calendar" size={16} color={colors.maroon} style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 16, fontFamily: 'Outfit_700Bold', color: colors.text }}>
+                Today's Schedule
+              </Text>
+            </Box>
 
-                {todayClasses.length === 0 ? (
-                  <Box alignItems="center" style={{ paddingVertical: 12 }}>
-                    <Text style={{ fontSize: 14, fontFamily: 'DMSans_400Regular', color: colors.textMuted }}>
-                      No classes today — flexible meal schedule
+            {classSchedule.length === 0 ? (
+              <Box alignItems="center" style={{ paddingVertical: 12 }}>
+                <Text style={{ fontSize: 14, fontFamily: 'DMSans_400Regular', color: colors.textMuted }}>
+                  No classes today — flexible meal schedule
+                </Text>
+              </Box>
+            ) : (
+              <Box>
+                {classSchedule.map((cls, idx) => (
+                  <Box
+                    key={cls.id}
+                    flexDirection="row"
+                    alignItems="center"
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 4,
+                      borderBottomWidth: idx < classSchedule.length - 1 ? 1 : 0,
+                      borderBottomColor: colors.borderLight,
+                    }}
+                  >
+                    <Box style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.maroon, marginRight: 10 }} />
+                    <Text style={{ fontSize: 13, fontFamily: 'DMSans_500Medium', color: colors.textMuted, width: 110 }}>
+                      {cls.start_time} - {cls.end_time}
+                    </Text>
+                    <Text style={{ fontSize: 14, fontFamily: 'DMSans_600SemiBold', color: colors.text, flex: 1 }} numberOfLines={1}>
+                      {cls.class_name}
                     </Text>
                   </Box>
-                ) : (
-                  <Box>
-                    {todayClasses.map((cls, idx) => {
-                      const mealWindows = getMealWindows(todayClasses);
-                      // Check if there's a meal window BEFORE this class (gap between previous class end and this class start)
-                      const windowBefore = idx > 0
-                        ? mealWindows.find(
-                            (w) => w.startTime === todayClasses[idx - 1].endTime && w.endTime === cls.startTime
-                          )
-                        : null;
-
-                      return (
-                        <React.Fragment key={`${cls.name}-${idx}`}>
-                          {/* Meal window gap */}
-                          {windowBefore && (
-                            <Box
-                              flexDirection="row"
-                              alignItems="center"
-                              style={{ paddingVertical: 8, paddingLeft: 4 }}
-                            >
-                              <Box style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginRight: 10 }} />
-                              <Text style={{ fontSize: 12, fontFamily: 'DMSans_500Medium', color: colors.green }}>
-                                Meal window · {windowBefore.durationMin} min
-                              </Text>
-                            </Box>
-                          )}
-
-                          {/* Class row */}
-                          <Box
-                            flexDirection="row"
-                            alignItems="center"
-                            style={{
-                              paddingVertical: 10,
-                              paddingHorizontal: 4,
-                              borderBottomWidth: idx < todayClasses.length - 1 && !mealWindows.find(
-                                (w) => w.startTime === cls.endTime && w.endTime === todayClasses[idx + 1]?.startTime
-                              ) ? 1 : 0,
-                              borderBottomColor: colors.borderLight,
-                            }}
-                          >
-                            {/* Time dot */}
-                            <Box style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.maroon, marginRight: 10 }} />
-                            {/* Time range */}
-                            <Text style={{ fontSize: 13, fontFamily: 'DMSans_500Medium', color: colors.textMuted, width: 110 }}>
-                              {cls.startTime} - {cls.endTime}
-                            </Text>
-                            {/* Class name */}
-                            <Text style={{ fontSize: 14, fontFamily: 'DMSans_600SemiBold', color: colors.text, flex: 1 }} numberOfLines={1}>
-                              {cls.name}
-                            </Text>
-                            {/* Location */}
-                            {!!cls.location && (
-                              <Text style={{ fontSize: 12, fontFamily: 'DMSans_400Regular', color: colors.textDim, marginLeft: 8 }} numberOfLines={1}>
-                                {cls.location}
-                              </Text>
-                            )}
-                          </Box>
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {/* Meal window after last class */}
-                    {(() => {
-                      const mealWindows = getMealWindows(todayClasses);
-                      const lastWindow = mealWindows.length > 0 ? mealWindows[mealWindows.length - 1] : null;
-                      const lastClass = todayClasses[todayClasses.length - 1];
-                      if (lastWindow && lastWindow.startTime === lastClass.endTime) {
-                        return (
-                          <Box flexDirection="row" alignItems="center" style={{ paddingVertical: 8, paddingLeft: 4 }}>
-                            <Box style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginRight: 10 }} />
-                            <Text style={{ fontSize: 12, fontFamily: 'DMSans_500Medium', color: colors.green }}>
-                              Meal window · {lastWindow.durationMin} min
-                            </Text>
-                          </Box>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </Box>
-                )}
+                ))}
               </Box>
+            )}
+          </Box>
 
-              {/* Divider after schedule */}
-              <Box style={{ height: 1, backgroundColor: colors.border, marginHorizontal: -4, marginBottom: 24 }} />
-            </>
-          )}
+          {/* Divider after schedule */}
+          <Box style={{ height: 1, backgroundColor: colors.border, marginHorizontal: -4, marginBottom: 24 }} />
 
           {/* 6. ForYouSection — 40px gap + divider below before Today's Meals */}
           <Box style={{ marginBottom: 40 }}>
@@ -969,13 +879,6 @@ export default function HomeScreen() {
         visible={showDescribe}
         onClose={() => setShowDescribe(false)}
         onLogged={() => { setShowDescribe(false); loadData(); }}
-      />
-
-      {/* Meal Plan Modal */}
-      <MealPlanView
-        visible={showMealPlan}
-        onClose={() => setShowMealPlan(false)}
-        onLogged={() => { setShowMealPlan(false); loadData(); }}
       />
 
       {/* Floating Action Button */}
