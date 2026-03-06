@@ -387,6 +387,31 @@ export default function HomeScreen() {
     }
   };
 
+  const clearMealPeriod = async (mealPeriod: string) => {
+    try {
+      const userId = await requireUserId();
+      const today = getLocalDate();
+
+      const logIds = logs.filter((l) => logBelongsToMealGroup(l.meal, mealPeriod)).map((l) => l.id);
+      const customIds = customMeals.filter((m) => m.meal_period === mealPeriod).map((m) => m.id);
+
+      if (logIds.length > 0) {
+        const { error } = await supabase.from('meal_logs').delete().in('id', logIds).eq('user_id', userId).eq('date', today);
+        if (error) { Alert.alert('Error', 'Failed to clear meal logs. Please try again.'); return; }
+      }
+      if (customIds.length > 0) {
+        const { error } = await supabase.from('custom_meals').delete().in('id', customIds).eq('user_id', userId).eq('date', today);
+        if (error) { Alert.alert('Error', 'Failed to clear custom meals. Please try again.'); return; }
+      }
+
+      setLogs((prev) => prev.filter((l) => !logIds.includes(l.id)));
+      setCustomMeals((prev) => prev.filter((m) => !customIds.includes(m.id)));
+    } catch (e) {
+      if (__DEV__) console.error('Clear meal period error:', e);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
   const deleteCustomMeal = async (mealId: string) => {
     try {
       const userId = await requireUserId();
@@ -815,6 +840,7 @@ export default function HomeScreen() {
               onBrowseMeal={(meal) => router.push({ pathname: '/(tabs)/browse', params: { meal } })}
               onEditDiningLog={handleEditDiningLog}
               onEditCustomMeal={handleEditCustomMeal}
+              onClearMeal={clearMealPeriod}
             />
           </Box>
         </StaggeredList>

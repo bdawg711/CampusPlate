@@ -8,7 +8,6 @@ import Animated, {
 
 import { Box, Text } from '../theme/restyleTheme';
 import { useTheme } from '@/src/context/ThemeContext';
-import AnimatedNumber from './AnimatedNumber';
 import GradientText from './GradientText';
 import MetallicShimmer from './MetallicShimmer';
 import type { ScoreBreakdown } from '../utils/dailyScore';
@@ -127,6 +126,22 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
     }
   }, [showGold, shimmerPlayed]);
 
+  // Point color coding
+  function getPtsColor(points: number, max: number): string {
+    if (max === 0) return C.textDim;
+    const ratio = points / max;
+    if (ratio >= 0.8) return ACCENT.success;
+    if (ratio >= 0.5) return ACCENT.warning;
+    return ACCENT.error;
+  }
+
+  const AVG_COLS = detailData ? [
+    { label: 'Avg Calories', value: formatNum(detailData.calories.actual), unit: 'cal', goal: formatNum(detailData.calories.goal) },
+    { label: 'Avg Protein', value: formatNum(detailData.protein.actual), unit: 'g', goal: formatNum(detailData.protein.goal) },
+    { label: 'Avg Carbs', value: formatNum(detailData.carbs.actual), unit: 'g', goal: formatNum(detailData.carbs.goal) },
+    { label: 'Avg Fat', value: formatNum(detailData.fat.actual), unit: 'g', goal: formatNum(detailData.fat.goal) },
+  ] : [];
+
   return (
     <Box
       backgroundColor="card"
@@ -136,8 +151,47 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
       padding="l"
       style={{ overflow: 'hidden' }}
     >
-      {/* Header: Percentage + label */}
-      <Box flexDirection="row" alignItems="baseline" style={{ gap: 10, marginBottom: 16 }}>
+      {/* Block title */}
+      <Text
+        style={{
+          fontSize: 12,
+          fontFamily: 'DMSans_700Bold',
+          letterSpacing: 1.5,
+          color: C.textMuted,
+          opacity: 0.3,
+          textTransform: 'uppercase',
+          marginBottom: 16,
+        }}
+      >
+        THIS WEEK'S DAILY AVERAGE
+      </Text>
+
+      {/* Top row: 4-column weekly average grid */}
+      {detailData && (
+        <Box flexDirection="row" style={{ marginBottom: 16 }}>
+          {AVG_COLS.map((item, i) => (
+            <Box key={i} style={{ flex: 1, alignItems: 'center' }}>
+              <Box flexDirection="row" alignItems="baseline">
+                <Text style={{ fontSize: 18, fontFamily: 'Outfit_700Bold', color: C.text }}>
+                  {item.value}
+                </Text>
+                <Text style={{ fontSize: 11, fontFamily: 'DMSans_500Medium', color: C.textMuted, marginLeft: 2 }}>
+                  {item.unit}
+                </Text>
+              </Box>
+              <Text style={{ fontSize: 10, fontFamily: 'DMSans_400Regular', color: C.textDim, marginTop: 2 }}>
+                of {item.goal}
+              </Text>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {/* Divider */}
+      <Box style={{ height: 1, backgroundColor: C.border, marginBottom: 16 }} />
+
+      {/* Large % score */}
+      <Box alignItems="center" style={{ marginBottom: 16 }}>
         <View style={{ position: 'relative' }}>
           {showGold ? (
             <>
@@ -166,80 +220,53 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
             </Text>
           )}
         </View>
-        <Text
-          variant="body"
-          style={{ color: C.textMuted }}
-        >
+        <Text variant="body" style={{ color: C.textMuted }}>
           of daily goal
         </Text>
       </Box>
 
-      {/* Breakdown bars with real numbers */}
-      <Box style={{ gap: 12 }}>
+      {/* Breakdown rows */}
+      <Box style={{ gap: 10 }}>
         {CATEGORIES.map((cat) => {
           const entry = breakdown[cat.key];
-          // Use actual intake ratio for bar fill (pct for macros, count/3 for meals)
-          const intakeRatio = cat.key === 'meals'
-            ? Math.min(((entry as any).count ?? 0) / 3, 1)
-            : Math.min((entry as any).pct ?? 0, 1);
-          const fillPct = Math.min(intakeRatio * 100, 100);
-          const isLowest = cat.key === lowestKey;
-          const barColor = isLowest ? C.gold : C.maroon;
           const detail = getDetailText(cat.key, detailData, cat.unit);
+          const ptsColor = getPtsColor(entry.points, entry.max);
 
           return (
-            <Box key={cat.key}>
-              {/* Label row: "Calories · 1/40 · 3,061 of 3,387 cal" */}
-              <Box flexDirection="row" alignItems="center" style={{ marginBottom: 4, gap: 6 }}>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontFamily: isLowest ? 'DMSans_700Bold' : 'DMSans_500Medium',
-                    color: isLowest ? C.gold : C.textMuted,
-                  }}
-                >
-                  {cat.label}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontFamily: 'DMSans_500Medium',
-                    color: C.textDim,
-                  }}
-                >
-                  {entry.points}/{entry.max}
-                </Text>
-                {detail && (
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'DMSans_400Regular',
-                      color: C.textDim,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {detail}
-                  </Text>
-                )}
-              </Box>
-              {/* Bar */}
-              <Box
+            <Box key={cat.key} flexDirection="row" alignItems="center">
+              {/* Label */}
+              <Text
                 style={{
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: C.silverLight,
-                  overflow: 'hidden',
+                  fontSize: 13,
+                  fontFamily: 'DMSans_500Medium',
+                  color: C.text,
+                  width: 65,
                 }}
               >
-                <Box
-                  style={{
-                    height: 6,
-                    borderRadius: 3,
-                    width: `${fillPct}%` as any,
-                    backgroundColor: barColor,
-                  }}
-                />
-              </Box>
+                {cat.label}
+              </Text>
+              {/* Actual of goal */}
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: 'DMSans_400Regular',
+                  color: C.textMuted,
+                  flex: 1,
+                }}
+                numberOfLines={1}
+              >
+                {detail ?? '\u2014'}
+              </Text>
+              {/* Pts earned — color coded */}
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: 'DMSans_600SemiBold',
+                  color: ptsColor,
+                }}
+              >
+                {entry.points}/{entry.max} pts
+              </Text>
             </Box>
           );
         })}

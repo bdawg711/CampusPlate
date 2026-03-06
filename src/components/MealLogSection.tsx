@@ -1,7 +1,8 @@
 import React from 'react';
-import { TouchableOpacity } from 'react-native';
+import { Alert, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '../theme/restyleTheme';
+import { useTheme } from '../context/ThemeContext';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ interface MealLogSectionProps {
   onDeleteCustomMeal?: (id: string) => void;
   onEditDiningLog?: (log: MealLog) => void;
   onEditCustomMeal?: (meal: CustomMeal) => void;
+  onClearMeal?: (mealPeriod: string) => void;
 }
 
 // ── Meal groups config ──────────────────────────────────────────────────────
@@ -94,7 +96,9 @@ export default function MealLogSection({
   onDeleteCustomMeal,
   onEditDiningLog,
   onEditCustomMeal,
+  onClearMeal,
 }: MealLogSectionProps) {
+  const { colors } = useTheme();
   // Filter out Snack group if there are no custom snack meals
   const hasSnackCustom = customMeals.some((m) => m.meal_period === 'Snack');
   const visibleGroups = MEAL_GROUPS.filter(
@@ -137,9 +141,30 @@ export default function MealLogSection({
         return (
           <Box key={group.key} marginBottom="m">
             {/* Section header */}
-            <Text variant="sectionHeader" marginBottom="s">
-              {group.label} — {mealCals} CAL
-            </Text>
+            <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom="s">
+              <Text variant="sectionHeader">
+                {group.label} — {mealCals} CAL
+              </Text>
+              {totalItems > 0 && onClearMeal && (
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      `Clear ${group.key}?`,
+                      `Delete all ${totalItems} logged item${totalItems > 1 ? 's' : ''} for ${group.labelLower}.`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete All', style: 'destructive', onPress: () => onClearMeal(group.key) },
+                      ]
+                    );
+                  }}
+                  accessibilityLabel={`Clear all ${group.labelLower}`}
+                  accessibilityRole="button"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="trash-2" size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </Box>
 
             {totalItems === 0 ? (
               /* Compact empty state — single line ~40px */

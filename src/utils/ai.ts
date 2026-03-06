@@ -178,7 +178,9 @@ export async function estimateMeal(description: string): Promise<EstimatedMeal> 
 // ── Meal Plan types ──────────────────────────────────────────────────────────
 
 export interface MealPlanItem {
+  id?: number;
   name: string;
+  station?: string;
   calories: number;
   protein: number;
   carbs: number;

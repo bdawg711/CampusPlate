@@ -458,7 +458,9 @@ Adjust timing around class schedule if provided.
 - Use ONLY items from today's menus provided below
 - Respect dietary preferences and allergies
 - Suggest specific dining halls for each meal
+- For each item, you MUST include the exact numeric id field from the menu data provided. This is critical — do not omit the id or make up an id.
 - For each item, include the station name from the menu data so students know exactly where to find it inside the dining hall
+- Before selecting any item, check its fat content from the menu data. Do not select any single item with fat_g greater than 30% of the user's daily fat goal (${Math.round(goals.fat * 0.3)}g per item max). If a meal type has no low-fat options, pick the lowest fat item available.
 - If you cannot build a plan within the calorie target using available items, pick the closest options and note it briefly in the tip — do not exceed the goal
 - ${dietaryBlock}
 - ${allergyBlock}
@@ -474,7 +476,7 @@ Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation
       "type": "Breakfast",
       "time": "8:00 AM",
       "location": "D2",
-      "items": [{ "name": "Scrambled Eggs", "station": "Breakfast Bar", "calories": 180, "protein": 12, "carbs": 2, "fat": 14 }],
+      "items": [{ "id": 12345, "name": "Scrambled Eggs", "station": "Breakfast Bar", "calories": 180, "protein": 12, "carbs": 2, "fat": 14 }],
       "totalCalories": 450,
       "note": "Before your 9:30 CS class"
     }

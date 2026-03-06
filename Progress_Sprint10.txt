@@ -21,15 +21,15 @@ PART 1 — MEAL PLAN PERSISTENCE
 PART 2 — PROGRESS TAB DAILY GOAL BLOCK REDESIGN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Remove confusing "0/40 0 of X" combined points+value format
-[ ] Add weekly average row (Calories, Protein, Carbs, Fat)
+[x] Remove confusing "0/40 0 of X" combined points+value format
+[x] Add weekly average row (Calories, Protein, Carbs, Fat)
     showing actual avg values with "of [goal]" underneath
-[ ] Redesign score breakdown to show:
+[x] Redesign score breakdown to show:
     [Macro] [actual] of [goal] [pts]/[max pts] per row
-[ ] Color code each row: green >= 80%, yellow 50-79%, red < 50%
-[ ] Keep overall % score prominent at top
-[ ] Keep tip text at bottom
-[ ] No calculation logic changes — display only
+[x] Color code each row: green >= 80%, yellow 50-79%, red < 50%
+[x] Keep overall % score prominent at top
+[x] Keep tip text at bottom
+[x] No calculation logic changes — display only
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 KNOWN RISKS

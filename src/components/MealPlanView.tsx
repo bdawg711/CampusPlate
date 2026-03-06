@@ -237,17 +237,52 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
       const d = new Date();
       const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-      // Log each item as a custom meal
-      const inserts = meal.items.map((item) => ({
-        user_id: userId,
-        name: item.name,
-        calories: Math.round(item.calories),
-        protein_g: Math.round(item.protein),
-        total_carbs_g: Math.round(item.carbs),
-        total_fat_g: Math.round(item.fat),
-        meal_period: meal.type,
-        date: today,
-      }));
+      // Collect item ids that exist so we can look up real nutrition
+      const itemIds = meal.items
+        .map((item) => item.id)
+        .filter((id): id is number => typeof id === 'number');
+
+      // Batch-fetch actual nutrition for all items with ids
+      let nutritionMap = new Map<number, { calories: number; protein_g: number; total_carbs_g: number; total_fat_g: number }>();
+      if (itemIds.length > 0) {
+        try {
+          const { data: menuRows } = await supabase
+            .from('menu_items')
+            .select('id, nutrition(calories, protein_g, total_carbs_g, total_fat_g)')
+            .in('id', itemIds);
+
+          if (menuRows) {
+            for (const row of menuRows) {
+              const n = (row as any).nutrition;
+              if (n) {
+                nutritionMap.set(row.id, {
+                  calories: n.calories ?? 0,
+                  protein_g: n.protein_g ?? 0,
+                  total_carbs_g: n.total_carbs_g ?? 0,
+                  total_fat_g: n.total_fat_g ?? 0,
+                });
+              }
+            }
+          }
+        } catch {
+          // Lookup failed — fall back to AI values for all items
+        }
+      }
+
+      // Log each item as a custom meal, using DB nutrition when available
+      const inserts = meal.items.map((item) => {
+        const dbNutrition = item.id ? nutritionMap.get(item.id) : undefined;
+        return {
+          user_id: userId,
+          name: item.name,
+          calories: Math.round(dbNutrition?.calories ?? item.calories),
+          protein_g: Math.round(dbNutrition?.protein_g ?? item.protein),
+          total_carbs_g: Math.round(dbNutrition?.total_carbs_g ?? item.carbs),
+          total_fat_g: Math.round(dbNutrition?.total_fat_g ?? item.fat),
+          meal_period: meal.type,
+          date: today,
+        };
+      });
 
       const { error: insertErr } = await supabase.from('custom_meals').insert(inserts);
       if (insertErr) {
