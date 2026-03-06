@@ -9,66 +9,68 @@ Do not mark a task complete unless it has been tested and confirmed working.
 PART 1 — src/utils/nutrition.ts
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Add extra_active to ActivityLevel type (multiplier 1.9)
-[ ] Replace percent-based goal multipliers with fixed kcal offsets
+[x] Add extra_active to ActivityLevel type (multiplier 1.9)
+[x] Replace percent-based goal multipliers with fixed kcal offsets
     moderate_cut → -300, aggressive_cut → -500, maintain → 0,
     lean_bulk → +300, aggressive_bulk → +500
-[ ] Add aggressive_bulk to GoalType type
-[ ] Add calculateTargetCalories() with guardrails
+[x] Add aggressive_bulk to GoalType type
+[x] Add calculateTargetCalories() with guardrails
     (female min 1200, male min 1500, max 4500)
-[ ] Keep calculateTDEE() unchanged (Mifflin-St Jeor already correct)
-[ ] Remove getWeeklyProjection() or keep as-is (do not break callers)
+[x] Keep calculateTDEE() unchanged (Mifflin-St Jeor already correct)
+[x] Remove getWeeklyProjection() or keep as-is (do not break callers)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PART 2 — src/utils/goals.ts
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Remove 0.8g/lb flat protein rule
-[ ] Implement protein g/kg by goal
+[x] Remove 0.8g/lb flat protein rule
+[x] Implement protein g/kg by goal
     moderate_cut 2.1, aggressive_cut 2.3, maintain 1.7,
     lean_bulk 1.8, aggressive_bulk 1.75
-[ ] Implement fat % by goal
+[x] Implement fat % by goal
     moderate_cut 25%, aggressive_cut 25%, maintain 30%,
     lean_bulk 27%, aggressive_bulk 25%
-[ ] Implement carb backfill (calories - protein - fat)
-[ ] Add edge case: if carbs_g < 0 reduce fat 5% and recalculate once
-[ ] Remove high_protein boolean from calculation logic
-[ ] Update recalculateGoals() signature to accept all profile fields
-[ ] Add getProteinRange(goal, weight_kg) → { min, max }
-[ ] Water goal: clamp(weight_lbs, 64, 160) instead of flat 64oz
+[x] Implement carb backfill (calories - protein - fat)
+[x] Add edge case: if carbs_g < 0 reduce fat 5% and recalculate once
+[x] Remove high_protein boolean from calculation logic
+[x] Update recalculateGoals() signature to accept all profile fields
+[x] Add getProteinRange(goal, weight_kg) → { min, max }
+[x] Water goal: clamp(weight_lbs, 64, 160) instead of flat 64oz
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PART 3 — app/onboarding.tsx
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Remove current motivational follow-up step
-[ ] Add intensity step (shown only for lose/build goals)
+[x] Remove current motivational follow-up step
+[x] Add intensity step (shown only for lose/build goals)
     lose: Steady (-300) / Aggressive (-500)
     build: Lean (+300) / Aggressive (+500)
-[ ] Add extra_active option to activity level selector
-[ ] Update getGoalType() to map goal + intensity → GoalType
-[ ] Confirm aggressive_bulk saves correctly to profiles.goal
-[ ] Water goal on onboarding uses new bodyweight-based default
+[x] Add extra_active option to activity level selector
+[x] Update getGoalType() to map goal + intensity → GoalType
+[x] Confirm aggressive_bulk saves correctly to profiles.goal
+[x] Water goal on onboarding uses new bodyweight-based default
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PART 4 — src/components/EditGoals.tsx
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Add "Recalculate Goals" button
-[ ] Fetch full profile, run recalculateGoals()
-[ ] Show preview of new numbers before saving
-[ ] On Apply: save to Supabase and update local state
-[ ] On Cancel: dismiss with no changes
+[x] Add "Recalculate Goals" button
+[x] Fetch full profile, run recalculateGoals()
+[x] Show preview of new numbers before saving
+[x] On Apply: save to Supabase and update local state
+[x] On Cancel: dismiss with no changes
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PART 5 — src/components/EditProfile.tsx
+PART 5 — Weight Recalibration Prompt
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NOTE: Implemented in app/(tabs)/progress.tsx (logWeight function)
+instead of EditProfile.tsx — this is the primary weight logging flow.
 
-[ ] After saving new weight, compare to profiles.weight_lbs
-[ ] If difference >= 5 lbs: show recalibration Alert
-[ ] On "Recalculate": run recalculateGoals(), save to Supabase
-[ ] On "Not now": dismiss silently
-[ ] If difference < 5 lbs: save silently, no alert
+[x] After saving new weight, compare to profiles.weight
+[x] If difference >= 5 lbs: show recalibration Alert
+[x] On "Recalculate": run recalculateGoals(), save to Supabase
+[x] On "Not now": dismiss silently
+[x] If difference < 5 lbs: save silently, no alert
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 KNOWN RISKS

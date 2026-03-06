@@ -23,6 +23,7 @@ import {
   calculateTDEE,
   getWeeklyProjection,
 } from '@/src/utils/nutrition';
+import { calculateWaterGoal } from '@/src/utils/goals';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -151,11 +152,11 @@ export default function OnboardingScreen({ onComplete }: Props) {
 
   // Step 2
   const [goal, setGoal] = useState<'lose' | 'maintain' | 'build' | null>(null);
+  // Step 2 — intensity (only for lose/build)
+  const [intensity, setIntensity] = useState<'steady' | 'aggressive' | 'lean' | null>(null);
   // Step 3
-  const [followUp, setFollowUp] = useState<number | null>(null);
-  // Step 4
   const [activityLevel, setActivityLevel] = useState<number | null>(null);
-  const activityKeys: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'active'];
+  const activityKeys: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'very_active', 'extra_active'];
   // Step 5
   const [weight, setWeight] = useState('');
   const [heightFt, setHeightFt] = useState('');
@@ -175,10 +176,14 @@ export default function OnboardingScreen({ onComplete }: Props) {
   // Water goal
   const [waterGoalOz, setWaterGoalOz] = useState<number>(64);
 
-  const totalSteps = 10;
-  const progress = (step + 1) / totalSteps;
+  const hasIntensityStep = goal === 'lose' || goal === 'build';
+  const totalVisibleSteps = hasIntensityStep ? 10 : 9;
+  const displayStep = (!hasIntensityStep && step > 1) ? step - 1 : step;
 
-  const next = () => setStep((s) => Math.min(s + 1, totalSteps - 1));
+  const next = () => setStep((s) => {
+    if (s === 1 && goal === 'maintain') return 3;
+    return Math.min(s + 1, 9);
+  });
 
   const getHeightCm = () => {
     const ft = parseInt(heightFt) || 0;
@@ -189,8 +194,8 @@ export default function OnboardingScreen({ onComplete }: Props) {
   const getWeightKg = () => Math.round((parseFloat(weight) || 150) * 0.453592);
 
   const getGoalType = (): GoalType => {
-    if (goal === 'lose') return 'moderate_cut';
-    if (goal === 'build') return 'lean_bulk';
+    if (goal === 'lose') return intensity === 'aggressive' ? 'aggressive_cut' : 'moderate_cut';
+    if (goal === 'build') return intensity === 'aggressive' ? 'aggressive_bulk' : 'lean_bulk';
     return 'maintain';
   };
 
@@ -320,49 +325,26 @@ export default function OnboardingScreen({ onComplete }: Props) {
           </View>
         );
 
-      // ── Step 2: Goal follow-up ──
+      // ── Step 2: Intensity (lose/build only — maintain skips via next()) ──
       case 2: {
-        let title = '';
-        let sub = '';
-        let options: { icon: string; label: string }[] = [];
-        if (goal === 'lose') {
-          title = "What's held you back?";
-          sub = 'No judgment — most students feel the same way.';
-          options = [
-            { icon: 'clock', label: 'Busy schedule' },
-            { icon: 'help-circle', label: "Don't know what to eat" },
-            { icon: 'bar-chart-2', label: 'Hard to track consistently' },
-            { icon: 'play', label: 'Just getting started' },
-          ];
-        } else if (goal === 'build') {
-          title = "What's your training focus?";
-          sub = '';
-          options = [
-            { icon: 'target', label: 'Hypertrophy' },
-            { icon: 'award', label: 'Strength' },
-            { icon: 'zap', label: 'Sport performance' },
-            { icon: 'activity', label: 'General fitness' },
-          ];
-        } else {
-          title = 'What matters most to you?';
-          sub = '';
-          options = [
-            { icon: 'heart', label: 'Eating balanced meals' },
-            { icon: 'dollar-sign', label: 'Making the most of my meal plan' },
-            { icon: 'activity', label: 'Fueling for activity' },
-            { icon: 'smile', label: 'Just being mindful' },
-          ];
-        }
+        const isLose = goal === 'lose';
         return (
           <View>
-            <Title text={title} />
-            {sub ? <Subtitle text={sub} /> : null}
+            <Title text={isLose ? 'How fast do you want to lose?' : 'How fast do you want to build?'} />
             <View style={{ marginTop: 20 }}>
-              {options.map((o, i) => (
-                <OptionCard key={i} icon={o.icon} label={o.label} desc="" selected={followUp === i} onPress={() => setFollowUp(i)} />
-              ))}
+              {isLose ? (
+                <>
+                  <OptionCard icon="trending-down" label="Steady" desc="~0.6 lb/week · -300 cal/day" selected={intensity === 'steady'} onPress={() => setIntensity('steady')} />
+                  <OptionCard icon="zap" label="Aggressive" desc="~1 lb/week · -500 cal/day" selected={intensity === 'aggressive'} onPress={() => setIntensity('aggressive')} />
+                </>
+              ) : (
+                <>
+                  <OptionCard icon="trending-up" label="Lean" desc="~0.6 lb/week · +300 cal/day" selected={intensity === 'lean'} onPress={() => setIntensity('lean')} />
+                  <OptionCard icon="zap" label="Aggressive" desc="~1 lb/week · +500 cal/day" selected={intensity === 'aggressive'} onPress={() => setIntensity('aggressive')} />
+                </>
+              )}
             </View>
-            <ContinueBtn onPress={next} disabled={followUp === null} />
+            <ContinueBtn onPress={next} disabled={!intensity} />
           </View>
         );
       }
@@ -379,6 +361,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
                 { icon: 'navigation', label: 'Lightly active', desc: 'Walk to class, light daily movement' },
                 { icon: 'target', label: 'Moderately active', desc: 'Exercise 3-4 days per week' },
                 { icon: 'zap', label: 'Very active', desc: 'Train 5+ days, athlete or heavy labor' },
+                { icon: 'award', label: 'Extra Active', desc: 'Physical job or 2x daily training' },
               ].map((o, i) => (
                 <OptionCard key={i} icon={o.icon} label={o.label} desc={o.desc} selected={activityLevel === i} onPress={() => setActivityLevel(i)} />
               ))}
@@ -421,7 +404,12 @@ export default function OnboardingScreen({ onComplete }: Props) {
                 </View>
               </View>
             </View>
-            <ContinueBtn onPress={next} disabled={!weight || !heightFt} />
+            <ContinueBtn onPress={() => {
+              const chips = [48, 64, 80, 96, 128];
+              const computed = calculateWaterGoal(parseFloat(weight) || 150);
+              setWaterGoalOz(chips.reduce((prev, curr) => Math.abs(curr - computed) < Math.abs(prev - computed) ? curr : prev));
+              next();
+            }} disabled={!weight || !heightFt} />
           </View>
         );
 
@@ -625,16 +613,16 @@ export default function OnboardingScreen({ onComplete }: Props) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Dot indicators */}
-      {step > 0 && step < totalSteps - 1 && (
+      {step > 0 && step < 9 && (
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 }}>
-          {Array.from({ length: totalSteps }, (_, i) => (
+          {Array.from({ length: totalVisibleSteps }, (_, i) => (
             <View
               key={i}
               style={{
-                width: i === step ? 20 : 8,
+                width: i === displayStep ? 20 : 8,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: i <= step ? colors.maroon : colors.border,
+                backgroundColor: i <= displayStep ? colors.maroon : colors.border,
               }}
             />
           ))}

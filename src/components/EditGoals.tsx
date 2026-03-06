@@ -9,9 +9,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Box, Text } from '@/src/theme/restyleTheme';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { Goals } from '@/src/utils/goals';
+import { recalculateGoals } from '@/src/utils/goals';
+import { requireUserId } from '@/src/utils/auth';
+import { supabase } from '@/src/utils/supabase';
 
 // Approved accent rgba backgrounds for macro chips
 const CHIP_BG_PROTEIN = 'rgba(74,127,197,0.12)';
@@ -22,7 +26,7 @@ interface EditGoalsProps {
   visible: boolean;
   currentGoals: Goals;
   onSave: (goals: Goals) => Promise<void>;
-  onRecalculate: () => Promise<Goals>;
+  onRecalculate?: () => Promise<Goals>;
   onClose: () => void;
 }
 
@@ -30,7 +34,6 @@ export default function EditGoals({
   visible,
   currentGoals,
   onSave,
-  onRecalculate,
   onClose,
 }: EditGoalsProps) {
   const { colors } = useTheme();
@@ -42,6 +45,7 @@ export default function EditGoals({
   const [fat, setFat] = useState(String(currentGoals.goalFat));
   const [saving, setSaving] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [preview, setPreview] = useState<Goals | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -52,6 +56,7 @@ export default function EditGoals({
       setMode('custom');
       setSaving(false);
       setRecalculating(false);
+      setPreview(null);
     }
   }, [visible, currentGoals]);
 
@@ -90,15 +95,45 @@ export default function EditGoals({
   const handleRecalculate = async () => {
     setRecalculating(true);
     try {
-      const newGoals = await onRecalculate();
-      setCalories(String(newGoals.goalCalories));
-      setProtein(String(newGoals.goalProtein));
-      setCarbs(String(newGoals.goalCarbs));
-      setFat(String(newGoals.goalFat));
+      const userId = await requireUserId();
+      const { data } = await supabase
+        .from('profiles')
+        .select('weight, height, age, is_male, activity_level, goal')
+        .eq('id', userId)
+        .single();
+      const newGoals = recalculateGoals(
+        data?.weight ?? 150,
+        data?.height ?? 170,
+        data?.age ?? 20,
+        data?.is_male ?? true,
+        data?.activity_level ?? 'light',
+        data?.goal ?? 'maintain',
+      );
+      setPreview(newGoals);
     } catch {
-      // parent already logs
+      // silently ignore
     } finally {
       setRecalculating(false);
+    }
+  };
+
+  const handleApplyPreview = async () => {
+    if (!preview) return;
+    setSaving(true);
+    try {
+      const userId = await requireUserId();
+      await supabase.from('profiles').update({
+        goal_calories: preview.goalCalories,
+        goal_protein_g: preview.goalProtein,
+        goal_carbs_g: preview.goalCarbs,
+        goal_fat_g: preview.goalFat,
+      }).eq('id', userId);
+      await onSave(preview);
+      setPreview(null);
+    } catch {
+      // silently ignore
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -275,18 +310,83 @@ export default function EditGoals({
               }
             </TouchableOpacity>
 
-            {/* Recalculate — flat silver secondary */}
+            {/* Recalculate Goals button */}
             <TouchableOpacity
-              style={{ alignItems: 'center', paddingVertical: 12 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 14,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: '#861F41',
+                backgroundColor: 'transparent',
+                opacity: recalculating ? 0.6 : 1,
+              }}
               onPress={handleRecalculate}
               disabled={recalculating || saving}
               activeOpacity={0.7}
             >
-              {recalculating
-                ? <ActivityIndicator size="small" color="#A8A9AD" />
-                : <Text style={{ fontSize: 14, color: '#A8A9AD', fontFamily: 'DMSans_500Medium' }}>Recalculate from Profile</Text>
-              }
+              {recalculating ? (
+                <ActivityIndicator size="small" color="#861F41" />
+              ) : (
+                <>
+                  <Feather name="refresh-cw" size={16} color="#861F41" />
+                  <Text style={{ fontSize: 14, color: '#861F41', fontFamily: 'DMSans_600SemiBold' }}>Recalculate Goals</Text>
+                </>
+              )}
             </TouchableOpacity>
+
+            {/* Preview card */}
+            {preview && (
+              <View style={{ marginTop: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, padding: 16 }}>
+                <Text style={{ fontSize: 13, color: colors.textMuted, fontFamily: 'DMSans_500Medium', marginBottom: 12 }}>
+                  Based on your current stats:
+                </Text>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <View style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={{ fontSize: 20, color: '#861F41', fontFamily: 'Outfit_700Bold' }}>{preview.goalCalories}</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }}>Calories</Text>
+                  </View>
+                  <View style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={{ fontSize: 20, color: '#4A7FC5', fontFamily: 'Outfit_700Bold' }}>{preview.goalProtein}g</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }}>Protein</Text>
+                  </View>
+                  <View style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={{ fontSize: 20, color: '#C5A55A', fontFamily: 'Outfit_700Bold' }}>{preview.goalCarbs}g</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }}>Carbs</Text>
+                  </View>
+                  <View style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={{ fontSize: 20, color: '#A8A9AD', fontFamily: 'Outfit_700Bold' }}>{preview.goalFat}g</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'DMSans_400Regular', marginTop: 2 }}>Fat</Text>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, paddingVertical: 12, borderRadius: 6, alignItems: 'center', backgroundColor: '#861F41', opacity: saving ? 0.6 : 1 }}
+                    onPress={handleApplyPreview}
+                    disabled={saving}
+                    activeOpacity={0.85}
+                  >
+                    {saving
+                      ? <ActivityIndicator color="#FFFFFF" size="small" />
+                      : <Text style={{ color: '#FFFFFF', fontSize: 14, fontFamily: 'DMSans_700Bold' }}>Apply</Text>
+                    }
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ flex: 1, paddingVertical: 12, borderRadius: 6, alignItems: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardAlt }}
+                    onPress={() => setPreview(null)}
+                    disabled={saving}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 14, color: colors.textMuted, fontFamily: 'DMSans_600SemiBold' }}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
           </ScrollView>
         </KeyboardAvoidingView>

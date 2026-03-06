@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -46,6 +47,7 @@ import MicronutrientScreen from '@/src/components/MicronutrientScreen';
 import ShareCard from '@/src/components/ShareCard';
 import WeeklyReport from '@/src/components/WeeklyReport';
 import { triggerHaptic } from '@/src/utils/haptics';
+import { recalculateGoals } from '@/src/utils/goals';
 
 // Colors: derived from useTheme() inside the component — see `C` alias below
 
@@ -142,6 +144,8 @@ export default function ProgressScreen() {
   const [weeklyReportVisible, setWeeklyReportVisible] = useState(false);
   const [showMicros, setShowMicros] = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
+  const [recalibrationModal, setRecalibrationModal] = useState<{ visible: boolean; newWeight: number; previousWeight: number }>({ visible: false, newWeight: 0, previousWeight: 0 });
+  const [recalculating, setRecalculating] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -301,12 +305,28 @@ export default function ProgressScreen() {
         }
       }
 
-      // Also update profiles.weight as the latest weight reference
+      // Fetch previous weight before updating profiles
+      let previousWeight: number | null = null;
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('weight')
+          .eq('id', userId)
+          .single();
+        previousWeight = profileData?.weight ?? null;
+      } catch {}
+
+      // Update profiles.weight as the latest weight reference
       await supabase.from('profiles').update({ weight: w }).eq('id', userId);
 
       setLastWeight(w);
       setWeightInput('');
       setShowWeightModal(false);
+
+      // Recalibration prompt if weight changed by >= 5 lbs
+      if (previousWeight !== null && Math.abs(w - previousWeight) >= 5) {
+        setRecalibrationModal({ visible: true, newWeight: w, previousWeight });
+      }
 
       // Reload weight chart data
       const daysMap: Record<RangeType, number> = { '1W': 7, '1M': 30, '3M': 90, 'All': 365 };
@@ -1005,6 +1025,102 @@ export default function ProgressScreen() {
         onRequestClose={() => setShowMicros(false)}
       >
         <MicronutrientScreen onClose={() => setShowMicros(false)} />
+      </Modal>
+
+      {/* ─── Recalibration Modal ─────────────────────────────────── */}
+      <Modal
+        visible={recalibrationModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRecalibrationModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+          <View style={{ backgroundColor: C.white, borderRadius: 24, padding: 24, width: '100%', maxWidth: 340 }}>
+            <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 20, color: C.text, textAlign: 'center', marginBottom: 12 }}>
+              Update Your Goals?
+            </Text>
+            <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 15, color: C.textMuted, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
+              You've {recalibrationModal.newWeight < recalibrationModal.previousWeight ? 'lost' : 'gained'}{' '}
+              {Math.abs(Math.round(recalibrationModal.newWeight - recalibrationModal.previousWeight))} lbs.
+              {' '}Recalculate your nutrition goals to match your new weight?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={recalculating}
+                onPress={() => setRecalibrationModal(prev => ({ ...prev, visible: false }))}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  borderWidth: 1.5,
+                  borderColor: C.maroon,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 15, color: C.maroon }}>Not Now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={recalculating}
+                onPress={async () => {
+                  setRecalculating(true);
+                  try {
+                    const userId = await requireUserId();
+                    const { data: profile } = await supabase
+                      .from('profiles')
+                      .select('height_cm, age, is_male, activity_level, goal')
+                      .eq('id', userId)
+                      .single();
+                    if (!profile) return;
+
+                    const goals = recalculateGoals(
+                      recalibrationModal.newWeight,
+                      profile.height_cm,
+                      profile.age,
+                      profile.is_male,
+                      profile.activity_level,
+                      profile.goal,
+                    );
+
+                    const { error: saveError } = await supabase
+                      .from('profiles')
+                      .update({
+                        goal_calories: goals.goalCalories,
+                        goal_protein_g: goals.goalProtein,
+                        goal_carbs_g: goals.goalCarbs,
+                        goal_fat_g: goals.goalFat,
+                      })
+                      .eq('id', userId);
+
+                    if (saveError) throw saveError;
+                    setRecalibrationModal(prev => ({ ...prev, visible: false }));
+                    Alert.alert('Goals updated!');
+                  } catch (err: any) {
+                    if (__DEV__) console.error('[Weight] recalculate error:', err?.message);
+                    Alert.alert('Error', 'Failed to recalculate goals.');
+                  } finally {
+                    setRecalculating(false);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  backgroundColor: C.maroon,
+                  alignItems: 'center',
+                  opacity: recalculating ? 0.6 : 1,
+                }}
+              >
+                {recalculating ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#fff' }}>Recalculate</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* Off-screen share card for capture */}

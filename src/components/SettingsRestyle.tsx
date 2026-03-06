@@ -187,7 +187,25 @@ export default function SettingsRestyle() {
 
   const handleRecalculateGoals = async (): Promise<Goals> => {
     const userId = await requireUserId();
-    const newGoals = await recalculateGoals(userId);
+    const { data } = await supabase
+      .from('profiles')
+      .select('weight, height, age, is_male, activity_level, goal')
+      .eq('id', userId)
+      .single();
+    const newGoals = recalculateGoals(
+      data?.weight ?? 150,
+      data?.height ?? 170,
+      data?.age ?? 20,
+      data?.is_male ?? true,
+      data?.activity_level ?? 'light',
+      data?.goal ?? 'maintain',
+    );
+    await supabase.from('profiles').update({
+      goal_calories: newGoals.goalCalories,
+      goal_protein_g: newGoals.goalProtein,
+      goal_carbs_g: newGoals.goalCarbs,
+      goal_fat_g: newGoals.goalFat,
+    }).eq('id', userId);
     setCurrentGoals(newGoals);
     setProfile((p: any) => (p ? { ...p, goal_calories: newGoals.goalCalories } : p));
     return newGoals;

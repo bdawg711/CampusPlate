@@ -1,4 +1,4 @@
-export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active';
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'very_active' | 'extra_active';
 
 export type GoalType = 'aggressive_cut' | 'moderate_cut' | 'maintain' | 'lean_bulk' | 'aggressive_bulk';
 
@@ -6,35 +6,50 @@ const activityMultipliers: Record<ActivityLevel, number> = {
   sedentary: 1.2,
   light: 1.375,
   moderate: 1.55,
-  active: 1.725,
+  very_active: 1.725,
+  extra_active: 1.9,
 };
 
-const goalMultipliers: Record<GoalType, number> = {
-  aggressive_cut: 0.75,
-  moderate_cut: 0.85,
-  maintain: 1.0,
-  lean_bulk: 1.10,
-  aggressive_bulk: 1.20,
+const goalOffsets: Record<GoalType, number> = {
+  aggressive_cut: -500,
+  moderate_cut: -300,
+  maintain: 0,
+  lean_bulk: 300,
+  aggressive_bulk: 500,
 };
 
 export const GOAL_OPTIONS: { key: GoalType; label: string; description: string }[] = [
-  { key: 'aggressive_cut', label: 'Lose weight fast (-25%)', description: '~1.5 lbs/week. Best for short-term cuts.' },
-  { key: 'moderate_cut', label: 'Lose weight steadily (-15%)', description: '~1 lb/week. Sustainable fat loss.' },
+  { key: 'aggressive_cut', label: 'Lose weight fast (-500 kcal)', description: '~1 lb/week. Best for short-term cuts.' },
+  { key: 'moderate_cut', label: 'Lose weight steadily (-300 kcal)', description: '~0.6 lb/week. Sustainable fat loss.' },
   { key: 'maintain', label: 'Maintain weight', description: 'Stay at current weight.' },
-  { key: 'lean_bulk', label: 'Build muscle slowly (+10%)', description: 'Minimize fat gain. ~0.5 lb/week.' },
-  { key: 'aggressive_bulk', label: 'Build muscle fast (+20%)', description: 'Maximum growth. ~1 lb/week.' },
+  { key: 'lean_bulk', label: 'Build muscle slowly (+300 kcal)', description: 'Minimize fat gain. ~0.6 lb/week.' },
+  { key: 'aggressive_bulk', label: 'Build muscle fast (+500 kcal)', description: 'Maximum growth. ~1 lb/week.' },
 ];
+
+const normalizeActivity = (level: string): ActivityLevel =>
+  level === 'active' ? 'very_active' : level as ActivityLevel;
 
 export const calculateTDEE = (
   weight: number,
   height: number,
   age: number,
   isMale: boolean,
-  activityLevel: ActivityLevel = 'light'
+  activityLevel: ActivityLevel | 'active' = 'light'
 ): number => {
   let bmr = (10 * weight) + (6.25 * height) - (5 * age);
   bmr = isMale ? bmr + 5 : bmr - 161;
-  return Math.round(bmr * activityMultipliers[activityLevel]);
+  return Math.round(bmr * activityMultipliers[normalizeActivity(activityLevel)]);
+};
+
+export const calculateTargetCalories = (
+  tdee: number,
+  goal: GoalType,
+  is_male: boolean
+): number => {
+  const offset = goalOffsets[goal] ?? 0;
+  const target = tdee + offset;
+  const min = is_male ? 1500 : 1200;
+  return Math.round(Math.min(Math.max(target, min), 4500));
 };
 
 export const calculateDailyGoal = (
@@ -43,16 +58,15 @@ export const calculateDailyGoal = (
   age: number,
   isMale: boolean,
   goal: GoalType | 'cut' | 'bulk',
-  activityLevel: ActivityLevel = 'light'
+  activityLevel: ActivityLevel | 'active' = 'light'
 ): number => {
   const tdee = calculateTDEE(weight, height, age, isMale, activityLevel);
 
   // Legacy support
-  if (goal === 'cut') return Math.round(tdee * 0.85);
-  if (goal === 'bulk') return Math.round(tdee * 1.10);
+  if (goal === 'cut') return Math.round(tdee - 300);
+  if (goal === 'bulk') return Math.round(tdee + 300);
 
-  const multiplier = goalMultipliers[goal as GoalType] ?? 1.0;
-  return Math.round(tdee * multiplier);
+  return calculateTargetCalories(tdee, goal as GoalType, isMale);
 };
 
 export const getWeeklyProjection = (goalCalories: number, tdee: number): string => {

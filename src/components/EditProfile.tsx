@@ -98,6 +98,7 @@ export default function EditProfile({ visible, onClose, onSaved }: EditProfilePr
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>('light');
   const [goal, setGoal] = useState<GoalType>('maintain');
   const [homeHallId, setHomeHallId] = useState<number | null>(null);
+  const [previousWeight, setPreviousWeight] = useState<number>(0);
 
   useEffect(() => { if (visible) loadProfile(); }, [visible]);
 
@@ -110,6 +111,7 @@ export default function EditProfile({ visible, onClose, onSaved }: EditProfilePr
         supabase.from('dining_halls').select('id, name').order('name'),
       ]);
       if (profile) {
+        setPreviousWeight(profile.weight || 0);
         setName(profile.name || '');
         setYear(profile.year || '');
         setDorm(profile.dorm || '');
@@ -145,10 +147,29 @@ export default function EditProfile({ visible, onClose, onSaved }: EditProfilePr
       }).eq('id', userId);
       if (error) { if (__DEV__) console.error('Save profile failed:', error.message); Alert.alert('Error', 'Failed to save profile. Please try again.'); return; }
 
-      Alert.alert('Profile Saved', 'Recalculate your nutrition goals based on your updated body stats?', [
-        { text: 'No thanks', style: 'cancel', onPress: () => { onSaved(); onClose(); } },
-        { text: 'Recalculate', onPress: async () => { try { await recalculateGoals(userId); } catch { /* ignore */ } onSaved(); onClose(); } },
-      ]);
+      const newWeight = parseFloat(weightLbs) || 0;
+      const weightDiff = Math.abs(newWeight - previousWeight);
+
+      if (weightDiff >= 5) {
+        Alert.alert('Your weight has changed', 'Want to recalculate your nutrition goals based on your new weight?', [
+          { text: 'Not now', style: 'cancel', onPress: () => { onSaved(); onClose(); } },
+          { text: 'Recalculate', onPress: async () => {
+            try {
+              const newGoals = recalculateGoals(newWeight || 150, heightCm, parseInt(age) || 20, isMale, activityLevel, goal);
+              await supabase.from('profiles').update({
+                goal_calories: newGoals.goalCalories,
+                goal_protein_g: newGoals.goalProtein,
+                goal_carbs_g: newGoals.goalCarbs,
+                goal_fat_g: newGoals.goalFat,
+              }).eq('id', userId);
+              Alert.alert('Goals updated!');
+            } catch { /* ignore */ }
+            onSaved(); onClose();
+          } },
+        ]);
+      } else {
+        onSaved(); onClose();
+      }
     } catch { Alert.alert('Error', 'Failed to save profile. Please try again.'); } finally { setSaving(false); }
   };
 
