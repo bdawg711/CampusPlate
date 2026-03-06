@@ -75,7 +75,7 @@ export default function AIScreen() {
       <MealPlanView
         visible={showMealPlan}
         onClose={() => setShowMealPlan(false)}
-        onLogged={() => setShowMealPlan(false)}
+        onLogged={() => {}}
       />
     </Box>
   );

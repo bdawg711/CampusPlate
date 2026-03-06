@@ -107,16 +107,41 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loggingMealIdx, setLoggingMealIdx] = useState<number | null>(null);
+  const [loggedMealIdxs, setLoggedMealIdxs] = useState<Set<number>>(new Set());
+  const [isSavedPlan, setIsSavedPlan] = useState(false);
   const [todayClasses, setTodayClasses] = useState<CalendarEvent[]>([]);
   const [hasCanvas, setHasCanvas] = useState(false);
 
-  const generatePlan = useCallback(async () => {
+  const generatePlan = useCallback(async (forceRegenerate = false) => {
     setLoading(true);
     setError(null);
     setPlan(null);
+    setLoggedMealIdxs(new Set());
 
     try {
       const userId = await requireUserId();
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      // Check for saved plan unless explicitly regenerating
+      if (!forceRegenerate) {
+        try {
+          const { data: saved } = await supabase
+            .from('ai_meal_plans')
+            .select('plan_json')
+            .eq('user_id', userId)
+            .eq('date', today)
+            .maybeSingle();
+
+          if (saved?.plan_json) {
+            setPlan(saved.plan_json as MealPlanResponse);
+            setIsSavedPlan(true);
+            return;
+          }
+        } catch {
+          // Failed to load saved plan, continue to generate
+        }
+      }
 
       // Fetch profile for goals + Canvas URL
       const { data: profile } = await supabase
@@ -168,6 +193,19 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
 
       const result = await requestMealPlan(schedule, goals, preferences);
       setPlan(result);
+      setIsSavedPlan(false);
+
+      // Save plan to DB
+      try {
+        await supabase
+          .from('ai_meal_plans')
+          .upsert(
+            { user_id: userId, date: today, plan_json: result },
+            { onConflict: 'user_id,date' }
+          );
+      } catch {
+        // Save failed silently — plan is still shown to user
+      }
     } catch (e: any) {
       setError(e?.message || "Couldn't generate meal plan. Try again.");
     } finally {
@@ -187,6 +225,7 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
     setPlan(null);
     setError(null);
     setLoading(false);
+    setLoggedMealIdxs(new Set());
     onClose();
   };
 
@@ -216,7 +255,7 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
         return;
       }
 
-      Alert.alert('Logged!', `${meal.items.length} items from ${meal.type} added to your log.`);
+      setLoggedMealIdxs((prev) => new Set(prev).add(mealIdx));
       onLogged?.();
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Failed to log meals.');
@@ -260,6 +299,11 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
             <Text style={{ fontSize: 13, fontFamily: 'DMSans_400Regular', color: colors.textMuted, marginTop: 2 }}>
               {headerDate}
             </Text>
+            {isSavedPlan && (
+              <Text style={{ fontSize: 12, fontFamily: 'DMSans_400Regular', color: colors.textDim, marginTop: 2 }}>
+                Saved plan • Tap Regenerate for a new plan
+              </Text>
+            )}
           </Box>
           <TouchableOpacity
             onPress={handleClose}
@@ -305,7 +349,7 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
                 {error}
               </Text>
               <TouchableOpacity
-                onPress={generatePlan}
+                onPress={() => generatePlan()}
                 style={{
                   paddingHorizontal: 24,
                   paddingVertical: 12,
@@ -347,6 +391,7 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
               {plan.meals.map((meal, idx) => {
                 const pillColor = getMealPillColor(meal.type, colors);
                 const isLogging = loggingMealIdx === idx;
+                const isLogged = loggedMealIdxs.has(idx);
 
                 return (
                   <Box
@@ -395,12 +440,19 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
                           borderBottomColor: colors.borderLight,
                         }}
                       >
-                        <Text
-                          style={{ fontSize: 14, fontFamily: 'DMSans_500Medium', color: colors.text, flex: 1 }}
-                          numberOfLines={1}
-                        >
-                          {item.name}
-                        </Text>
+                        <Box style={{ flex: 1 }}>
+                          <Text
+                            style={{ fontSize: 14, fontFamily: 'DMSans_500Medium', color: colors.text }}
+                            numberOfLines={1}
+                          >
+                            {item.name}
+                          </Text>
+                          {!!item.station && (
+                            <Text style={{ fontSize: 11, fontFamily: 'DMSans_400Regular', color: colors.textMuted, marginTop: 1 }}>
+                              {item.station}
+                            </Text>
+                          )}
+                        </Box>
                         <Text style={{ fontSize: 13, fontFamily: 'DMSans_400Regular', color: colors.textMuted, marginLeft: 8 }}>
                           {Math.round(item.calories)} cal
                         </Text>
@@ -429,13 +481,13 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
                     {/* Log button */}
                     <TouchableOpacity
                       onPress={() => handleLogMeal(meal, idx)}
-                      disabled={isLogging}
+                      disabled={isLogging || isLogged}
                       activeOpacity={0.7}
                       style={{
                         marginTop: 12,
                         paddingVertical: 10,
                         borderRadius: 10,
-                        backgroundColor: colors.maroon,
+                        backgroundColor: isLogged ? colors.green : colors.maroon,
                         alignItems: 'center',
                         opacity: isLogging ? 0.6 : 1,
                       }}
@@ -444,7 +496,7 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
                         <Text style={{ fontSize: 14, fontFamily: 'DMSans_600SemiBold', color: '#FFFFFF' }}>
-                          Log These Items
+                          {isLogged ? 'Logged ✓' : 'Log These Items'}
                         </Text>
                       )}
                     </TouchableOpacity>
@@ -500,7 +552,7 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
               {/* Regenerate + remaining */}
               <Box alignItems="center" style={{ marginTop: 8 }}>
                 <TouchableOpacity
-                  onPress={generatePlan}
+                  onPress={() => generatePlan(true)}
                   activeOpacity={0.7}
                   style={{
                     flexDirection: 'row',

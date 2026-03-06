@@ -433,18 +433,33 @@ Deno.serve(async (req) => {
         : "No known allergies";
 
       const planSystemPrompt = `You are a campus meal planning assistant for Virginia Tech.
-Generate a complete daily meal plan using ONLY items from today's dining hall menus (provided below). The plan must:
-1. Fit within the user's calorie and macro goals
-2. Schedule meals around their class times (if provided)
-3. Respect dietary preferences and allergies
-4. Suggest specific dining halls and items
-5. Include estimated nutrition totals per meal and daily total
+Generate a complete daily meal plan using ONLY items from today's dining hall menus (provided below).
 
-## User Goals
-- Calories: ${goals.calories} kcal
-- Protein: ${goals.protein}g
-- Carbs: ${goals.carbs}g
-- Fat: ${goals.fat}g
+## STRICT CALORIE RULE
+The daily total MUST be within 150 calories of the user's calorie goal (${goals.calories} kcal).
+This is non-negotiable. If high-calorie items dominate the menu, choose smaller portions or simpler items.
+Never exceed the calorie goal by more than 150 kcal. Never go below by more than 300 kcal.
+
+## MACRO TARGETS
+- Calories: ${goals.calories} kcal (STRICT — within 150 kcal)
+- Protein: ${goals.protein}g (prioritize hitting this)
+- Carbs: ${goals.carbs}g (flexible ±30%)
+- Fat: ${goals.fat}g (stay within ±15g of this target — do not exceed)
+
+## MEAL DISTRIBUTION
+Distribute calories across meals roughly:
+- Breakfast: 25% of daily calories
+- Lunch: 35% of daily calories
+- Dinner: 35% of daily calories
+- Snack (optional): remaining 5%
+Adjust timing around class schedule if provided.
+
+## OTHER RULES
+- Use ONLY items from today's menus provided below
+- Respect dietary preferences and allergies
+- Suggest specific dining halls for each meal
+- For each item, include the station name from the menu data so students know exactly where to find it inside the dining hall
+- If you cannot build a plan within the calorie target using available items, pick the closest options and note it briefly in the tip — do not exceed the goal
 - ${dietaryBlock}
 - ${allergyBlock}
 ${scheduleBlock}
@@ -459,13 +474,13 @@ Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation
       "type": "Breakfast",
       "time": "8:00 AM",
       "location": "D2",
-      "items": [{ "name": "Scrambled Eggs", "calories": 180, "protein": 12, "carbs": 2, "fat": 14 }],
+      "items": [{ "name": "Scrambled Eggs", "station": "Breakfast Bar", "calories": 180, "protein": 12, "carbs": 2, "fat": 14 }],
       "totalCalories": 450,
       "note": "Before your 9:30 CS class"
     }
   ],
   "dailyTotal": { "calories": 2480, "protein": 98, "carbs": 105, "fat": 90 },
-  "tip": "You have a 2-hour gap at noon — perfect time for a bigger lunch at Owen's."
+  "tip": "You have a 2-hour gap at noon — perfect time for a bigger lunch at Owens."
 }`;
 
       const claudeApiKey = Deno.env.get("CLAUDE_API_KEY");

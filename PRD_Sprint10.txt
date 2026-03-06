@@ -1,0 +1,92 @@
+PRD_Sprint10.txt
+CampusPlate — Sprint 10: Demo Polish
+Status: Ready for implementation
+Author: Cameron Farrell
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Polish sprint focused on the Brian Grove demo and overall UX quality.
+Two main features: meal plan persistence and progress tab redesign.
+
+Files touched:
+  src/components/MealPlanView.tsx     — Save/load plan from Supabase
+  app/(tabs)/ai.tsx                   — Load today's plan on open
+  app/(tabs)/progress.tsx             — Daily goal block redesign
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — MEAL PLAN PERSISTENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+New table: ai_meal_plans
+  id UUID PRIMARY KEY
+  user_id UUID (RLS enabled)
+  date DATE
+  plan_json JSONB
+  created_at TIMESTAMPTZ
+  UNIQUE(user_id, date) — one plan per user per day
+
+SAVE behavior:
+  After the AI generates a meal plan and MealPlanView renders it
+  successfully, immediately save to ai_meal_plans:
+    - user_id = current user
+    - date = today (ET date, never toISOString())
+    - plan_json = the full plan object returned by the AI
+  Use upsert (ON CONFLICT user_id, date) so regenerating
+  overwrites the existing plan for today.
+
+LOAD behavior:
+  When MealPlanView opens, before showing the "Generate" state:
+    1. Query ai_meal_plans for today's date and current user_id
+    2. If a plan exists → display it immediately, no AI call needed
+    3. Show a "Regenerate" button that lets users request a fresh plan
+       (costs one of their 3 daily plan generations)
+    4. If no plan exists → show the normal generate state
+
+REGENERATE:
+  Existing "Regenerate" button already exists — keep it.
+  It should overwrite today's plan in ai_meal_plans via upsert.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — PROGRESS TAB DAILY GOAL BLOCK REDESIGN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Current problems:
+  - "0/40 0 of 3,087 cal" format is confusing — points and values
+    are mixed on the same line
+  - Points system isn't explained anywhere
+  - The block title "% of daily goal" doesn't tell the user anything
+
+New design:
+  Block title: "THIS WEEK'S DAILY AVERAGE"
+
+  Top section — large weekly average stats, one row:
+    Avg Calories | Avg Protein | Avg Carbs | Avg Fat
+    Show actual values (e.g. "1,482 cal", "111g", "55g", "98g")
+    With small "of [goal]" label underneath each
+
+  Bottom section — daily score breakdown:
+    Keep the overall % score large and prominent
+    Below it, show each component as:
+      [Macro name]  [actual value] of [goal]  [pts earned]/[max pts]
+    Example:
+      Calories   1,482 of 3,087 cal   32/40 pts
+      Protein    111 of 160g          16/20 pts
+      Carbs      55 of 418g           7/10 pts
+      Fat        98 of 86g            8/10 pts
+      Meals      4 logged             8/10 pts
+      Water      40 of 96 oz          6/10 pts
+    Use color coding: green if >= 80% of goal, yellow 50-79%, red < 50%
+
+  Keep the tip text at the bottom.
+  Use useTheme() for all colors, Outfit for headers, DMSans for values.
+  Do not change any calculation logic — display only.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUT OF SCOPE FOR SPRINT 10
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- App Store screenshots
+- Push notification improvements
+- Portion estimation visuals
+- Weekly weight change rate flag

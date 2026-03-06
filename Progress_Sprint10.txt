@@ -1,0 +1,43 @@
+Progress_Sprint10.txt
+CampusPlate — Sprint 10 Progress Tracker
+Last updated: March 2026
+
+Instructions for Claude Code: After completing each task, mark it [x].
+Do not mark a task complete unless it has been tested and confirmed working.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — MEAL PLAN PERSISTENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[x] On plan generation success, upsert full plan_json to ai_meal_plans
+    (user_id, date, plan_json) — date must use ET date, never toISOString()
+[x] On MealPlanView open, query ai_meal_plans for today before generating
+[x] If plan exists for today, display it immediately without AI call
+[x] If no plan exists, show normal generate state
+[x] Regenerate button overwrites today's plan via upsert
+[ ] Confirm plan persists after closing and reopening MealPlanView
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — PROGRESS TAB DAILY GOAL BLOCK REDESIGN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Remove confusing "0/40 0 of X" combined points+value format
+[ ] Add weekly average row (Calories, Protein, Carbs, Fat)
+    showing actual avg values with "of [goal]" underneath
+[ ] Redesign score breakdown to show:
+    [Macro] [actual] of [goal] [pts]/[max pts] per row
+[ ] Color code each row: green >= 80%, yellow 50-79%, red < 50%
+[ ] Keep overall % score prominent at top
+[ ] Keep tip text at bottom
+[ ] No calculation logic changes — display only
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KNOWN RISKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- MealPlanView currently fetches profile inside the component —
+  make sure the Supabase save uses the same userId pattern
+- plan_json structure must match exactly what MealPlanView
+  expects to render — do not transform it before saving
+- Progress tab score data may come from a different source
+  than the weekly average data — confirm both are available
+  before redesigning the block
