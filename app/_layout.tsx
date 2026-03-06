@@ -15,6 +15,7 @@ import {
 } from '@expo-google-fonts/outfit';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -107,6 +108,45 @@ function RootContent() {
       }
     })();
   }, [session]);
+
+  // ── Auth deep-link handler (email verification) ──
+  useEffect(() => {
+    const handleUrl = async (url: string) => {
+      try {
+        const parsed = Linking.parse(url);
+        if (!parsed.path?.startsWith('auth/callback')) return;
+
+        const tokenHash = parsed.queryParams?.token_hash as string | undefined;
+        const type = parsed.queryParams?.type as string | undefined;
+        if (!tokenHash || !type) return;
+
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type as 'signup' | 'email',
+        });
+        if (verifyError) {
+          if (__DEV__) console.error('[DeepLink] verifyOtp failed:', verifyError.message);
+        } else {
+          if (__DEV__) console.log('[DeepLink] Email verified successfully');
+          // onAuthStateChange will fire and update session → navigates automatically
+        }
+      } catch (e: any) {
+        if (__DEV__) console.error('[DeepLink] Error handling URL:', e.message);
+      }
+    };
+
+    // Cold start: app was closed when the link was tapped
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+
+    // Warm start: app is already open
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleUrl(event.url);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   // ── Notification deep-link listener ──
   const router = useRouter();

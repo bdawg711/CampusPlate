@@ -28,6 +28,7 @@ export default function AuthScreen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
 
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -86,9 +87,7 @@ export default function AuthScreen() {
         setSuccessMessage('Check your email for a reset link');
       } else if (mode === 'signup') {
         await signUp(trimmedEmail, password);
-        setSuccessMessage('Account created! You can now sign in.');
-        setPassword('');
-        setMode('signin');
+        setPendingVerificationEmail(trimmedEmail);
       } else {
         await signIn(trimmedEmail, password);
       }
@@ -117,6 +116,40 @@ export default function AuthScreen() {
     if (mode === 'signup') return 'Sign Up';
     return 'Sign In';
   };
+
+  if (pendingVerificationEmail) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+          <View style={{ borderRadius: 16, padding: 28, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, alignItems: 'center' }}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 20, backgroundColor: 'rgba(139,30,63,0.10)' }}>
+              <Feather name="mail" size={36} color={colors.maroon} />
+            </View>
+            <Text style={{ fontSize: 24, color: colors.text, fontFamily: 'Outfit_700Bold', textAlign: 'center', marginBottom: 12 }}>
+              Check your email
+            </Text>
+            <Text style={{ fontSize: 15, lineHeight: 22, color: colors.textMuted, fontFamily: 'DMSans_400Regular', textAlign: 'center' }}>
+              We sent a confirmation link to{'\n'}
+              <Text style={{ fontFamily: 'DMSans_600SemiBold', color: colors.text }}>{pendingVerificationEmail}</Text>
+              {'\n\n'}Tap it to verify your account and get started.
+            </Text>
+            <TouchableOpacity
+              style={{ padding: 12, alignItems: 'center', marginTop: 24 }}
+              onPress={() => {
+                setPendingVerificationEmail(null);
+                setPassword('');
+                setMode('signin');
+              }}
+            >
+              <Text style={{ fontSize: 14, color: colors.maroon, fontFamily: 'DMSans_500Medium' }}>
+                Back to Sign In
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
