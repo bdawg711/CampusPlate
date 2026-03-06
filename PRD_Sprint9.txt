@@ -1,0 +1,205 @@
+PRD_Sprint9.txt
+CampusPlate — Sprint 9: Nutrition Engine Rewrite
+Status: Ready for implementation
+Author: Cameron Farrell
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace the current percent-based calorie/macro engine with an evidence-based
+system validated by Karsen (VT Athletics nutritionist). Fixes protein targets,
+calorie offsets, macro calculation order, safety guardrails, and lets users
+actually choose their goal intensity. Also adds recalibration when weight changes
+and fixes the water goal default.
+
+Files touched:
+  src/utils/nutrition.ts         — Core engine rewrite
+  src/utils/goals.ts             — Macro calculation rewrite
+  app/onboarding.tsx             — Goal intensity step + aggressive_bulk
+  src/components/EditGoals.tsx   — Recalculate button
+  src/components/EditProfile.tsx — Recalculate on weight change
+  src/components/WaterTracker.tsx — Bodyweight-based water default (if needed)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. GOAL TYPES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Internal GoalType values (stored in profiles.goal):
+  moderate_cut      — Lose, steady
+  aggressive_cut    — Lose, aggressive
+  maintain          — Maintain
+  lean_bulk         — Build, lean
+  aggressive_bulk   — Build, aggressive  ← NEW
+
+ActivityLevel values (unchanged, stored in profiles.activity_level):
+  sedentary | light | moderate | very_active | extra_active
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. NUTRITION ENGINE — src/utils/nutrition.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BMR (keep existing Mifflin-St Jeor — it's already correct):
+  Male:   BMR = (10 × weight_kg) + (6.25 × height_cm) - (5 × age) + 5
+  Female: BMR = (10 × weight_kg) + (6.25 × height_cm) - (5 × age) - 161
+
+Activity multipliers (replace existing, add extra_active):
+  sedentary    → 1.2
+  light        → 1.375
+  moderate     → 1.55
+  very_active  → 1.725
+  extra_active → 1.9    ← NEW
+
+TDEE = BMR × activity_multiplier
+
+Calorie offsets — REPLACE percent multipliers with fixed steps:
+  moderate_cut    → -300 kcal
+  aggressive_cut  → -500 kcal
+  maintain        →    0 kcal
+  lean_bulk       → +300 kcal
+  aggressive_bulk → +500 kcal
+
+Target calories = TDEE + calorie_offset
+
+Safety guardrails — clamp AFTER calculating target:
+  MIN: 1200 for female, 1500 for male
+  MAX: 4500 for all
+  target_calories = clamp(target_calories, MIN, MAX)
+
+Export: calculateTDEE(), calculateTargetCalories(), ActivityLevel type, GoalType type
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. MACRO ENGINE — src/utils/goals.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Calculation order: Protein first → Fat second → Carbs backfill.
+Remove the existing 0.8g/lb flat protein rule entirely.
+
+PROTEIN (g/kg of bodyweight, by goal):
+  moderate_cut    → 2.1 g/kg  (range 2.0–2.4)
+  aggressive_cut  → 2.3 g/kg  (range 2.2–2.4, enforce min 2.2)
+  maintain        → 1.7 g/kg  (range 1.6–1.8)
+  lean_bulk       → 1.8 g/kg  (range 1.6–2.0)
+  aggressive_bulk → 1.75 g/kg (range 1.6–2.0)
+
+protein_g = protein_g_per_kg × weight_kg
+Round to nearest integer.
+
+FAT (% of target calories, by goal):
+  moderate_cut    → 25%
+  aggressive_cut  → 25%
+  maintain        → 30%
+  lean_bulk       → 27%
+  aggressive_bulk → 25%
+
+fat_g = (target_calories × fat_percent) / 9
+Round to nearest integer.
+
+CARBS (backfill):
+  protein_kcal = protein_g × 4
+  fat_kcal = fat_g × 9
+  carb_kcal = target_calories - protein_kcal - fat_kcal
+  carbs_g = carb_kcal / 4
+  If carbs_g < 0 (edge case): reduce fat by 5% and recalculate once.
+  Round to nearest integer.
+
+high_protein boolean: remove from calculation logic entirely.
+The g/kg ranges make it obsolete.
+
+recalculateGoals() must accept: weight_lbs, height_cm, age, is_male,
+activity_level, goal. Convert weight_lbs → weight_kg internally.
+Return: { goalCalories, goalProtein, goalCarbs, goalFat }
+
+Also export getProteinRange(goal, weight_kg) → { min, max } for display
+in the UI (so users see "119–143g" instead of a single target).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. WATER GOAL DEFAULT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace flat 64oz default with bodyweight-based calculation:
+  water_oz_default = clamp(weight_lbs, 64, 160)
+
+Apply this in recalculateGoals() and in onboarding when setting
+the initial water goal. Do not override if user has manually set
+their water goal.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. ONBOARDING CHANGES — app/onboarding.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Current flow:
+  Step: Goal (lose / maintain / build)
+  Step: Follow-up (motivational question — NOT used in calculation)
+
+New flow:
+  Step: Goal (lose / maintain / build) — unchanged
+  Step: Intensity (only shown if goal is lose or build) — NEW
+  Step: Remove the current motivational follow-up entirely
+
+Intensity step UI:
+  If goal = "lose":
+    Option A: "Steady"     subtitle: "Lose ~0.6 lb/week · -300 cal/day"
+    Option B: "Aggressive" subtitle: "Lose ~1 lb/week · -500 cal/day"
+
+  If goal = "build":
+    Option A: "Lean"       subtitle: "Gain ~0.6 lb/week · +300 cal/day"
+    Option B: "Aggressive" subtitle: "Gain ~1 lb/week · +500 cal/day"
+
+  If goal = "maintain": skip this step entirely
+
+getGoalType() mapping (replace existing):
+  lose   + steady     → moderate_cut
+  lose   + aggressive → aggressive_cut
+  maintain            → maintain
+  build  + lean       → lean_bulk
+  build  + aggressive → aggressive_bulk
+
+Activity level display labels (update if not already matching):
+  sedentary    → "Sedentary"        subtitle: "Little or no exercise"
+  light        → "Lightly Active"   subtitle: "Light exercise 1-3 days/week"
+  moderate     → "Moderately Active" subtitle: "Exercise 3-5 days/week"
+  very_active  → "Very Active"      subtitle: "Hard exercise 6-7 days/week"
+  extra_active → "Extra Active"     subtitle: "Physical job or 2x daily training"  ← NEW option
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. RECALIBRATION — src/components/EditGoals.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add a "Recalculate Goals" button in EditGoals.tsx.
+When tapped:
+  1. Fetch current profile (weight_lbs, height_cm, age, is_male,
+     activity_level, goal) from Supabase
+  2. Run recalculateGoals()
+  3. Show a preview of the new numbers before saving:
+     "Based on your current stats:
+      Calories: 2,840  Protein: 178g  Carbs: 312g  Fat: 79g"
+     With "Apply" and "Cancel" buttons
+  4. On Apply: save to profiles and update local state
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. WEIGHT CHANGE RECALIBRATION BANNER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In src/components/EditProfile.tsx (or wherever weight is saved to Supabase):
+After saving a new weight, compare to profiles.weight_lbs.
+If difference >= 5 lbs:
+  Show Alert:
+    Title: "Your weight has changed"
+    Message: "Want to recalculate your nutrition goals based on your
+              new weight?"
+    Buttons: "Recalculate" | "Not now"
+  On "Recalculate": run recalculateGoals() with new weight,
+    save updated goals to profiles, show confirmation.
+  On "Not now": dismiss, do nothing.
+
+If difference < 5 lbs: no alert, just save silently.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUT OF SCOPE FOR SPRINT 9
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Target weight / goal date projection
+- Micronutrient targets
+- Portion estimation visuals
+- Weekly weight change rate flag (Sprint 10)
+- Protein range display in the dashboard UI (Sprint 10)
