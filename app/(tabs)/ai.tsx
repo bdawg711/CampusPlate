@@ -11,12 +11,10 @@ import * as Haptics from 'expo-haptics';
 import { useSubscription } from '@/src/context/SubscriptionContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import PaywallModal from '@/src/components/PaywallModal';
-import { useRouter } from 'expo-router';
 
 export default function AIScreen() {
   const { isPremium, loading: subLoading } = useSubscription();
   const { colors } = useTheme();
-  const router = useRouter();
   const [, setRefreshKey] = useState(0);
   const [showMealPlan, setShowMealPlan] = useState(false);
 
@@ -59,11 +57,9 @@ export default function AIScreen() {
     return (
       <Box flex={1} backgroundColor="background">
         <PaywallModal
-          visible={true}
-          onClose={() => {
-            console.log('[AIScreen] PaywallModal onClose fired, navigating to home tab');
-            router.replace('/(tabs)/');
-          }}
+          visible
+          inline
+          onClose={() => {}}
         />
       </Box>
     );

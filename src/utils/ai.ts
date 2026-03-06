@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, supabaseUrl, supabaseAnonKey } from './supabase';
 import { getEffectiveMenuDate } from './meals';
 
 export interface ChatMessage {
@@ -81,9 +81,6 @@ export async function sendMessage(
   // userId is derived server-side from the JWT — never sent by the client
   const invokeBody = { message, history: trimmedHistory, date };
 
-  const supabaseUrl = 'https://kexytkfzoomvhjcotkqs.supabase.co';
-  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtleHl0a2Z6b29tdmhqY290a3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNjk4OTMsImV4cCI6MjA4Njk0NTg5M30.UiXS-ZHAKpS6xrg1D4BEBv0BEv2V1YpU2PR3ynQP3ag';
-
   const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
     method: 'POST',
     headers: {
@@ -140,8 +137,6 @@ export async function estimateMeal(description: string): Promise<EstimatedMeal> 
   }
 
   const session = sessionData.session;
-  const supabaseUrl = 'https://kexytkfzoomvhjcotkqs.supabase.co';
-  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtleHl0a2Z6b29tdmhqY290a3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNjk4OTMsImV4cCI6MjA4Njk0NTg5M30.UiXS-ZHAKpS6xrg1D4BEBv0BEv2V1YpU2PR3ynQP3ag';
 
   const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
     method: 'POST',
@@ -221,8 +216,6 @@ export async function requestMealPlan(
   }
 
   const session = sessionData.session;
-  const supabaseUrl = 'https://kexytkfzoomvhjcotkqs.supabase.co';
-  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtleHl0a2Z6b29tdmhqY290a3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNjk4OTMsImV4cCI6MjA4Njk0NTg5M30.UiXS-ZHAKpS6xrg1D4BEBv0BEv2V1YpU2PR3ynQP3ag';
 
   const response = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
     method: 'POST',

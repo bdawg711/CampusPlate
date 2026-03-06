@@ -4,13 +4,12 @@ import {
   Alert,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/src/context/ThemeContext';
@@ -20,6 +19,7 @@ interface PaywallModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  inline?: boolean;
 }
 
 const FEATURES = [
@@ -40,10 +40,9 @@ const FEATURES = [
   },
 ];
 
-export default function PaywallModal({ visible, onClose, onSuccess }: PaywallModalProps) {
+export default function PaywallModal({ visible, onClose, onSuccess, inline }: PaywallModalProps) {
   const { colors, mode } = useTheme();
   const { purchase, restore } = useSubscription();
-  const insets = useSafeAreaInsets();
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
@@ -88,38 +87,8 @@ export default function PaywallModal({ visible, onClose, onSuccess }: PaywallMod
     ? ['#6B1835', '#3D0E1F', colors.background] as const
     : ['#861F41', '#6B1835', colors.background] as const;
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
+  const content = (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        {/* Close button */}
-        <Pressable
-          onPress={() => {
-            console.log('[PaywallModal] X button pressed, calling onClose');
-            onClose();
-          }}
-          disabled={isLoading}
-          style={{
-            position: 'absolute',
-            top: insets.top + 16,
-            right: 20,
-            zIndex: 50,
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: 'rgba(255,255,255,0.15)',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Feather name="x" size={20} color="#fff" />
-        </Pressable>
-
         <LinearGradient
           colors={gradientColors}
           style={{ paddingTop: 16 }}
@@ -307,6 +276,20 @@ export default function PaywallModal({ visible, onClose, onSuccess }: PaywallMod
           </View>
         </ScrollView>
       </View>
+  );
+
+  if (inline) {
+    return visible ? content : null;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      {content}
     </Modal>
   );
 }
