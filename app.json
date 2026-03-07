@@ -14,9 +14,11 @@
       "backgroundColor": "#861F41"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.campusplate.app"
     },
     "android": {
+      "package": "com.campusplate.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#861F41"
