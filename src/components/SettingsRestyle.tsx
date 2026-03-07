@@ -74,6 +74,7 @@ export default function SettingsRestyle() {
   const [canvasConnecting, setCanvasConnecting] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [scheduleEditorVisible, setScheduleEditorVisible] = useState(false);
+  const [aboutModalVisible, setAboutModalVisible] = useState(false);
 
   const [currentGoals, setCurrentGoals] = useState<Goals>({
     goalCalories: 2000,
@@ -303,11 +304,12 @@ export default function SettingsRestyle() {
   };
 
   // ── SettingsRow sub-component ──
-  const SettingsRow = ({ icon, iconBg, iconColor, label, onPress, rightContent, textColor, isLast }: {
+  const SettingsRow = ({ icon, iconBg, iconColor, label, subtitle, onPress, rightContent, textColor, isLast }: {
     icon: keyof typeof Feather.glyphMap;
     iconBg: ColorName;
     iconColor: ColorName;
     label: string;
+    subtitle?: string;
     onPress?: () => void;
     rightContent?: React.ReactNode;
     textColor?: ColorName;
@@ -325,7 +327,10 @@ export default function SettingsRestyle() {
         >
           <Feather name={icon} size={16} color={theme.colors[iconColor]} />
         </Box>
-        <Text variant="body" color={textColor || 'text'}>{label}</Text>
+        <Box style={{ flexShrink: 1 }}>
+          <Text variant="body" color={textColor || 'text'}>{label}</Text>
+          {subtitle ? <Text variant="bodySmall" color="textDim" style={{ marginTop: 2 }}>{subtitle}</Text> : null}
+        </Box>
         <Box flex={1} />
         {rightContent}
         {!rightContent && textColor !== 'error' && (
@@ -525,13 +530,8 @@ export default function SettingsRestyle() {
           <SettingsRow
             icon="calendar" iconBg="proteinTint" iconColor="proteinRing"
             label="Class Schedule"
+            subtitle="Manage your weekly classes"
             onPress={() => setScheduleEditorVisible(true)}
-            rightContent={
-              <>
-                <Text variant="bodySmall" color="textDim" marginRight="s">Manage your weekly classes</Text>
-                <Feather name="chevron-right" size={18} color={theme.colors.textDim} style={{ opacity: 0.5 }} />
-              </>
-            }
             isLast
           />
         </Card>
@@ -550,7 +550,7 @@ export default function SettingsRestyle() {
           <SettingsRow
             icon="info" iconBg="silverTint" iconColor="silver"
             label="About" isLast
-            onPress={() => Alert.alert('CampusPlate v2.5', 'Virginia Tech dining nutrition tracker.\nTrack meals, hit your macros, eat smarter.\n\nBuilt for Hokies, by Hokies.')}
+            onPress={() => setAboutModalVisible(true)}
             rightContent={
               <>
                 <Text variant="bodySmall" color="textDim" marginRight="s">v2.5</Text>
@@ -731,6 +731,51 @@ export default function SettingsRestyle() {
       <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
 
       <ScheduleEditor visible={scheduleEditorVisible} onClose={() => setScheduleEditorVisible(false)} />
+
+      {/* About Modal */}
+      <Modal
+        visible={aboutModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAboutModalVisible(false)}
+      >
+        <Box flex={1} justifyContent="center" alignItems="center" padding="l" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <Box backgroundColor="card" width="100%" alignItems="center" style={{ borderRadius: 14, paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 }}>
+            {/* Lightning bolt icon */}
+            <Box
+              width={72}
+              height={72}
+              borderRadius="full"
+              backgroundColor="maroonTint"
+              justifyContent="center"
+              alignItems="center"
+              style={{ marginBottom: 20 }}
+            >
+              <Feather name="zap" size={36} color={theme.colors.maroon} />
+            </Box>
+
+            <Text style={{ fontSize: 24, fontFamily: 'Outfit_700Bold', marginBottom: 6 }} color="text">
+              CampusPlate
+            </Text>
+            <Text style={{ fontSize: 14, fontFamily: 'DMSans_400Regular', marginBottom: 16 }} color="textMuted">
+              v2.5
+            </Text>
+            <Text style={{ fontSize: 15, fontFamily: 'DMSans_400Regular', textAlign: 'center' }} color="textDim">
+              Built for Hokies, by Hokies
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setAboutModalVisible(false)}
+              activeOpacity={0.8}
+              style={{ marginTop: 28, width: '100%' }}
+            >
+              <Box backgroundColor="maroon" alignItems="center" style={{ padding: 14, borderRadius: 14 }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'DMSans_700Bold' }}>Close</Text>
+              </Box>
+            </TouchableOpacity>
+          </Box>
+        </Box>
+      </Modal>
 
       <Modal
         visible={waterGoalModalVisible}

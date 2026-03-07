@@ -32,6 +32,15 @@ export interface ScoreDetailData {
   water: { actual: number; goal: number };
 }
 
+type Period = '1W' | '1M' | '3M' | 'All';
+
+const PERIOD_TITLES: Record<Period, string> = {
+  '1W': "THIS WEEK'S DAILY AVERAGE",
+  '1M': "THIS MONTH'S DAILY AVERAGE",
+  '3M': 'LAST 3 MONTHS AVERAGE',
+  'All': 'ALL TIME DAILY AVERAGE',
+};
+
 interface Props {
   score: number;
   grade: string;
@@ -39,6 +48,7 @@ interface Props {
   breakdown: ScoreBreakdown;
   compact?: boolean;
   detailData?: ScoreDetailData;
+  period?: Period;
 }
 
 const CATEGORIES: {
@@ -84,12 +94,12 @@ function getDetailText(key: string, detail: ScoreDetailData | undefined, unit: s
   if (key === 'protein') return `${formatNum(detail.protein.actual)} of ${formatNum(detail.protein.goal)}${unit}`;
   if (key === 'carbs') return `${formatNum(detail.carbs.actual)} of ${formatNum(detail.carbs.goal)}${unit}`;
   if (key === 'fat') return `${formatNum(detail.fat.actual)} of ${formatNum(detail.fat.goal)}${unit}`;
-  if (key === 'meals') return `${detail.mealsLogged} of 3 logged`;
+  if (key === 'meals') return detail.mealsLogged >= 3 ? `Goal met · ${detail.mealsLogged} logged` : `${detail.mealsLogged} of 3 logged`;
   if (key === 'water') return `${formatNum(detail.water.actual)} of ${formatNum(detail.water.goal)} ${unit}`;
   return null;
 }
 
-export default function DailyScoreCard({ score, grade, gradeColor, breakdown, compact = false, detailData }: Props) {
+export default function DailyScoreCard({ score, grade, gradeColor, breakdown, compact = false, detailData, period = '1W' }: Props) {
   const { colors } = useTheme();
   const C = {
     ...ACCENT,
@@ -163,7 +173,7 @@ export default function DailyScoreCard({ score, grade, gradeColor, breakdown, co
           marginBottom: 16,
         }}
       >
-        THIS WEEK'S DAILY AVERAGE
+        {PERIOD_TITLES[period]}
       </Text>
 
       {/* Top row: 4-column weekly average grid */}

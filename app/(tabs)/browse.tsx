@@ -57,19 +57,20 @@ function autoMeal(): string {
 }
 
 const STATION_EMOJI_RULES: [string[], string][] = [
-  [['grill', 'burger', 'chop'], '🔥'],
-  [['salad', 'eden'], '🥗'],
-  [['pizza', 'mangia'], '🍕'],
-  [['deli', 'sandwich'], '🥪'],
-  [['pasta', 'noodle'], '🍝'],
-  [['sushi', 'origami', 'asian'], '🍣'],
-  [['mexican', 'salsa', 'qdoba', 'taco'], '🌮'],
-  [['bakery', 'patisserie', 'sweets', 'dessert'], '🧁'],
-  [['soup'], '🍜'],
+  [['pizza', 'pasta', 'italian', 'mangia', 'noodle'], '🍕'],
+  [['grill', 'burger', 'bbq', 'brisket', 'smoked', 'chop'], '🍔'],
+  [['salad', 'greens', 'vegetable', 'vegan', 'eden'], '🥗'],
+  [['soup'], '🍲'],
+  [['dessert', 'ice cream', 'pastry', 'danish', 'bakery', 'patisserie', 'sweets'], '🍰'],
+  [['coffee', 'latte', 'tea', 'drinks', 'botrista', 'dunkin'], '☕'],
+  [['breakfast', 'eggs', 'waffle', 'pancake', 'egg'], '🍳'],
+  [['sushi', 'asian', 'teriyaki', 'ramen', 'origami'], '🍱'],
+  [['taco', 'mexican', 'burrito', 'chimichanga', 'salsa', 'qdoba'], '🌮'],
+  [['sandwich', 'deli', 'sub'], '🥪'],
   [['chicken', 'chick-fil'], '🍗'],
-  [['coffee', 'dunkin', 'juice', 'smoothie', 'jamba'], '☕'],
-  [['bbq', 'smoke'], '🍖'],
-  [['breakfast', 'waffle', 'pancake', 'egg'], '🍳'],
+  [['seafood', 'fish'], '🐟'],
+  [['fruit', 'smoothie', 'juice', 'jamba'], '🍓'],
+  [['bread', 'toast', 'bun'], '🍞'],
   [['byo', 'bowl'], '🥣'],
   [['market', 'grab', 'express', 'dx'], '🏪'],
   [['corner'], '🍴'],
@@ -80,7 +81,7 @@ function getStationEmoji(stationName: string): string | null {
   for (const [keywords, emoji] of STATION_EMOJI_RULES) {
     if (keywords.some((kw) => lower.includes(kw))) return emoji;
   }
-  return null; // Task 4.2: no fallback emoji — return null for unknown stations
+  return '🍽️';
 }
 
 // ─── Press-scale log button ─────────────────────────────────────────────────

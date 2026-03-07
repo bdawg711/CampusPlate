@@ -2,7 +2,7 @@ import Purchases, { LOG_LEVEL, PurchasesPackage } from 'react-native-purchases';
 import { Platform } from 'react-native';
 
 // Replace with your actual RevenueCat API key from app.revenuecat.com
-const REVENUECAT_APPLE_KEY = 'appl_PLACEHOLDER_REPLACE_WITH_REAL_KEY';
+const REVENUECAT_APPLE_KEY = 'test_xjbniTSvsGRqJmAauSgFfAzhFdT';
 
 const ENTITLEMENT_ID = 'premium';
 

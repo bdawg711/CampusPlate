@@ -184,6 +184,24 @@ function parseMealItems(
   return { cleaned: cleaned.trim(), mealItems };
 }
 
+/** Recalculate meal totalCalories and plan dailyTotal from individual items. */
+// deno-lint-ignore no-explicit-any
+function recalcPlanTotals(plan: any): void {
+  const daily = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  for (const meal of plan.meals ?? []) {
+    let mealCal = 0;
+    for (const item of meal.items ?? []) {
+      daily.calories += item.calories ?? 0;
+      daily.protein += item.protein ?? 0;
+      daily.carbs += item.carbs ?? 0;
+      daily.fat += item.fat ?? 0;
+      mealCal += item.calories ?? 0;
+    }
+    meal.totalCalories = mealCal;
+  }
+  plan.dailyTotal = daily;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -521,6 +539,212 @@ Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation
         // Strip any accidental markdown fencing
         const cleanedText = rawText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
         const parsed = JSON.parse(cleanedText);
+
+        // ── Post-processing: replace AI nutrition with real DB values ──
+        const allIds: number[] = [];
+        for (const meal of parsed.meals ?? []) {
+          for (const item of meal.items ?? []) {
+            if (item.id != null) allIds.push(item.id);
+          }
+        }
+
+        if (allIds.length > 0) {
+          try {
+            const { data: realItems } = await adminClient
+              .from("menu_items")
+              .select("id, nutrition(calories, protein_g, total_carbs_g, total_fat_g)")
+              .in("id", allIds);
+
+            const nutritionMap: Record<number, { calories: number; protein: number; carbs: number; fat: number }> = {};
+            for (const ri of realItems ?? []) {
+              if (ri.nutrition) {
+                nutritionMap[ri.id] = {
+                  calories: ri.nutrition.calories ?? 0,
+                  protein: ri.nutrition.protein_g ?? 0,
+                  carbs: ri.nutrition.total_carbs_g ?? 0,
+                  fat: ri.nutrition.total_fat_g ?? 0,
+                };
+              }
+            }
+
+            // Replace AI nutrition with real values
+            for (const meal of parsed.meals ?? []) {
+              for (const item of meal.items ?? []) {
+                const real = nutritionMap[item.id];
+                if (real) {
+                  item.calories = real.calories;
+                  item.protein = real.protein;
+                  item.carbs = real.carbs;
+                  item.fat = real.fat;
+                }
+              }
+            }
+
+            // Recalculate totals
+            recalcPlanTotals(parsed);
+
+            // Fat guardrail: swap highest-fat items with lower-fat alternatives
+            const triedItemIds = new Set<number>();
+            while (parsed.dailyTotal.fat > goals.fat * 1.2) {
+              // Find the single highest-fat item across all meals (skip already-tried)
+              let worstMealIdx = -1;
+              let worstItemIdx = -1;
+              let worstFat = 0;
+              for (let mi = 0; mi < (parsed.meals ?? []).length; mi++) {
+                for (let ii = 0; ii < (parsed.meals[mi].items ?? []).length; ii++) {
+                  const item = parsed.meals[mi].items[ii];
+                  const f = item.fat ?? 0;
+                  if (f > worstFat && !triedItemIds.has(item.id)) {
+                    worstFat = f;
+                    worstMealIdx = mi;
+                    worstItemIdx = ii;
+                  }
+                }
+              }
+              if (worstMealIdx < 0 || worstFat === 0) break;
+
+              const worstItem = parsed.meals[worstMealIdx].items[worstItemIdx];
+              triedItemIds.add(worstItem.id);
+              const hallName = parsed.meals[worstMealIdx].location;
+
+              // Collect IDs already in the plan to avoid duplicates
+              const planIds = new Set<number>();
+              for (const meal of parsed.meals ?? []) {
+                for (const item of meal.items ?? []) {
+                  if (item.id != null) planIds.add(item.id);
+                }
+              }
+
+              // Query candidates from the same dining hall for today
+              const { data: candidates } = await adminClient
+                .from("menu_items")
+                .select("id, name, station, dining_halls!inner(name), nutrition!inner(calories, protein_g, total_carbs_g, total_fat_g)")
+                .eq("date", todayStr)
+                .eq("dining_halls.name", hallName)
+                .limit(200);
+
+              // Find best replacement: lower fat, calories >= 50, not already in plan
+              // deno-lint-ignore no-explicit-any
+              const replacement = (candidates ?? [])
+                // deno-lint-ignore no-explicit-any
+                .filter((c: any) =>
+                  c.nutrition.total_fat_g < worstFat &&
+                  c.nutrition.calories >= 50 &&
+                  !planIds.has(c.id)
+                )
+                // deno-lint-ignore no-explicit-any
+                .sort((a: any, b: any) => a.nutrition.total_fat_g - b.nutrition.total_fat_g)[0];
+
+              if (replacement?.nutrition) {
+                // Swap the item in place with real DB values
+                worstItem.id = replacement.id;
+                worstItem.name = replacement.name;
+                worstItem.station = replacement.station;
+                worstItem.calories = replacement.nutrition.calories;
+                worstItem.protein = replacement.nutrition.protein_g;
+                worstItem.carbs = replacement.nutrition.total_carbs_g;
+                worstItem.fat = replacement.nutrition.total_fat_g;
+              } else {
+                // No replacement found — remove the item (fallback)
+                parsed.meals[worstMealIdx].items.splice(worstItemIdx, 1);
+              }
+
+              recalcPlanTotals(parsed);
+            }
+
+            // Calorie guardrail: swap highest-calorie items with lower-calorie alternatives
+            const triedCalItemIds = new Set<number>();
+            while (parsed.dailyTotal.calories > goals.calories + 300) {
+              let worstMealIdx = -1;
+              let worstItemIdx = -1;
+              let worstCal = 0;
+              for (let mi = 0; mi < (parsed.meals ?? []).length; mi++) {
+                for (let ii = 0; ii < (parsed.meals[mi].items ?? []).length; ii++) {
+                  const item = parsed.meals[mi].items[ii];
+                  const c = item.calories ?? 0;
+                  if (c > worstCal && !triedCalItemIds.has(item.id)) {
+                    worstCal = c;
+                    worstMealIdx = mi;
+                    worstItemIdx = ii;
+                  }
+                }
+              }
+              if (worstMealIdx < 0 || worstCal === 0) break;
+
+              const worstItem = parsed.meals[worstMealIdx].items[worstItemIdx];
+              triedCalItemIds.add(worstItem.id);
+              const hallName = parsed.meals[worstMealIdx].location;
+
+              const calPlanIds = new Set<number>();
+              for (const meal of parsed.meals ?? []) {
+                for (const item of meal.items ?? []) {
+                  if (item.id != null) calPlanIds.add(item.id);
+                }
+              }
+
+              // deno-lint-ignore no-explicit-any
+              const { data: calCandidates } = await adminClient
+                .from("menu_items")
+                .select("id, name, station, dining_halls!inner(name), nutrition!inner(calories, protein_g, total_carbs_g, total_fat_g)")
+                .eq("date", todayStr)
+                .eq("dining_halls.name", hallName)
+                .limit(200);
+
+              // deno-lint-ignore no-explicit-any
+              const calReplacement = (calCandidates ?? [])
+                // deno-lint-ignore no-explicit-any
+                .filter((c: any) =>
+                  c.nutrition.calories < worstCal &&
+                  c.nutrition.calories >= 50 &&
+                  !calPlanIds.has(c.id)
+                )
+                // deno-lint-ignore no-explicit-any
+                .sort((a: any, b: any) => a.nutrition.calories - b.nutrition.calories)[0];
+
+              if (calReplacement?.nutrition) {
+                worstItem.id = calReplacement.id;
+                worstItem.name = calReplacement.name;
+                worstItem.station = calReplacement.station;
+                worstItem.calories = calReplacement.nutrition.calories;
+                worstItem.protein = calReplacement.nutrition.protein_g;
+                worstItem.carbs = calReplacement.nutrition.total_carbs_g;
+                worstItem.fat = calReplacement.nutrition.total_fat_g;
+              } else {
+                parsed.meals[worstMealIdx].items.splice(worstItemIdx, 1);
+              }
+
+              recalcPlanTotals(parsed);
+            }
+
+            // Remove meals left with no items
+            parsed.meals = (parsed.meals ?? []).filter(
+              // deno-lint-ignore no-explicit-any
+              (m: any) => (m.items ?? []).length > 0
+            );
+
+            // Regenerate tip based on final post-processed values
+            const dt = parsed.dailyTotal;
+            const calDiff = Math.round(dt.calories - goals.calories);
+            const proteinGap = Math.round(goals.protein - dt.protein);
+            const dtCal = Math.round(dt.calories);
+            const dtProt = Math.round(dt.protein);
+            if (Math.abs(calDiff) <= 150 && proteinGap <= 20) {
+              parsed.tip = `This plan hits ${dtCal} cal and ${dtProt}g protein — right on target for your ${goals.calories} cal goal. Enjoy your meals!`;
+            } else if (calDiff > 150 && calDiff <= 300) {
+              parsed.tip = `This plan comes in at ${dtCal} cal, about ${calDiff} over your ${goals.calories} goal. Consider skipping one side or snack to stay closer to target.`;
+            } else if (calDiff > 300) {
+              parsed.tip = `This plan is ${dtCal} cal (${calDiff} over your ${goals.calories} goal). The best available options were higher calorie — try smaller portions or skip a side dish.`;
+            } else if (proteinGap > 20) {
+              parsed.tip = `You're getting ${dtProt}g protein today, about ${proteinGap}g short of your ${goals.protein}g goal. Look for a protein-rich snack like Greek yogurt or a protein shake.`;
+            } else {
+              parsed.tip = `Today's plan provides ${dtCal} cal with ${dtProt}g protein across your meals.`;
+            }
+          } catch (e) {
+            console.error("Nutrition post-processing failed:", (e as Error).message);
+            // Non-fatal — return AI values as-is
+          }
+        }
+
         const remaining = PLAN_LIMIT - (currentPlans + 1);
         return jsonResponse({
           ...parsed,

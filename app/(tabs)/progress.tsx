@@ -528,6 +528,7 @@ export default function ProgressScreen() {
                 gradeColor={dailyScore.gradeColor}
                 breakdown={dailyScore.breakdown}
                 detailData={scoreDetail}
+                period={range}
               />
             </Box>
           )}

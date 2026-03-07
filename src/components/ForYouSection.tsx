@@ -114,11 +114,12 @@ export default function ForYouSection({
                 {/* Maroon left-border accent */}
                 <Box style={styles.leftAccent} />
 
-                {/* Food name — 2 lines max */}
+                {/* Food name — fixed 2-line slot */}
                 <Text
                   variant="body"
-                  style={{ fontFamily: 'DMSans_600SemiBold', lineHeight: 18 }}
+                  style={{ fontFamily: 'DMSans_600SemiBold', lineHeight: 18, height: 36 }}
                   numberOfLines={2}
+                  ellipsizeMode="tail"
                 >
                   {item.name}
                 </Text>
@@ -152,6 +153,7 @@ const styles = StyleSheet.create({
   },
   foodCard: {
     width: 164,
+    height: 110,
     marginRight: 10,
     overflow: 'hidden',
   },

@@ -112,12 +112,18 @@ export async function getWeeklyReport(
   startD.setDate(startD.getDate() - 6);
   const start = formatLocalDate(startD);
 
-  // Run RPC and most-consistent-meal query in parallel
-  const [rpcResult, mealResult] = await Promise.all([
+  // Run RPC, most-consistent-meal query, and direct water query in parallel
+  const [rpcResult, mealResult, waterResult] = await Promise.all([
     supabase.rpc('get_weekly_report', { p_user_id: userId, p_end_date: end }),
     supabase
       .from('meal_logs')
       .select('meal, date')
+      .eq('user_id', userId)
+      .gte('date', start)
+      .lte('date', end),
+    supabase
+      .from('water_logs')
+      .select('date, glasses')
       .eq('user_id', userId)
       .gte('date', start)
       .lte('date', end),
@@ -170,10 +176,11 @@ export async function getWeeklyReport(
     fat: goals.fat > 0 ? Math.round((averages.fat / goals.fat) * 100) : 0,
   };
 
-  // ── Water ───────────────────────────────────────────────────────────────
-  const waterTotals: WaterEntry[] = (rpc.water_totals ?? []).map((w) => ({
+  // ── Water (direct query — RPC may use wrong column name) ────────────────
+  const waterRows = waterResult.data ?? [];
+  const waterTotals: WaterEntry[] = waterRows.map((w: { date: string; glasses: number }) => ({
     date: w.date,
-    totalOz: w.total_oz ?? 0,
+    totalOz: w.glasses ?? 0,
   }));
 
   const avgWaterOz =
