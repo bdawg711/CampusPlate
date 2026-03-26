@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +29,12 @@ import {
 import { fetchAndParseCalendar, getTodayEvents, type CalendarEvent } from '@/src/utils/calendar';
 
 // ── Types ────────────────────────────────────────────────────────────────────
+
+interface DiningHallOption {
+  id: number;
+  name: string;
+  itemCount: number;
+}
 
 interface MealPlanViewProps {
   visible: boolean;
@@ -112,19 +118,23 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
   const [todayClasses, setTodayClasses] = useState<CalendarEvent[]>([]);
   const [hasCanvas, setHasCanvas] = useState(false);
 
-  const generatePlan = useCallback(async (forceRegenerate = false) => {
-    setLoading(true);
-    setError(null);
-    setPlan(null);
-    setLoggedMealIdxs(new Set());
+  // Dining hall picker state
+  const [showPicker, setShowPicker] = useState(false);
+  const [availableHalls, setAvailableHalls] = useState<DiningHallOption[]>([]);
+  const [selectedHallIds, setSelectedHallIds] = useState<Set<number>>(new Set());
+  const [loadingHalls, setLoadingHalls] = useState(false);
+  const hasCheckedSavedPlan = useRef(false);
 
+  // Fetch dining halls that have menu items for today
+  const fetchAvailableHalls = useCallback(async (skipSavedCheck = false) => {
+    setLoadingHalls(true);
     try {
       const userId = await requireUserId();
       const d = new Date();
       const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-      // Check for saved plan unless explicitly regenerating
-      if (!forceRegenerate) {
+      // Check for saved plan first (skip when regenerating)
+      if (!skipSavedCheck) {
         try {
           const { data: saved } = await supabase
             .from('ai_meal_plans')
@@ -136,12 +146,91 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
           if (saved?.plan_json) {
             setPlan(saved.plan_json as MealPlanResponse);
             setIsSavedPlan(true);
+            hasCheckedSavedPlan.current = true;
             return;
           }
         } catch {
-          // Failed to load saved plan, continue to generate
+          // Failed to check saved plan, continue to picker
         }
       }
+
+      hasCheckedSavedPlan.current = true;
+
+      // Fetch halls with today's menu item counts
+      const { data: halls } = await supabase
+        .from('dining_halls')
+        .select('id, name');
+
+      const { data: menuItems } = await supabase
+        .from('menu_items')
+        .select('dining_hall_id')
+        .eq('date', today);
+
+      if (!halls || !menuItems) {
+        setShowPicker(true);
+        return;
+      }
+
+      // Count items per hall
+      const countMap = new Map<number, number>();
+      for (const item of menuItems) {
+        const hallId = item.dining_hall_id;
+        countMap.set(hallId, (countMap.get(hallId) ?? 0) + 1);
+      }
+
+      // Only show halls that have items
+      const hallOptions: DiningHallOption[] = halls
+        .filter((h) => (countMap.get(h.id) ?? 0) > 0)
+        .map((h) => ({ id: h.id, name: h.name, itemCount: countMap.get(h.id) ?? 0 }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      setAvailableHalls(hallOptions);
+
+      // Pre-select user's home hall
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('home_hall_id')
+          .eq('id', userId)
+          .single();
+
+        if (profile?.home_hall_id && hallOptions.some((h) => h.id === profile.home_hall_id)) {
+          setSelectedHallIds(new Set([profile.home_hall_id]));
+        }
+      } catch {
+        // No home hall — user picks manually
+      }
+
+      setShowPicker(true);
+    } catch {
+      // If fetching fails, just show picker with empty state
+      setShowPicker(true);
+    } finally {
+      setLoadingHalls(false);
+    }
+  }, []);
+
+  const toggleHall = (hallId: number) => {
+    setSelectedHallIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(hallId)) {
+        next.delete(hallId);
+      } else {
+        next.add(hallId);
+      }
+      return next;
+    });
+  };
+
+  const generatePlan = useCallback(async (forceRegenerate = false) => {
+    setLoading(true);
+    setError(null);
+    setPlan(null);
+    setShowPicker(false);
+    setLoggedMealIdxs(new Set());
+
+    try {
+      const userId = await requireUserId();
 
       // Fetch profile for goals + Canvas URL
       const { data: profile } = await supabase
@@ -191,11 +280,14 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
         setTodayClasses([]);
       }
 
-      const result = await requestMealPlan(schedule, goals, preferences);
+      const hallIds = selectedHallIds.size > 0 ? Array.from(selectedHallIds) : undefined;
+      const result = await requestMealPlan(schedule, goals, preferences, hallIds);
       setPlan(result);
       setIsSavedPlan(false);
 
       // Save plan to DB
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       try {
         await supabase
           .from('ai_meal_plans')
@@ -211,12 +303,13 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedHallIds]);
 
-  // Generate plan on open
+  // Load dining hall picker or saved plan on open
   useEffect(() => {
-    if (visible && !plan && !loading) {
-      generatePlan();
+    if (visible && !plan && !loading && !showPicker && !loadingHalls) {
+      hasCheckedSavedPlan.current = false;
+      fetchAvailableHalls();
     }
   }, [visible]);
 
@@ -226,6 +319,10 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
     setError(null);
     setLoading(false);
     setLoggedMealIdxs(new Set());
+    setShowPicker(false);
+    setAvailableHalls([]);
+    setSelectedHallIds(new Set());
+    hasCheckedSavedPlan.current = false;
     onClose();
   };
 
@@ -359,6 +456,119 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
+          {/* ── Loading Halls State ── */}
+          {loadingHalls && !plan && !loading && (
+            <Box alignItems="center" style={{ paddingTop: 60 }}>
+              <ActivityIndicator size="large" color={colors.maroon} />
+              <Text style={{ fontSize: 14, fontFamily: 'DMSans_500Medium', color: colors.textMuted, marginTop: 12 }}>
+                Checking today's menus...
+              </Text>
+            </Box>
+          )}
+
+          {/* ── Dining Hall Picker ── */}
+          {showPicker && !plan && !loading && (
+            <Box>
+              <Text style={{ fontSize: 16, fontFamily: 'Outfit_700Bold', color: colors.text, marginBottom: 4 }}>
+                Choose Dining Halls
+              </Text>
+              <Text style={{ fontSize: 13, fontFamily: 'DMSans_400Regular', color: colors.textMuted, marginBottom: 16 }}>
+                Select which halls to include in your meal plan
+              </Text>
+
+              {availableHalls.length === 0 ? (
+                <Box alignItems="center" style={{ paddingTop: 40 }}>
+                  <Text style={{ fontSize: 36, marginBottom: 12 }}>🍽</Text>
+                  <Text style={{ fontSize: 15, fontFamily: 'DMSans_500Medium', color: colors.text, textAlign: 'center', marginBottom: 6 }}>
+                    No menus available today
+                  </Text>
+                  <Text style={{ fontSize: 13, fontFamily: 'DMSans_400Regular', color: colors.textMuted, textAlign: 'center' }}>
+                    Menu data hasn't been loaded yet. Check back later!
+                  </Text>
+                </Box>
+              ) : (
+                <>
+                  {availableHalls.map((hall) => {
+                    const isSelected = selectedHallIds.has(hall.id);
+                    return (
+                      <TouchableOpacity
+                        key={hall.id}
+                        onPress={() => toggleHall(hall.id)}
+                        activeOpacity={0.7}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          padding: 14,
+                          borderRadius: 14,
+                          backgroundColor: isSelected ? colors.maroonTint : colors.cardGlass,
+                          borderColor: isSelected ? colors.maroon : colors.cardGlassBorder,
+                          borderWidth: 1,
+                          marginBottom: 10,
+                        }}
+                      >
+                        <Box
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 6,
+                            borderWidth: 2,
+                            borderColor: isSelected ? colors.maroon : colors.textDim,
+                            backgroundColor: isSelected ? colors.maroon : 'transparent',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            marginRight: 12,
+                          }}
+                        >
+                          {isSelected && (
+                            <Feather name="check" size={14} color="#FFFFFF" />
+                          )}
+                        </Box>
+                        <Box style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 15, fontFamily: 'DMSans_600SemiBold', color: colors.text }}>
+                            {hall.name}
+                          </Text>
+                          <Text style={{ fontSize: 12, fontFamily: 'DMSans_400Regular', color: colors.textMuted, marginTop: 2 }}>
+                            {hall.itemCount} item{hall.itemCount !== 1 ? 's' : ''} available
+                          </Text>
+                        </Box>
+                        {isSelected && (
+                          <Feather name="check-circle" size={18} color={colors.maroon} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  <TouchableOpacity
+                    onPress={() => generatePlan(true)}
+                    disabled={selectedHallIds.size === 0}
+                    activeOpacity={0.7}
+                    style={{
+                      marginTop: 10,
+                      paddingVertical: 14,
+                      borderRadius: 14,
+                      backgroundColor: selectedHallIds.size > 0 ? colors.maroon : colors.barTrack,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 16,
+                      fontFamily: 'DMSans_700Bold',
+                      color: selectedHallIds.size > 0 ? '#FFFFFF' : colors.textDim,
+                    }}>
+                      Generate My Plan
+                    </Text>
+                  </TouchableOpacity>
+
+                  {selectedHallIds.size === 0 && (
+                    <Text style={{ fontSize: 12, fontFamily: 'DMSans_400Regular', color: colors.textDim, textAlign: 'center', marginTop: 8 }}>
+                      Select at least one dining hall
+                    </Text>
+                  )}
+                </>
+              )}
+            </Box>
+          )}
+
           {/* ── Loading State ── */}
           {loading && (
             <Box>
@@ -587,7 +797,12 @@ export default function MealPlanView({ visible, onClose, onLogged }: MealPlanVie
               {/* Regenerate + remaining */}
               <Box alignItems="center" style={{ marginTop: 8 }}>
                 <TouchableOpacity
-                  onPress={() => generatePlan(true)}
+                  onPress={() => {
+                    setPlan(null);
+                    setIsSavedPlan(false);
+                    setLoggedMealIdxs(new Set());
+                    fetchAvailableHalls(true);
+                  }}
                   activeOpacity={0.7}
                   style={{
                     flexDirection: 'row',

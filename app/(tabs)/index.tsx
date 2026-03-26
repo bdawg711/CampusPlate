@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   RefreshControl,
@@ -145,6 +146,14 @@ export default function HomeScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [showDescribe, setShowDescribe] = useState(false);
   const [classSchedule, setClassSchedule] = useState<{ id: string; class_name: string; start_time: string; end_time: string }[]>([]);
+
+  // ─── Item detail modal state ───
+  const [detailItem, setDetailItem] = useState<any>(null);
+  const [detailHall, setDetailHall] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailServings, setDetailServings] = useState(1);
+  const [detailLogging, setDetailLogging] = useState(false);
+  const [detailLogSuccess, setDetailLogSuccess] = useState(false);
 
   // ─── Celebration state ───
   const [showConfetti, setShowConfetti] = useState(false);
@@ -374,6 +383,80 @@ export default function HomeScreen() {
     setRingsKey((k) => k + 1);
     await loadData();
     setRefreshing(false);
+  };
+
+  // ─── Item detail modal helpers ───
+
+  const openForYouItem = async (itemId: number) => {
+    setDetailLoading(true);
+    setDetailServings(1);
+    setDetailLogSuccess(false);
+    try {
+      const { data } = await supabase
+        .from('menu_items')
+        .select('id, name, rec_num, station, dietary_flags, ingredients, nutrition(*), dining_hall_id, dining_halls(id, name)')
+        .eq('id', itemId)
+        .single();
+      if (data) {
+        setDetailHall(data.dining_halls ?? null);
+        setDetailItem(data);
+      }
+    } catch (e) {
+      if (__DEV__) console.error('Failed to open item:', e);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const getDetailNutr = (item: any) => {
+    const n = Array.isArray(item.nutrition) ? item.nutrition[0] : item.nutrition;
+    return {
+      cal: n?.calories || 0,
+      pro: n?.protein_g || 0,
+      carb: n?.total_carbs_g || 0,
+      fat: n?.total_fat_g || 0,
+      sat_fat: n?.saturated_fat_g || 0,
+      trans_fat: n?.trans_fat_g || 0,
+      cholesterol: n?.cholesterol_mg || 0,
+      sodium: n?.sodium_mg || 0,
+      fiber: n?.dietary_fiber_g || 0,
+      sugars: n?.sugars_g || 0,
+      added_sugars: n?.added_sugars_g || 0,
+    };
+  };
+
+  const logDetailItem = async () => {
+    if (!detailItem) return;
+    setDetailLogging(true);
+    triggerHaptic('medium');
+    try {
+      const userId = await requireUserId();
+      const { error } = await supabase.from('meal_logs').insert({
+        user_id: userId,
+        menu_item_id: detailItem.id,
+        date: getLocalDate(),
+        meal: getCurrentMealPeriod(),
+        servings: detailServings,
+      });
+      if (error) { Alert.alert('Error', 'Failed to save. Please try again.'); return; }
+      setDetailLogSuccess(true);
+      triggerHaptic('success');
+      setTimeout(() => {
+        setDetailItem(null);
+        setDetailLogSuccess(false);
+        loadData();
+      }, 1200);
+    } catch (e) {
+      if (__DEV__) console.error('Log error:', e);
+    } finally {
+      setDetailLogging(false);
+    }
+  };
+
+  const closeDetailModal = () => {
+    setDetailItem(null);
+    setDetailLoading(false);
+    setDetailLogSuccess(false);
   };
 
   const deleteLog = async (logId: string) => {
@@ -820,7 +903,7 @@ export default function HomeScreen() {
               <ForYouSection
                 sections={forYouSections}
                 onSeeAll={(filter) => router.push({ pathname: '/(tabs)/browse', params: { filter } })}
-                onItemPress={(item) => router.push({ pathname: '/(tabs)/browse', params: { itemId: String(item.id) } })}
+                onItemPress={(item) => openForYouItem(item.id)}
               />
             )}
           </Box>
@@ -906,6 +989,206 @@ export default function HomeScreen() {
         onClose={() => setShowDescribe(false)}
         onLogged={() => { setShowDescribe(false); loadData(); }}
       />
+
+      {/* Item Detail Modal (For You tap) */}
+      <Modal
+        visible={!!detailItem || detailLoading}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeDetailModal}
+      >
+        <Box flex={1} backgroundColor="background">
+          {/* Modal header */}
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            paddingHorizontal="m"
+            style={{ paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}
+          >
+            <Text variant="pageTitle">Nutrition Info</Text>
+            <TouchableOpacity
+              onPress={closeDetailModal}
+              accessibilityLabel="Close detail"
+              accessibilityRole="button"
+              style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}
+            >
+              <Feather name="x" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </Box>
+
+          {detailLoading ? (
+            <Box flex={1} justifyContent="center" alignItems="center">
+              <ActivityIndicator size="large" color={colors.maroon} />
+            </Box>
+          ) : detailItem ? (() => {
+            const n = getDetailNutr(detailItem);
+            const adjCal = Math.round(n.cal * detailServings);
+            const macroBarData = [
+              { label: 'Protein', val: Math.round(n.pro * detailServings), unit: 'g', color: '#5B7FFF' },
+              { label: 'Carbs', val: Math.round(n.carb * detailServings), unit: 'g', color: '#FFD60A' },
+              { label: 'Fat', val: Math.round(n.fat * detailServings), unit: 'g', color: '#A8A9AD' },
+            ];
+            const maxMacro = Math.max(...macroBarData.map((m) => m.val), 1);
+            const nutritionGrid = [
+              { label: 'Total Fat', val: `${Math.round(n.fat * detailServings)}g` },
+              { label: 'Sat Fat', val: `${Math.round(n.sat_fat * detailServings)}g` },
+              { label: 'Trans Fat', val: `${Math.round(n.trans_fat * detailServings)}g` },
+              { label: 'Cholesterol', val: `${Math.round(n.cholesterol * detailServings)}mg` },
+              { label: 'Sodium', val: `${Math.round(n.sodium * detailServings)}mg` },
+              { label: 'Total Carbs', val: `${Math.round(n.carb * detailServings)}g` },
+              { label: 'Fiber', val: `${Math.round(n.fiber * detailServings)}g` },
+              { label: 'Sugars', val: `${Math.round(n.sugars * detailServings)}g` },
+              { label: 'Added Sugars', val: `${Math.round(n.added_sugars * detailServings)}g` },
+              { label: 'Protein', val: `${Math.round(n.pro * detailServings)}g` },
+            ];
+
+            return (
+              <>
+                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+                  {/* Hero card */}
+                  <Box
+                    borderRadius="m"
+                    padding="l"
+                    backgroundColor="card"
+                    borderColor="border"
+                    borderWidth={1}
+                    style={{ marginTop: 8 }}
+                  >
+                    <Text variant="pageTitle" style={{ fontSize: 24, textAlign: 'center' }}>{detailItem.name}</Text>
+                    <Text variant="muted" style={{ textAlign: 'center', marginTop: 4 }}>
+                      {detailItem.station}{detailHall?.name ? ` · ${detailHall.name}` : ''}
+                    </Text>
+
+                    <Text style={{ fontSize: 36, color: colors.maroon, textAlign: 'center', fontFamily: 'Outfit_700Bold', marginTop: 12 }}>
+                      {adjCal}
+                    </Text>
+                    <Text variant="muted" style={{ textAlign: 'center', marginTop: 2 }}>calories per serving</Text>
+
+                    {/* Macro bars */}
+                    <Box style={{ marginTop: 20, gap: 12 }}>
+                      {macroBarData.map((m) => (
+                        <Box key={m.label} flexDirection="row" alignItems="center" style={{ gap: 10 }}>
+                          <Text variant="dim" style={{ width: 50, textAlign: 'right' }}>{m.label}</Text>
+                          <Box flex={1} style={{ height: 8, borderRadius: 4, backgroundColor: colors.border }}>
+                            <Box
+                              style={{
+                                height: 8, borderRadius: 4,
+                                backgroundColor: m.color,
+                                width: `${Math.min((m.val / maxMacro) * 100, 100)}%`,
+                              }}
+                            />
+                          </Box>
+                          <Text variant="body" style={{ fontFamily: 'DMSans_700Bold', fontSize: 14, width: 40 }}>
+                            {m.val}{m.unit}
+                          </Text>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+
+                  {/* Servings */}
+                  <Box style={{ marginTop: 20 }}>
+                    <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold', marginBottom: 10 }}>Servings</Text>
+                    <Box flexDirection="row" style={{ gap: 8 }}>
+                      {[0.5, 1, 1.5, 2].map((s) => (
+                        <TouchableOpacity
+                          key={s}
+                          style={{
+                            flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: 'center',
+                            backgroundColor: detailServings === s ? colors.maroon : colors.card,
+                            borderWidth: 1, borderColor: detailServings === s ? colors.maroon : colors.border,
+                          }}
+                          onPress={() => { triggerHaptic('light'); setDetailServings(s); }}
+                        >
+                          <Text variant="body" style={{
+                            fontFamily: 'DMSans_600SemiBold', fontSize: 14,
+                            color: detailServings === s ? '#FFFFFF' : colors.text,
+                          }}>{s}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </Box>
+                  </Box>
+
+                  {/* Nutrition grid */}
+                  <Box style={{ marginTop: 20 }}>
+                    <Text variant="sectionHeader" style={{ marginBottom: 12 }}>NUTRITION DETAILS</Text>
+                    {nutritionGrid.map((item, i) => (
+                      <Box
+                        key={item.label}
+                        flexDirection="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        style={{
+                          paddingVertical: 10,
+                          borderBottomWidth: i < nutritionGrid.length - 1 ? 1 : 0,
+                          borderBottomColor: colors.border,
+                        }}
+                      >
+                        <Text variant="body" style={{ color: colors.textMuted, fontSize: 14 }}>{item.label}</Text>
+                        <Text variant="body" style={{ fontFamily: 'DMSans_700Bold', fontSize: 14 }}>{item.val}</Text>
+                      </Box>
+                    ))}
+                  </Box>
+
+                  {/* Dietary flags */}
+                  {detailItem.dietary_flags && detailItem.dietary_flags.length > 0 && (
+                    <Box flexDirection="row" flexWrap="wrap" style={{ gap: 8, marginTop: 16 }}>
+                      {detailItem.dietary_flags.map((flag: string) => (
+                        <Box key={flag} style={{
+                          paddingHorizontal: 12, paddingVertical: 6,
+                          borderRadius: 4, backgroundColor: colors.maroon + '18',
+                        }}>
+                          <Text style={{ fontSize: 12, color: colors.maroon, fontFamily: 'DMSans_600SemiBold' }}>{flag}</Text>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+
+                  {/* Ingredients */}
+                  {detailItem.ingredients && (
+                    <Box
+                      borderRadius="m"
+                      padding="m"
+                      backgroundColor="card"
+                      borderColor="border"
+                      borderWidth={1}
+                      style={{ marginTop: 16 }}
+                    >
+                      <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold', marginBottom: 8, fontSize: 13 }}>Ingredients</Text>
+                      <Text variant="muted" style={{ lineHeight: 18, fontSize: 12 }}>{detailItem.ingredients}</Text>
+                    </Box>
+                  )}
+                </ScrollView>
+
+                {/* Sticky log button */}
+                <Box style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40,
+                  borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background,
+                }}>
+                  <TouchableOpacity
+                    onPress={logDetailItem}
+                    disabled={detailLogging || detailLogSuccess}
+                    activeOpacity={0.8}
+                    style={{
+                      height: 54, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+                      flexDirection: 'row', gap: 8,
+                      backgroundColor: detailLogSuccess ? '#34C759' : colors.maroon,
+                      opacity: detailLogging ? 0.6 : 1,
+                    }}
+                  >
+                    {detailLogSuccess && <Feather name="check-circle" size={20} color="#FFFFFF" />}
+                    <Text variant="body" style={{ color: '#FFFFFF', fontFamily: 'DMSans_700Bold', fontSize: 16 }}>
+                      {detailLogging ? 'Logging...' : detailLogSuccess ? 'Logged!' : `Log This Item · ${adjCal.toLocaleString()} cal`}
+                    </Text>
+                  </TouchableOpacity>
+                </Box>
+              </>
+            );
+          })() : null}
+        </Box>
+      </Modal>
 
       {/* Floating Action Button */}
       <FloatingAddButton

@@ -423,11 +423,16 @@ Deno.serve(async (req) => {
         // Non-critical — continue without DB class schedule
       }
 
-      // Fetch today's full menu for the plan
-      const { data: menuData } = await adminClient
+      // Fetch today's full menu for the plan (optionally filtered by selected halls)
+      const selectedHallIds: number[] | undefined = body.selectedHallIds;
+      let menuQuery = adminClient
         .from("menu_items")
         .select("id, name, station, dining_halls(name), meal, nutrition(calories, protein_g, total_carbs_g, total_fat_g)")
         .eq("date", todayStr);
+      if (Array.isArray(selectedHallIds) && selectedHallIds.length > 0) {
+        menuQuery = menuQuery.in("dining_hall_id", selectedHallIds);
+      }
+      const { data: menuData } = await menuQuery;
 
       let menuJson = JSON.stringify(menuData ?? []);
       if (menuJson.length > 60000) {

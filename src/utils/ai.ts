@@ -211,6 +211,7 @@ export async function requestMealPlan(
   schedule: { name: string; start: string; end: string; location?: string }[],
   goals: { calories: number; protein: number; carbs: number; fat: number },
   preferences: { dietary: string[]; allergies: string[] },
+  selectedHallIds?: number[],
 ): Promise<MealPlanResponse> {
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData?.session) {
@@ -231,6 +232,7 @@ export async function requestMealPlan(
       schedule,
       goals,
       preferences,
+      selectedHallIds: selectedHallIds?.length ? selectedHallIds : undefined,
     }),
   });
 
