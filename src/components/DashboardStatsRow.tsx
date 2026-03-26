@@ -21,50 +21,19 @@ interface DashboardStatsRowProps {
   score: number;
   grade: string;
   breakdown?: ScoreBreakdown;
-}
-
-// ── Compute the most impactful tip ──────────────────────────────────────
-
-function getScoreTip(breakdown?: ScoreBreakdown): string | null {
-  if (!breakdown) return null;
-
-  // Compute gap (max - points) for each category, sorted by largest gap
-  const gaps: { key: string; gap: number; label: string }[] = [
-    { key: 'meals', gap: breakdown.meals.max - breakdown.meals.points, label: getMealTip(breakdown.meals.count, breakdown.meals.max - breakdown.meals.points) },
-    { key: 'water', gap: breakdown.water.max - breakdown.water.points, label: `Drink water for +${breakdown.water.max - breakdown.water.points} pts` },
-    { key: 'protein', gap: breakdown.protein.max - breakdown.protein.points, label: `Hit protein for +${breakdown.protein.max - breakdown.protein.points} pts` },
-    { key: 'calories', gap: breakdown.calories.max - breakdown.calories.points, label: `Hit cal goal for +${breakdown.calories.max - breakdown.calories.points} pts` },
-  ];
-
-  // Filter out zero-gap categories
-  const actionable = gaps.filter((g) => g.gap > 0);
-  if (actionable.length === 0) return null;
-
-  // Sort by gap descending, pick the easiest big-gap action
-  actionable.sort((a, b) => b.gap - a.gap);
-  return actionable[0].label;
-}
-
-function getMealTip(count: number, gap: number): string {
-  if (count === 0) return `Log a meal for +${gap} pts`;
-  if (count === 1) return `Log lunch for +${gap} pts`;
-  if (count === 2) return `Log dinner for +${gap} pts`;
-  return `Log meals for +${gap} pts`;
+  nutritionScore: number;
 }
 
 // ── Component ───────────────────────────────────────────────────────────
 
 export default function DashboardStatsRow({
   streak,
-  score,
-  grade,
-  breakdown,
+  nutritionScore,
 }: DashboardStatsRowProps) {
   const isMilestone = MILESTONES.includes(streak);
   const isNewUser = streak <= 1;
-  const scoreTip = getScoreTip(breakdown);
-  const scoreColor = getScoreColor(score);
-  const isHighScore = score >= 80;
+  const scoreColor = getScoreColor(nutritionScore);
+  const isHighScore = nutritionScore >= 80;
 
   return (
     <Box flexDirection="row" gap="s">
@@ -124,7 +93,7 @@ export default function DashboardStatsRow({
           <Box marginTop="xs" marginBottom="xxs">
             {isHighScore ? (
               <GradientText
-                text={`${score}%`}
+                text={`${nutritionScore}%`}
                 gradientType="gold"
                 fontSize={32}
                 fontFamily="Outfit_700Bold"
@@ -134,16 +103,11 @@ export default function DashboardStatsRow({
                 variant="grade"
                 style={{ color: scoreColor }}
               >
-                {score}%
+                {nutritionScore}%
               </Text>
             )}
           </Box>
-          <Text variant="muted">daily goal</Text>
-          {scoreTip && !isHighScore && (
-            <Text variant="dim" style={{ fontSize: 11, marginTop: 4 }}>
-              {scoreTip}
-            </Text>
-          )}
+          <Text variant="muted">daily nutrition score</Text>
         </AnimatedCard>
       </Box>
     </Box>

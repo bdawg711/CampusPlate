@@ -588,6 +588,14 @@ export default function HomeScreen() {
     waterGoal
   );
 
+  // Simple nutrition score: 4 macros contribute 25% each (capped)
+  const nutritionScore = Math.min(100, Math.round(
+    Math.min(25, (goalCal > 0 ? totalCal / goalCal : 0) * 25) +
+    Math.min(25, (goalPro > 0 ? totalPro / goalPro : 0) * 25) +
+    Math.min(25, (goalCarb > 0 ? totalCarb / goalCarb : 0) * 25) +
+    Math.min(25, (goalFat > 0 ? totalFat / goalFat : 0) * 25)
+  ));
+
   // ─── Meal logging success animation ───
   // Fires haptic + celebration when new logs detected (returning from Browse)
   const totalLogCount = logs.length + customMeals.length;
@@ -800,6 +808,7 @@ export default function HomeScreen() {
               score={dailyScore.score}
               grade={dailyScore.grade}
               breakdown={dailyScore.breakdown}
+              nutritionScore={nutritionScore}
             />
           </Box>
 
@@ -903,7 +912,7 @@ export default function HomeScreen() {
               <ForYouSection
                 sections={forYouSections}
                 onSeeAll={(filter) => router.push({ pathname: '/(tabs)/browse', params: { filter } })}
-                onItemPress={(item) => openForYouItem(item.id)}
+                onItemPress={(item) => router.push({ pathname: '/(tabs)/browse', params: { itemId: String(item.id) } })}
               />
             )}
           </Box>

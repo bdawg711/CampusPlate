@@ -432,24 +432,6 @@ export default function SettingsRestyle() {
             </Box>
           </Box>
 
-          {/* Badges */}
-          {badges.length > 0 && (
-            <Box style={{ marginTop: 20 }}>
-              <Box flexDirection="row" justifyContent="space-between" alignItems="center" style={{ marginBottom: 14 }}>
-                <Text variant="cardTitle" style={{ fontSize: 14 }}>Badges</Text>
-                <Text variant="dim" style={{ fontSize: 12 }}>
-                  {badges.filter((b) => b.earned).length} of {badges.length}
-                </Text>
-              </Box>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
-                {badges.map((b) => (
-                  <Box key={b.id} style={{ marginRight: 10 }}>
-                    <StreakBadge badge={b} size="small" />
-                  </Box>
-                ))}
-              </ScrollView>
-            </Box>
-          )}
         </Card>
 
         {/* ── NUTRITION section ── */}

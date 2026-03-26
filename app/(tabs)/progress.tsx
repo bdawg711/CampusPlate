@@ -35,12 +35,10 @@ import { supabase } from '@/src/utils/supabase';
 import { getTodayWater, getWaterGoal } from '@/src/utils/water';
 import { calculateDailyScore, DailyScore } from '@/src/utils/dailyScore';
 import { getProgressData, ProgressData } from '@/src/utils/progressData';
-import { getStreakData, getBadges, getWaterStreak, getTotalMealsLogged, StreakData, Badge } from '@/src/utils/streaks';
-import DailyScoreCard, { ScoreDetailData } from '@/src/components/DailyScoreCard';
+import { getStreakData, StreakData } from '@/src/utils/streaks';
 import StreakDisplay from '@/src/components/StreakDisplay';
 import CalorieChart from '@/src/components/CalorieChart';
 import MacroBreakdown from '@/src/components/MacroBreakdown';
-import StreakBadge from '@/src/components/StreakBadge';
 import WeightChart from '@/src/components/WeightChart';
 import { getWeightHistory, calculateWeightTrend, WeightEntry, WeightTrend } from '@/src/utils/weightData';
 import MicronutrientScreen from '@/src/components/MicronutrientScreen';
@@ -119,10 +117,8 @@ export default function ProgressScreen() {
 
   // Data states
   const [dailyScore, setDailyScore] = useState<DailyScore | null>(null);
-  const [scoreDetail, setScoreDetail] = useState<ScoreDetailData | undefined>(undefined);
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
-  const [badges, setBadges] = useState<Badge[]>([]);
   const [weekDots, setWeekDots] = useState<DayData[]>([]);
   const [monthDots, setMonthDots] = useState<DayData[]>([]);
 
@@ -154,14 +150,12 @@ export default function ProgressScreen() {
       const rangeDaysMap: Record<RangeType, number> = { '1W': 7, '1M': 30, '3M': 90, 'All': 365 };
       const numDays = rangeDaysMap[range];
 
-      const [profileRes, waterCount, waterGoalOz, streakRes, progressRes, waterStreak, totalMeals, weightHistory] = await Promise.all([
+      const [profileRes, waterCount, waterGoalOz, streakRes, progressRes, weightHistory] = await Promise.all([
         supabase.from('profiles').select('name, goal_calories, goal_protein_g, goal_carbs_g, goal_fat_g, weight').eq('id', userId).single(),
         getTodayWater(userId),
         getWaterGoal(userId),
         getStreakData(userId),
         getProgressData(userId, numDays),
-        getWaterStreak(userId),
-        getTotalMealsLogged(userId),
         getWeightHistory(userId, numDays),
       ]);
 
@@ -183,8 +177,6 @@ export default function ProgressScreen() {
       setStreakData(streakRes);
       setProgressData(progressRes);
 
-      const badgeList = getBadges(streakRes, waterStreak, totalMeals);
-      setBadges(badgeList);
 
       // Build 7-day dots for streak section
       const dots: DayData[] = [];
@@ -242,14 +234,6 @@ export default function ProgressScreen() {
           waterGoalOz,
         );
         setDailyScore(score);
-        setScoreDetail({
-          calories: { actual: avgCal, goal: p.goal_calories || 2000 },
-          protein: { actual: avgPro, goal: p.goal_protein_g || 150 },
-          carbs: { actual: avgCarb, goal: p.goal_carbs_g || 200 },
-          fat: { actual: avgFat, goal: p.goal_fat_g || 65 },
-          mealsLogged: avgMeals,
-          water: { actual: waterCount, goal: waterGoalOz },
-        });
       }
     } catch (e) {
       if (__DEV__) console.error('Progress load error:', e);
@@ -348,21 +332,6 @@ export default function ProgressScreen() {
 
   const today = getLocalDate();
   const todayData = progressData?.days.find(d => d.date === today);
-  const earnedBadges = badges.filter(b => b.earned);
-  const lockedBadges = badges.filter(b => !b.earned);
-  const [showAllBadges, setShowAllBadges] = useState(false);
-  const badgeFadeOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    badgeFadeOpacity.value = withTiming(showAllBadges ? 1 : 0, {
-      duration: 250,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [showAllBadges]);
-
-  const badgeFadeStyle = useAnimatedStyle(() => ({
-    opacity: badgeFadeOpacity.value,
-  }));
 
   if (loading) {
     return (
@@ -518,20 +487,6 @@ export default function ProgressScreen() {
               SECTION 1 — THIS WEEK
              ═══════════════════════════════════════════════════════════ */}
           <SectionHeader title="This Week" isFirst />
-
-          {/* Daily Score */}
-          {dailyScore && (
-            <Box marginBottom="m">
-              <DailyScoreCard
-                score={dailyScore.score}
-                grade={dailyScore.grade}
-                gradeColor={dailyScore.gradeColor}
-                breakdown={dailyScore.breakdown}
-                detailData={scoreDetail}
-                period={range}
-              />
-            </Box>
-          )}
 
           {/* Streak — visualization changes per range */}
           <Box
@@ -760,112 +715,6 @@ export default function ProgressScreen() {
             <Text variant="body" style={{ color: C.textMuted }}>Nutrition Breakdown</Text>
             <Feather name="chevron-right" size={18} color={C.textDim} />
           </TouchableOpacity>
-
-          {/* ═══════════════════════════════════════════════════════════
-              SECTION 3 — ACHIEVEMENTS
-             ═══════════════════════════════════════════════════════════ */}
-          <SectionHeader title="Achievements" />
-
-          {/* Badges */}
-          <Box marginBottom="m">
-            {earnedBadges.length > 0 ? (
-              <>
-                {/* Unlocked badges — prominent */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 16, paddingBottom: 4 }}
-                >
-                  {earnedBadges.map((b) => (
-                    <StreakBadge key={b.id} badge={b} size="large" />
-                  ))}
-                </ScrollView>
-
-                {/* Locked badges — collapsed */}
-                {lockedBadges.length > 0 && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setShowAllBadges(!showAllBadges)}
-                    style={{ marginTop: 14 }}
-                  >
-                    <Text
-                      variant="muted"
-                      style={{ color: C.maroon, fontFamily: 'DMSans_600SemiBold' }}
-                    >
-                      {lockedBadges.length} more to earn{' '}
-                      <Text variant="muted" style={{ color: C.maroon }}>
-                        {showAllBadges ? '· Hide' : '· See All'}
-                      </Text>
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {showAllBadges && (
-                  <Animated.View style={badgeFadeStyle}>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={{ gap: 12, paddingBottom: 4, marginTop: 12 }}
-                    >
-                      {lockedBadges.map((b) => (
-                        <StreakBadge key={b.id} badge={b} size="small" />
-                      ))}
-                    </ScrollView>
-                  </Animated.View>
-                )}
-              </>
-            ) : (
-              /* Zero unlocked — motivating card */
-              <Box
-                backgroundColor="card"
-                borderColor="border"
-                borderWidth={1}
-                borderRadius="m"
-                padding="m"
-                style={{ alignItems: 'center', paddingVertical: 24 }}
-              >
-                <Feather name="award" size={32} color={C.gold} />
-                <Text
-                  variant="cardTitle"
-                  style={{ marginTop: 12, textAlign: 'center' }}
-                >
-                  Your first badge is one day away
-                </Text>
-                <Text
-                  variant="muted"
-                  style={{ marginTop: 6, textAlign: 'center' }}
-                >
-                  Log meals tomorrow to earn Getting Started
-                </Text>
-
-                {/* Still allow peeking at locked badges */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setShowAllBadges(!showAllBadges)}
-                  style={{ marginTop: 14 }}
-                >
-                  <Text
-                    variant="muted"
-                    style={{ color: C.maroon, fontFamily: 'DMSans_600SemiBold' }}
-                  >
-                    {showAllBadges ? 'Hide badges' : `${lockedBadges.length} badges to earn · See All`}
-                  </Text>
-                </TouchableOpacity>
-                {showAllBadges && (
-                  <Animated.View style={badgeFadeStyle}>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={{ gap: 12, paddingBottom: 4, marginTop: 12 }}
-                    >
-                      {lockedBadges.map((b) => (
-                        <StreakBadge key={b.id} badge={b} size="small" />
-                      ))}
-                    </ScrollView>
-                  </Animated.View>
-                )}
-              </Box>
-            )}
-          </Box>
 
           {/* Weekly Report link */}
           <TouchableOpacity

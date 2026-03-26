@@ -120,7 +120,7 @@ function ActionButton({
   onPress: () => void;
 }) {
   // Each button fans out at a different offset above the main FAB
-  const offset = (index + 1) * 56;
+  const offset = (index + 1) * 60 + 16;
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 0.3, 1], [0, 0.5, 1]),

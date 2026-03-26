@@ -1,15 +1,14 @@
-import React, { useEffect } from 'react';
-import Animated, {
+import React, { useCallback, useEffect, useState } from 'react';
+import { Text } from 'react-native';
+import {
   useSharedValue,
-  useAnimatedProps,
+  useAnimatedReaction,
   withTiming,
+  runOnJS,
   Easing,
 } from 'react-native-reanimated';
-import { TextInput } from 'react-native';
 import { useTheme } from '@shopify/restyle';
 import type { Theme } from '../theme/restyleTheme';
-
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 interface AnimatedNumberProps {
   value: number;
@@ -21,6 +20,11 @@ interface AnimatedNumberProps {
   decimals?: number;
   fontSize?: number;
   fontFamily?: string;
+}
+
+function formatNumber(num: number, decimalPlaces: number): string {
+  if (decimalPlaces > 0) return num.toFixed(decimalPlaces);
+  return Math.round(num).toLocaleString();
 }
 
 export default function AnimatedNumber({
@@ -37,14 +41,6 @@ export default function AnimatedNumber({
   const theme = useTheme<Theme>();
   const animatedValue = useSharedValue(0);
 
-  useEffect(() => {
-    animatedValue.value = withTiming(value, {
-      duration,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [value, duration, animatedValue]);
-
-  // Determine decimal places from the value if not specified
   const decimalPlaces =
     decimals !== undefined
       ? decimals
@@ -52,26 +48,38 @@ export default function AnimatedNumber({
         ? 0
         : 1;
 
+  const [displayText, setDisplayText] = useState(
+    `${prefix}${formatNumber(0, decimalPlaces)}${suffix}`,
+  );
+
+  const updateDisplay = useCallback(
+    (num: number) => {
+      setDisplayText(`${prefix}${formatNumber(num, decimalPlaces)}${suffix}`);
+    },
+    [prefix, suffix, decimalPlaces],
+  );
+
+  useEffect(() => {
+    animatedValue.value = withTiming(value, {
+      duration,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [value, duration, animatedValue]);
+
+  useAnimatedReaction(
+    () => animatedValue.value,
+    (current) => {
+      runOnJS(updateDisplay)(current);
+    },
+    [updateDisplay],
+  );
+
   const variant = theme.textVariants[textVariant] || theme.textVariants.body;
   const variantAny = variant as Record<string, any>;
   const resolvedColor = color || (variantAny.color ? (theme.colors as any)[variantAny.color as string] : theme.colors.text);
 
-  const animatedProps = useAnimatedProps(() => {
-    const num = animatedValue.value;
-    const formatted = decimalPlaces > 0
-      ? num.toFixed(decimalPlaces)
-      : Math.round(num).toLocaleString();
-    return {
-      text: `${prefix}${formatted}${suffix}`,
-      defaultValue: `${prefix}${formatted}${suffix}`,
-    } as any;
-  });
-
   return (
-    <AnimatedTextInput
-      underlineColorAndroid="transparent"
-      editable={false}
-      animatedProps={animatedProps}
+    <Text
       style={{
         fontSize: fontSizeOverride ?? variantAny.fontSize ?? 15,
         fontFamily: fontFamilyOverride ?? variantAny.fontFamily,
@@ -79,6 +87,8 @@ export default function AnimatedNumber({
         padding: 0,
         margin: 0,
       }}
-    />
+    >
+      {displayText}
+    </Text>
   );
 }

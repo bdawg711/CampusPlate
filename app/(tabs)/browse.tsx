@@ -404,6 +404,7 @@ export default function BrowseScreen() {
     }
     if (params.itemId) {
       // Deep-link directly to item detail
+      setActiveFilter(null);
       openItemById(params.itemId);
       loadHalls();
     } else if (params.filter) {
@@ -425,11 +426,23 @@ export default function BrowseScreen() {
     setRefreshing(false);
   };
 
-  const loadHallReviews = async (hallId: number) => {
+  const loadHallReviews = async (_hallId: number) => {
     setReviewsLoading(true);
     try {
-      const reviews = await getHallReviews(hallId);
-      setHallReviews(reviews.slice(0, 10));
+      // Mock reviews for testing — 10 per hall, ratings 3-5
+      const mockReviews: HallReview[] = [
+        { rating: 5, review_text: 'Best dining hall on campus hands down', date: '2026-03-26', user_name: 'Jake' },
+        { rating: 4, review_text: 'Solid options today, grill was on point', date: '2026-03-26', user_name: 'Priya' },
+        { rating: 3, review_text: 'Ran out of chicken way too early', date: '2026-03-25', user_name: 'Marcus' },
+        { rating: 5, review_text: 'The pasta station never misses', date: '2026-03-25', user_name: 'Sophia' },
+        { rating: 4, review_text: 'Good variety but lines were long', date: '2026-03-24', user_name: 'Tyler' },
+        { rating: 3, review_text: 'Pizza was kinda mid today ngl', date: '2026-03-24', user_name: 'Aisha' },
+        { rating: 5, review_text: 'Stir fry station went crazy today', date: '2026-03-23', user_name: 'Daniel' },
+        { rating: 4, review_text: 'Breakfast here is always reliable', date: '2026-03-23', user_name: 'Emma' },
+        { rating: 3, review_text: 'Wish they had more vegan options', date: '2026-03-22', user_name: 'Chris' },
+        { rating: 4, review_text: 'Burgers were fire, fries were soggy', date: '2026-03-22', user_name: 'Lily' },
+      ];
+      setHallReviews(mockReviews);
     } catch {
       setHallReviews([]);
     } finally {
@@ -463,6 +476,7 @@ export default function BrowseScreen() {
           const hallMap: Record<number, string> = {};
           for (const h of hallsRes.data ?? []) hallMap[h.id] = h.name;
           items = favItems.map((f) => ({
+            id: f.id,
             name: f.name,
             calories: f.nutrition?.calories ?? 0,
             protein_g: f.nutrition?.protein_g ?? 0,
@@ -850,10 +864,19 @@ export default function BrowseScreen() {
           {/* Green availability dot */}
           <Box
             style={{
-              width: 8, height: 8, borderRadius: 4, marginRight: 12,
+              width: 8, height: 8, borderRadius: 4, marginRight: 8,
               backgroundColor: getDotColor(item.dietary_flags),
             }}
           />
+          {/* Heart: 44x44 minimum tap target */}
+          <TouchableOpacity
+            onPress={() => handleToggleFavorite(item)}
+            accessibilityLabel={isFav ? 'Remove from favorites' : 'Add to favorites'}
+            accessibilityRole="button"
+            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: 4 }}
+          >
+            <Feather name="heart" size={22} color={isFav ? C.maroon : C.silver} />
+          </TouchableOpacity>
           <Box flex={1}>
             <Box flexDirection="row" alignItems="center">
               <Text
@@ -878,15 +901,6 @@ export default function BrowseScreen() {
               P: {n.pro}g · C: {n.carb}g · F: {n.fat}g
             </Text>
           </Box>
-          {/* Heart: 44x44 minimum tap target */}
-          <TouchableOpacity
-            onPress={() => handleToggleFavorite(item)}
-            accessibilityLabel={isFav ? 'Remove from favorites' : 'Add to favorites'}
-            accessibilityRole="button"
-            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Feather name="heart" size={22} color={isFav ? C.maroon : C.silver} />
-          </TouchableOpacity>
           {/* Calorie: statValue maroon */}
           <Box style={{ alignItems: 'flex-end', minWidth: 40 }}>
             <Text style={{ fontSize: 22, color: C.maroon, fontFamily: 'DMSans_700Bold' }}>{n.cal}</Text>
@@ -1043,30 +1057,49 @@ export default function BrowseScreen() {
                 {filterItems.map((item, i) => {
                   const isFav = !!item.rec_num && favRecNums.has(item.rec_num);
                   return (
-                    <Box key={i}>
-                      <Box flexDirection="row" alignItems="center" style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
+                    <TouchableOpacity key={item.id ?? i} onPress={() => item.id ? openItemById(String(item.id)) : undefined}>
+                      <Box
+                        flexDirection="row"
+                        alignItems="center"
+                        style={{
+                          paddingVertical: 14,
+                          backgroundColor: i % 2 === 1 ? C.offWhite : 'transparent',
+                        }}
+                      >
+                        {/* Heart: 44x44 minimum tap target */}
+                        {item.rec_num ? (
+                          <TouchableOpacity
+                            onPress={() => handleToggleFavorite({ rec_num: item.rec_num, name: item.name })}
+                            accessibilityLabel={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                            accessibilityRole="button"
+                            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: 4 }}
+                          >
+                            <Feather name="heart" size={22} color={isFav ? C.maroon : C.silver} />
+                          </TouchableOpacity>
+                        ) : (
+                          <Box style={{ width: 16 }} />
+                        )}
                         <Box flex={1}>
-                          <Text variant="body" style={{ fontFamily: 'DMSans_600SemiBold' }} numberOfLines={1}>{item.name}</Text>
+                          <Text
+                            variant="body"
+                            style={{ fontFamily: 'DMSans_700Bold', fontSize: 15, flexShrink: 1 }}
+                            numberOfLines={1}
+                          >
+                            {item.name}
+                          </Text>
                           <Text variant="dim" style={{ marginTop: 2 }}>
                             {item.hall_name ? `${item.hall_name} · ` : ''}P: {item.protein_g}g · C: {item.total_carbs_g}g · F: {item.total_fat_g}g
                           </Text>
                         </Box>
-                        {item.rec_num ? (
-                          <TouchableOpacity
-                            onPress={() => handleToggleFavorite({ rec_num: item.rec_num, name: item.name })}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            style={{ paddingHorizontal: 8 }}
-                          >
-                            <Feather name="heart" size={18} color={isFav ? C.maroon : C.silver} />
-                          </TouchableOpacity>
-                        ) : null}
+                        {/* Calorie: statValue maroon */}
                         <Box style={{ alignItems: 'flex-end', minWidth: 40 }}>
                           <Text style={{ fontSize: 22, color: C.maroon, fontFamily: 'DMSans_700Bold' }}>{item.calories}</Text>
                           <Text variant="dim">cal</Text>
                         </Box>
                       </Box>
+                      {/* borderLight divider */}
                       {i < filterItems.length - 1 && <Box style={{ height: 1, marginLeft: 20, backgroundColor: C.borderLight }} />}
-                    </Box>
+                    </TouchableOpacity>
                   );
                 })}
               </Box>
