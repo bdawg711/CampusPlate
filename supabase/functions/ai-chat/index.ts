@@ -184,6 +184,13 @@ function parseMealItems(
   return { cleaned: cleaned.trim(), mealItems };
 }
 
+/** Convert "HH:MM" time string to total minutes for sorting. */
+function timeToMinutes(t: string | null): number {
+  if (!t) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
 /** Recalculate meal totalCalories and plan dailyTotal from individual items. */
 // deno-lint-ignore no-explicit-any
 function recalcPlanTotals(plan: any): void {
@@ -210,8 +217,11 @@ Deno.serve(async (req) => {
 
   try {
     // ── Authenticate user from JWT ──────────────────────────────────────
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceRoleKey) {
+      return jsonResponse({ error: "Service temporarily unavailable." }, 503);
+    }
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     const authHeader = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -791,6 +801,47 @@ Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation
       );
     }
 
+    // Rate limit: 50 messages/day via message_count
+    const MESSAGE_LIMIT = 50;
+    const chatD = new Date();
+    const chatTodayStr = `${chatD.getFullYear()}-${String(chatD.getMonth() + 1).padStart(2, "0")}-${String(chatD.getDate()).padStart(2, "0")}`;
+
+    const { data: chatUsageRow, error: chatUsageError } = await adminClient
+      .from("ai_usage")
+      .select("id, message_count")
+      .eq("user_id", userId)
+      .eq("date", chatTodayStr)
+      .maybeSingle();
+
+    if (chatUsageError) {
+      console.error("Chat usage check failed:", chatUsageError.message);
+      return jsonResponse({ error: "Unable to verify rate limit." }, 500);
+    }
+
+    const currentMessages = chatUsageRow?.message_count ?? 0;
+    if (currentMessages >= MESSAGE_LIMIT) {
+      return jsonResponse(
+        { error: "You've reached your daily chat limit (50). Resets at midnight." },
+        429
+      );
+    }
+
+    // Increment message_count
+    if (chatUsageRow) {
+      await adminClient
+        .from("ai_usage")
+        .update({ message_count: currentMessages + 1 })
+        .eq("id", chatUsageRow.id);
+    } else {
+      await adminClient.from("ai_usage").insert({
+        user_id: userId,
+        date: chatTodayStr,
+        message_count: 1,
+        estimate_count: 0,
+        plan_count: 0,
+      });
+    }
+
     // ── Get AI context via RPC ─────────────────────────────────────────
     const { data: context, error: rpcError } = await adminClient.rpc(
       "get_ai_context",
@@ -970,9 +1021,7 @@ ${menuJson}
         `Claude API error ${claudeResponse.status}: ${errBody}`
       );
       return jsonResponse(
-        {
-          error: `Claude API error (${claudeResponse.status}): ${errBody.slice(0, 200)}`,
-        },
+        { error: "AI service temporarily unavailable. Please try again." },
         502
       );
     }
@@ -1009,6 +1058,8 @@ ${menuJson}
     return jsonResponse({
       content: assistantText,
       mealItems: mealItems.length > 0 ? mealItems : [],
+      remaining: MESSAGE_LIMIT - (currentMessages + 1),
+      dailyLimit: MESSAGE_LIMIT,
     });
   } catch (err) {
     const errMsg = (err as Error).message ?? String(err);

@@ -49,8 +49,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         // Cross-check: also get user ID from getUser() to verify
         const { data: authData } = await supabase.auth.getUser();
         const getUserUserId = authData?.user?.id;
-        console.log('[Subscription] userId from getSession:', sessionUserId ?? 'none');
-        console.log('[Subscription] userId from getUser:', getUserUserId ?? 'none');
+        if (__DEV__) console.log('[Subscription] userId from getSession:', sessionUserId ?? 'none');
+        if (__DEV__) console.log('[Subscription] userId from getUser:', getUserUserId ?? 'none');
         if (sessionUserId !== getUserUserId) {
           console.warn('[Subscription] USER ID MISMATCH! getSession:', sessionUserId, 'getUser:', getUserUserId);
         }
@@ -66,12 +66,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
               .eq('id', userId)
               .single();
 
-            console.log('[Subscription] Supabase profiles query result:', JSON.stringify(data));
-            console.log('[Subscription] Supabase profiles query error:', error ? JSON.stringify(error) : 'none');
+            if (__DEV__) console.log('[Subscription] Supabase profiles query result:', JSON.stringify(data));
+            if (__DEV__) console.log('[Subscription] Supabase profiles query error:', error ? JSON.stringify(error) : 'none');
 
             if (data?.is_premium === true) {
               devBypass.current = true;
-              console.log('[Subscription] BYPASS ACTIVE — premium via Supabase, skipping RevenueCat entirely');
+              if (__DEV__) console.log('[Subscription] BYPASS ACTIVE — premium via Supabase, skipping RevenueCat entirely');
               if (mounted) {
                 setIsPremium(true);
                 setLoading(false);
@@ -80,12 +80,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
               return;
             }
           } catch (e: any) {
-            console.log('[Subscription] Supabase premium check failed:', e?.message);
+            if (__DEV__) console.log('[Subscription] Supabase premium check failed:', e?.message);
           }
         }
 
         // Step 2: Supabase said not premium (or failed) — try RevenueCat
-        console.log('[Subscription] No Supabase bypass, initializing RevenueCat...');
+        if (__DEV__) console.log('[Subscription] No Supabase bypass, initializing RevenueCat...');
         if (!initialized.current) {
           try {
             await initializePurchases(userId);
@@ -98,12 +98,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         }
 
         const { isPremium: premium } = await checkSubscription();
-        console.log('[Subscription] RevenueCat status on mount:', premium ? 'premium' : 'free');
+        if (__DEV__) console.log('[Subscription] RevenueCat status on mount:', premium ? 'premium' : 'free');
         if (mounted) {
           setIsPremium(premium);
         }
       } catch (e: any) {
-        console.warn('[Subscription] Init error:', e?.message);
+        if (__DEV__) console.warn('[Subscription] Init error:', e?.message);
       } finally {
         if (mounted) setLoading(false);
       }

@@ -94,7 +94,7 @@ export async function sendMessage(
   const responseText = await response.text();
 
   if (!response.ok) {
-    console.error(`[AI] Edge Function error — status=${response.status}, body=${responseText}`);
+    if (__DEV__) console.error(`[AI] Edge Function error — status=${response.status}, body=${responseText}`);
     throw new Error(`AI error (${response.status}): ${responseText}`);
   }
 

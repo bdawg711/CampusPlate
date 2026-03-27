@@ -293,14 +293,14 @@ export async function fetchAndParseCalendar(icalUrl: string): Promise<CalendarEv
     throw new Error(`Failed to fetch calendar: ${response.status}`);
   }
   const text = await response.text();
-  console.log('[Canvas] raw iCal (first 500):', text.substring(0, 500));
+  if (__DEV__) console.log('[Canvas] raw iCal (first 500):', text.substring(0, 500));
 
   if (!text.includes('BEGIN:VCALENDAR')) {
     throw new Error('Invalid iCalendar data');
   }
 
   const rawEvents = parseVEvents(text);
-  console.log('[Canvas] raw event count:', rawEvents.length);
+  if (__DEV__) console.log('[Canvas] raw event count:', rawEvents.length);
 
   // Prefer RRULE events (weekly recurring classes). Fall back to all duration-valid events.
   const rruleClasses = rawEvents.filter((e) => isClassEvent(e) && e.rrule?.includes('FREQ=WEEKLY'));

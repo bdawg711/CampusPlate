@@ -91,8 +91,8 @@ export default function SettingsRestyle() {
         .select('name, year, dorm, goal_calories, water_goal_oz, reminder_prefs, daily_summary_enabled, daily_summary_time, canvas_ical_url')
         .eq('id', userId)
         .single();
-      console.log('[Settings] profile fetch result:', JSON.stringify(data));
-      console.log('[Settings] profile fetch error:', JSON.stringify(error));
+      if (__DEV__) console.log('[Settings] profile fetch result:', JSON.stringify(data));
+      if (__DEV__) console.log('[Settings] profile fetch error:', JSON.stringify(error));
       if (data) {
         setProfile(data);
         setWaterGoalOz(data.water_goal_oz ?? 64);
