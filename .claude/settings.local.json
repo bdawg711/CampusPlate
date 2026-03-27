@@ -49,7 +49,24 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(git status -u)",
       "Bash(npx supabase:*)",
+<<<<<<< Updated upstream
       "Bash(wc:*)"
+=======
+      "Bash(mv \"IMG_5408 2.PNG\" \"ai-chat-screen.png\")",
+      "Bash(mv \"IMG_5409 2.PNG\" \"menu-browse-screen.png\")",
+      "Bash(mv \"IMG_5411 2.PNG\" \"station-items-screen.png\")",
+      "Bash(mv \"IMG_5417 2.PNG\" \"progress-trends-screen.png\")",
+      "Bash(mv \"IMG_5431 2.PNG\" \"class-schedule-screen.png\")",
+      "Read(//Users/cfarr/campusplate-teaser/**)",
+      "Read(//Users/cfarr/CampusPlate-teaser/**)",
+      "Bash(mkdir -p /Users/cfarr/campusplate-teaser/my-video/public/screenshots /Users/cfarr/campusplate-teaser/my-video/public/icons)",
+      "Bash(mv /Users/cfarr/campusplate-teaser/*.png /Users/cfarr/campusplate-teaser/my-video/public/screenshots/)",
+      "Bash(cp /Users/cfarr/CampusPlate/CampusPlate_AppIcon_1024.png /Users/cfarr/CampusPlate/CampusPlate_AppIcon_1024_square.png /Users/cfarr/campusplate-teaser/my-video/public/icons/)",
+      "Bash(npx remotion:*)",
+      "Bash(for f:*)",
+      "Bash(do mv:*)",
+      "Bash(find /Users/cfarr/CampusPlate -type f \\\\\\(-name *.sql -o -name *.md \\\\\\) ! -path */node_modules/*)"
+>>>>>>> Stashed changes
     ]
   }
 }

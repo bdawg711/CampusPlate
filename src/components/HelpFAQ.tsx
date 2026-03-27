@@ -21,6 +21,7 @@ export interface HelpFAQProps {
 }
 
 const FAQ_ITEMS: { q: string; a: string }[] = [
+  { q: 'Nutrition & Allergen Disclaimer', a: 'Nutrition information displayed in CampusPlate is sourced from Virginia Tech Dining Services and is provided for general informational purposes only. Menu items, ingredients, and nutritional content may change without notice. CampusPlate makes no guarantees regarding the accuracy or completeness of this information. Students with food allergies or dietary restrictions should always verify ingredients directly with dining hall staff before consuming any item. Do not rely solely on this app for allergen or dietary decisions.' },
   { q: 'How are my calorie goals calculated?', a: 'CampusPlate uses the Mifflin-St Jeor equation to estimate your daily calorie needs based on your weight, height, age, gender, and activity level. Your selected goal (cut, maintain, or bulk) adjusts the target accordingly.' },
   { q: 'Where does the menu data come from?', a: "Menu data is pulled directly from Virginia Tech's official dining services website (FoodPro) and updated daily. Menus are subject to change — always check signage at the dining location." },
   { q: 'Can I track meals from off-campus restaurants?', a: "Currently, CampusPlate only supports on-campus dining locations listed on VT's official dining site. Off-campus meal tracking may be added in a future update." },
